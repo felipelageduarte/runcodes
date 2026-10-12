@@ -8,8 +8,11 @@ import { PrismaCourseRepository } from "./repositories/course.repository.js";
 import { PrismaUniversityRepository } from "./repositories/university.repository.js";
 import { PrismaOfferingRepository } from "./repositories/offering.repository.js";
 import { PrismaExerciseRepository } from "./repositories/exercise.repository.js";
+import { PrismaExerciseCaseRepository } from "./repositories/exercise-case.repository.js";
+import { PrismaAllowedFileRepository } from "./repositories/allowed-file.repository.js";
 import { PrismaCommitRepository } from "./repositories/commit.repository.js";
 import { S3StorageRepository } from "./repositories/storage.repository.js";
+import { S3CaseStorageRepository } from "./repositories/case-storage.repository.js";
 
 import { AuthService } from "./services/auth.service.js";
 import { UserService } from "./services/user.service.js";
@@ -18,6 +21,8 @@ import { OfferingMembershipService } from "./services/offering-membership.servic
 import { CourseService } from "./services/course.service.js";
 import { OfferingService } from "./services/offering.service.js";
 import { ExerciseService } from "./services/exercise.service.js";
+import { ExerciseManagementService } from "./services/exercise-management.service.js";
+import { ExerciseCaseService } from "./services/exercise-case.service.js";
 import { CommitService } from "./services/commit.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
@@ -48,8 +53,11 @@ export function buildContainer() {
     universities: new PrismaUniversityRepository(prisma),
     offerings: new PrismaOfferingRepository(prisma),
     exercises: new PrismaExerciseRepository(prisma),
+    exerciseCases: new PrismaExerciseCaseRepository(prisma),
+    allowedFiles: new PrismaAllowedFileRepository(prisma),
     commits: new PrismaCommitRepository(prisma),
     storage: new S3StorageRepository(s3, `${env.S3_BUCKET_PREFIX}-commits`),
+    caseStorage: new S3CaseStorageRepository(s3, `${env.S3_BUCKET_PREFIX}-cases`),
   };
 
   const services = {
@@ -76,6 +84,17 @@ export function buildContainer() {
       repositories.exercises,
     ),
     exercise: new ExerciseService(repositories.exercises, repositories.enrollments),
+    exerciseManagement: new ExerciseManagementService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.allowedFiles,
+    ),
+    exerciseCase: new ExerciseCaseService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.exerciseCases,
+      repositories.caseStorage,
+    ),
     commit: new CommitService(
       repositories.exercises,
       repositories.enrollments,

@@ -49,6 +49,10 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listVisible: vi.fn(),
     countCases: vi.fn(),
     findAllowedExtensions: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    softDelete: vi.fn(),
+    setAllowedFiles: vi.fn(),
   };
   const enrollments: EnrollmentRepository = {
     isEnrolled: vi.fn().mockResolvedValue(true),
@@ -58,6 +62,8 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listRecordsForUser: vi.fn(),
     listStaffForOfferings: vi.fn(),
     create: vi.fn(),
+    setRole: vi.fn(),
+    ban: vi.fn(),
   };
   const commits: CommitRepository = {
     create: vi.fn().mockImplementation((input) => Promise.resolve(makeCommitRecord({ ...input, id: 1 }))),

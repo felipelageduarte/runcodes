@@ -25,6 +25,7 @@ const emails = {
   outsider: `itest-outsider-${RUN_ID}@example.com`,
   signup: `itest-signup-${RUN_ID}@example.com`,
   newStaff: `itest-newstaff-${RUN_ID}@example.com`,
+  professor: `itest-professor-${RUN_ID}@example.com`,
 };
 
 let container: Container;
@@ -34,6 +35,8 @@ let courseId: number;
 let offeringId: number;
 let exerciseId: number;
 let commitId: number;
+let crudExerciseId: number;
+let crudCaseId: number;
 
 async function login(email: string) {
   const res = await request(app)
@@ -55,6 +58,7 @@ beforeAll(async () => {
       { email: emails.student, name: "ITest Student", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
       { email: emails.outsider, name: "ITest Outsider", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
       { email: emails.newStaff, name: "ITest New Staff", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
+      { email: emails.professor, name: "ITest Professor", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
     ],
   });
 
@@ -77,6 +81,9 @@ beforeAll(async () => {
 
   await prisma.enrollments.create({
     data: { offering_id: offeringId, user_email: emails.newStaff, role: 0 },
+  });
+  await prisma.enrollments.create({
+    data: { offering_id: offeringId, user_email: emails.professor, role: 2 },
   });
 
   const exercise = await prisma.exercises.create({
@@ -108,6 +115,13 @@ afterAll(async () => {
   await prisma.commits.deleteMany({ where: { exercise_id: exerciseId } }).catch(() => {});
   await prisma.allowed_files_exercises.deleteMany({ where: { exercise_id: exerciseId } }).catch(() => {});
   await prisma.exercises.deleteMany({ where: { id: exerciseId } }).catch(() => {});
+  if (crudCaseId) {
+    await container.repositories.caseStorage.deleteCase(crudCaseId).catch(() => {});
+    await prisma.exercise_cases.deleteMany({ where: { id: crudCaseId } }).catch(() => {});
+  }
+  if (crudExerciseId) {
+    await prisma.exercises.deleteMany({ where: { id: crudExerciseId } }).catch(() => {});
+  }
   await prisma.enrollments.deleteMany({ where: { offering_id: offeringId } }).catch(() => {});
   await prisma.offerings.deleteMany({ where: { id: offeringId } }).catch(() => {});
   await prisma.courses.deleteMany({ where: { id: courseId } }).catch(() => {});
@@ -348,5 +362,149 @@ describe("offering membership management", () => {
       .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.banned).toBe(true);
+  });
+});
+
+describe("exercise management (create/edit/delete)", () => {
+  it("is forbidden for a plain student", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .post(`/api/offerings/${offeringId}/exercises`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "Student-created exercise",
+        deadline: new Date(Date.now() + 86_400_000).toISOString(),
+        type: 0,
+      });
+    expect(res.status).toBe(403);
+  });
+
+  it("lets staff create an exercise", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/offerings/${offeringId}/exercises`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "CRUD Exercise",
+        description: "desc",
+        deadline: new Date(Date.now() + 86_400_000).toISOString(),
+        openDate: new Date(Date.now() - 1000).toISOString(),
+        type: 0,
+        showBeforeOpening: true,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe("CRUD Exercise");
+    crudExerciseId = res.body.id;
+  });
+
+  it("the new exercise is visible through the read-only endpoint", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .get(`/api/exercises/${crudExerciseId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe("CRUD Exercise");
+  });
+
+  it("lets staff edit the exercise", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .put(`/api/exercises/${crudExerciseId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ title: "CRUD Exercise (edited)" });
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe("CRUD Exercise (edited)");
+  });
+
+  it("is forbidden for a plain student to delete", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .delete(`/api/exercises/${crudExerciseId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("exercise case management", () => {
+  it("is forbidden for a plain student to create a case", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .post(`/api/exercises/${crudExerciseId}/cases`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ input: "2 3", output: "5", outputType: 1, cputime: 1 });
+    expect(res.status).toBe(403);
+  });
+
+  it("lets staff create a case, and the content round-trips through S3 at the exact key the compiler-engine reads", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/exercises/${crudExerciseId}/cases`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ input: "2 3", output: "5", outputType: 1, cputime: 2, showInput: true });
+    expect(res.status).toBe(201);
+    crudCaseId = res.body.id;
+
+    const input = await container.repositories.caseStorage.getInput(crudCaseId);
+    const output = await container.repositories.caseStorage.getOutput(crudCaseId);
+    expect(input).toBe("2 3");
+    expect(output).toBe("5");
+  });
+
+  it("an enrolled student sees case metadata but the list never includes input/output content", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .get(`/api/exercises/${crudExerciseId}/cases`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain("2 3");
+    expect(body.includes('"input"') || body.includes('"output"')).toBe(false);
+  });
+
+  it("lets staff update a case and re-uploads changed content to S3", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .put(`/api/exercise-cases/${crudCaseId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ output: "6" });
+    expect(res.status).toBe(200);
+
+    const output = await container.repositories.caseStorage.getOutput(crudCaseId);
+    expect(output).toBe("6");
+  });
+
+  it("rejects adding a case to a non-compilable exercise", async () => {
+    const token = await login(emails.professor);
+    const nonCompilable = await request(app)
+      .post(`/api/offerings/${offeringId}/exercises`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "File exercise",
+        deadline: new Date(Date.now() + 86_400_000).toISOString(),
+        type: 1,
+      });
+    expect(nonCompilable.status).toBe(201);
+
+    const res = await request(app)
+      .post(`/api/exercises/${nonCompilable.body.id}/cases`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ input: "x", output: "y", outputType: 1, cputime: 1 });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe("cases_not_supported_for_exercise_type");
+
+    await container.prisma.exercises.deleteMany({ where: { id: nonCompilable.body.id } });
+  });
+
+  it("deletes the case, cleaning up S3 too", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .delete(`/api/exercise-cases/${crudCaseId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const stillThere = await request(app)
+      .get(`/api/exercises/${crudExerciseId}/cases`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(stillThere.body.map((c: { id: number }) => c.id)).not.toContain(crudCaseId);
   });
 });

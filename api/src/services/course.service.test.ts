@@ -15,6 +15,10 @@ function makeRepos() {
   const users: UserRepository = {
     findByEmail: vi.fn(),
     updatePassword: vi.fn(),
+    existsByEmail: vi.fn(),
+    create: vi.fn(),
+    findConfirmationState: vi.fn(),
+    confirm: vi.fn(),
   };
   return { courses, users };
 }
@@ -57,6 +61,7 @@ describe("CourseService.searchForUser", () => {
       password: "",
       type: 2,
       universityId: null,
+      confirmed: true,
     });
     const service = new CourseService(repos.courses, repos.users);
 
@@ -72,6 +77,7 @@ describe("CourseService.searchForUser", () => {
       password: "",
       type: 2,
       universityId: 7,
+      confirmed: true,
     });
     const service = new CourseService(repos.courses, repos.users);
 

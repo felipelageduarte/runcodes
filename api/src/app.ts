@@ -8,6 +8,8 @@ import { createHealthRouter } from "./http/routes/health.routes.js";
 import { createCoursesRouter } from "./http/routes/courses.routes.js";
 import { createOfferingsRouter } from "./http/routes/offerings.routes.js";
 import { createExercisesRouter } from "./http/routes/exercises.routes.js";
+import { createExerciseManagementRouters } from "./http/routes/exercise-management.routes.js";
+import { createExerciseCaseRouters } from "./http/routes/exercise-case.routes.js";
 import { createEnrollmentsRouter } from "./http/routes/enrollments.routes.js";
 import { createCommitsRouters } from "./http/routes/commits.routes.js";
 import { createUsersRouter } from "./http/routes/users.routes.js";
@@ -15,6 +17,11 @@ import { createUsersRouter } from "./http/routes/users.routes.js";
 export function buildApp(container: Container) {
   const { services, middleware } = container;
   const { exerciseCommits, commits } = createCommitsRouters(services.commit, middleware.requireAuth);
+  const { offeringExercises, exercises: exerciseManagement } = createExerciseManagementRouters(
+    services.exerciseManagement,
+    middleware.requireAuth,
+  );
+  const { exerciseCases, cases } = createExerciseCaseRouters(services.exerciseCase, middleware.requireAuth);
 
   const app = express();
   app.use(helmet());
@@ -29,8 +36,12 @@ export function buildApp(container: Container) {
     "/api/offerings",
     createOfferingsRouter(services.offering, services.offeringMembership, middleware.requireAuth),
   );
+  app.use("/api/offerings/:offeringId/exercises", offeringExercises);
   app.use("/api/exercises", createExercisesRouter(services.exercise, middleware.requireAuth));
+  app.use("/api/exercises", exerciseManagement);
   app.use("/api/exercises/:exerciseId/commits", exerciseCommits);
+  app.use("/api/exercises/:exerciseId/cases", exerciseCases);
+  app.use("/api/exercise-cases", cases);
   app.use("/api/enrollments", createEnrollmentsRouter(services.enrollment, middleware.requireAuth));
   app.use("/api/commits", commits);
 

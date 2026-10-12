@@ -36,6 +36,8 @@ function makeRepos(overrides: {
     create: vi.fn().mockImplementation((offeringId, userEmail, role) =>
       Promise.resolve({ id: 99, offeringId, userEmail, role, banned: false }),
     ),
+    setRole: vi.fn(),
+    ban: vi.fn(),
   };
   const offerings: OfferingRepository = {
     list: vi.fn(),
@@ -53,8 +55,21 @@ function makeRepos(overrides: {
   const users: UserRepository = {
     findByEmail: vi
       .fn()
-      .mockResolvedValue(overrides.user ?? { email: "s@x.com", name: "S", password: "", type: 0, universityId: 1 }),
+      .mockResolvedValue(
+        overrides.user ?? {
+          email: "s@x.com",
+          name: "S",
+          password: "",
+          type: 0,
+          universityId: 1,
+          confirmed: true,
+        },
+      ),
     updatePassword: vi.fn(),
+    existsByEmail: vi.fn(),
+    create: vi.fn(),
+    findConfirmationState: vi.fn(),
+    confirm: vi.fn(),
   };
   return { enrollments, offerings, courses, users };
 }
@@ -70,7 +85,7 @@ describe("EnrollmentService.enrollByCode", () => {
   it("rejects when the offering belongs to a different university", async () => {
     const repos = makeRepos({
       course: { id: 10, code: "X", title: "X", universityId: 2 },
-      user: { email: "s@x.com", name: "S", password: "", type: 0, universityId: 1 },
+      user: { email: "s@x.com", name: "S", password: "", type: 0, universityId: 1, confirmed: true },
     });
     const service = new EnrollmentService(repos.enrollments, repos.offerings, repos.courses, repos.users);
 

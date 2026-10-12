@@ -28,12 +28,39 @@ export interface VisibleExercisesFilter {
   includeUnopened: boolean;
 }
 
+export interface NewExercise {
+  offeringId: number;
+  title: string;
+  description: string | null;
+  deadline: Date;
+  openDate: Date | null;
+  type: number;
+  showBeforeOpening: boolean;
+  markdown: boolean;
+  userEmail: string;
+}
+
+export interface ExercisePatch {
+  title?: string;
+  description?: string | null;
+  deadline?: Date;
+  openDate?: Date | null;
+  type?: number;
+  showBeforeOpening?: boolean;
+  markdown?: boolean;
+}
+
 export interface ExerciseRepository {
   findById(id: number): Promise<ExerciseRecord | null>;
   list(filter: ListExercisesFilter): Promise<{ total: number; exercises: ExerciseRecord[] }>;
   listVisible(filter: VisibleExercisesFilter): Promise<ExerciseRecord[]>;
   countCases(exerciseId: number): Promise<number>;
   findAllowedExtensions(exerciseId: number): Promise<string[]>;
+  create(input: NewExercise): Promise<ExerciseRecord>;
+  update(id: number, patch: ExercisePatch): Promise<ExerciseRecord | null>;
+  /** Soft delete (removed=true), cascading to any ghost clones (real_id = id) — mirrors ExercisesController::delete(). */
+  softDelete(id: number): Promise<boolean>;
+  setAllowedFiles(exerciseId: number, allowedFileIds: number[]): Promise<void>;
 }
 
 export class PrismaExerciseRepository implements ExerciseRepository {
@@ -102,6 +129,65 @@ export class PrismaExerciseRepository implements ExerciseRepository {
     if (ids.length === 0) return [];
     const files = await this.prisma.allowed_files.findMany({ where: { id: { in: ids } } });
     return files.map((f) => f.extension.replace(/^\*\./, "").toLowerCase());
+  }
+
+  async create(input: NewExercise): Promise<ExerciseRecord> {
+    const row = await this.prisma.exercises.create({
+      data: {
+        offering_id: input.offeringId,
+        title: input.title,
+        description: input.description,
+        deadline: input.deadline,
+        open_date: input.openDate,
+        type: input.type,
+        show_before_opening: input.showBeforeOpening,
+        markdown: input.markdown,
+        user_email: input.userEmail,
+        removed: false,
+      },
+    });
+    return toRecord(row);
+  }
+
+  async update(id: number, patch: ExercisePatch): Promise<ExerciseRecord | null> {
+    try {
+      const row = await this.prisma.exercises.update({
+        where: { id },
+        data: {
+          ...(patch.title !== undefined ? { title: patch.title } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.deadline !== undefined ? { deadline: patch.deadline } : {}),
+          ...(patch.openDate !== undefined ? { open_date: patch.openDate } : {}),
+          ...(patch.type !== undefined ? { type: patch.type } : {}),
+          ...(patch.showBeforeOpening !== undefined ? { show_before_opening: patch.showBeforeOpening } : {}),
+          ...(patch.markdown !== undefined ? { markdown: patch.markdown } : {}),
+        },
+      });
+      return toRecord(row);
+    } catch {
+      return null;
+    }
+  }
+
+  async softDelete(id: number): Promise<boolean> {
+    try {
+      await this.prisma.exercises.update({ where: { id }, data: { removed: true } });
+      await this.prisma.exercises.updateMany({ where: { real_id: id }, data: { removed: true } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async setAllowedFiles(exerciseId: number, allowedFileIds: number[]): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.allowed_files_exercises.deleteMany({ where: { exercise_id: exerciseId } }),
+      ...allowedFileIds.map((allowedFileId) =>
+        this.prisma.allowed_files_exercises.create({
+          data: { exercise_id: exerciseId, allowed_file_id: allowedFileId },
+        }),
+      ),
+    ]);
   }
 }
 

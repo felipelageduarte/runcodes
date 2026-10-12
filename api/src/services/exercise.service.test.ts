@@ -29,6 +29,10 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listVisible: vi.fn(),
     countCases: vi.fn().mockResolvedValue(3),
     findAllowedExtensions: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    softDelete: vi.fn(),
+    setAllowedFiles: vi.fn(),
   };
   const enrollments: EnrollmentRepository = {
     isEnrolled: vi.fn().mockResolvedValue(false),
@@ -38,6 +42,8 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listRecordsForUser: vi.fn(),
     listStaffForOfferings: vi.fn(),
     create: vi.fn(),
+    setRole: vi.fn(),
+    ban: vi.fn(),
   };
   return { exercises, enrollments };
 }

@@ -44,6 +44,8 @@ function makeRepos() {
     listRecordsForUser: vi.fn(),
     listStaffForOfferings: vi.fn().mockResolvedValue(new Map()),
     create: vi.fn(),
+    setRole: vi.fn(),
+    ban: vi.fn(),
   };
   const exercises: ExerciseRepository = {
     findById: vi.fn(),
@@ -51,6 +53,10 @@ function makeRepos() {
     listVisible: vi.fn().mockResolvedValue([]),
     countCases: vi.fn(),
     findAllowedExtensions: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    softDelete: vi.fn(),
+    setAllowedFiles: vi.fn(),
   };
   return { offerings, courses, universities, enrollments, exercises };
 }
