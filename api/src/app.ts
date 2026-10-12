@@ -1,30 +1,35 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { authRouter } from "./modules/auth/auth.routes.js";
-import { healthRouter } from "./modules/health/health.routes.js";
-import { coursesRouter } from "./modules/courses/courses.routes.js";
-import { offeringsRouter } from "./modules/offerings/offerings.routes.js";
-import { exercisesRouter } from "./modules/exercises/exercises.routes.js";
-import { enrollmentsRouter } from "./modules/enrollments/enrollments.routes.js";
-import { exerciseCommitsRouter, commitsRouter } from "./modules/commits/commits.routes.js";
+import type { Container } from "./container.js";
+import { errorHandler } from "./http/middleware/errorHandler.js";
+import { createAuthRouter } from "./http/routes/auth.routes.js";
+import { createHealthRouter } from "./http/routes/health.routes.js";
+import { createCoursesRouter } from "./http/routes/courses.routes.js";
+import { createOfferingsRouter } from "./http/routes/offerings.routes.js";
+import { createExercisesRouter } from "./http/routes/exercises.routes.js";
+import { createEnrollmentsRouter } from "./http/routes/enrollments.routes.js";
+import { createCommitsRouters } from "./http/routes/commits.routes.js";
 
-export const app = express();
+export function buildApp(container: Container) {
+  const { services, middleware } = container;
+  const { exerciseCommits, commits } = createCommitsRouters(services.commit, middleware.requireAuth);
 
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+  const app = express();
+  app.use(helmet());
+  app.use(cors());
+  app.use(express.json());
 
-app.use("/api/auth", authRouter);
-app.use("/api", healthRouter);
-app.use("/api/courses", coursesRouter);
-app.use("/api/offerings", offeringsRouter);
-app.use("/api/exercises", exercisesRouter);
-app.use("/api/exercises/:exerciseId/commits", exerciseCommitsRouter);
-app.use("/api/enrollments", enrollmentsRouter);
-app.use("/api/commits", commitsRouter);
+  app.use("/api/auth", createAuthRouter(services.auth));
+  app.use("/api", createHealthRouter(middleware.requireAuth));
+  app.use("/api/courses", createCoursesRouter(services.course, middleware.requireAuth));
+  app.use("/api/offerings", createOfferingsRouter(services.offering, middleware.requireAuth));
+  app.use("/api/exercises", createExercisesRouter(services.exercise, middleware.requireAuth));
+  app.use("/api/exercises/:exerciseId/commits", exerciseCommits);
+  app.use("/api/enrollments", createEnrollmentsRouter(services.enrollment, middleware.requireAuth));
+  app.use("/api/commits", commits);
 
-app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: "internal_error" });
-});
+  app.use(errorHandler);
+
+  return app;
+}
