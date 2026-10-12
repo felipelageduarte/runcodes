@@ -40,10 +40,10 @@ Essa arquitetura foi uma refatoração deliberada — a primeira versão dos mó
 | [Enrollments](./enrollments.md) | `POST /api/enrollments`, `PUT .../members/:email/role`, `POST .../members/:email/ban` | Entrar em turma por código + gestão de turma (promover, banir) |
 | [Commits](./commits.md) | `POST/GET /api/exercises/:id/commits`, `GET /api/commits/:id` | Submissão de código — upload S3 + fila pro `compiler-engine` |
 | [Plagiarism detection](../roadmap/plagiarism-detection.md) | `POST/GET /api/exercises/:id/plagiarism-runs`, `GET /api/plagiarism-runs/:id` | Dolos + JPlag, fila assíncrona (BullMQ/Redis), worker separado |
-| [Admin & suporte](./admin-and-support.md) | universidades, allowed-files, admin de usuários, logs, notas, tickets, alerts, questions, public-exercises | Os módulos menores — ver página dedicada |
+| [Admin & suporte](./admin-and-support.md) | universidades, allowed-files, admin de usuários, logs, notas/stats/exports, tickets, alerts, questions, public-exercises | Os módulos menores — ver página dedicada |
 
 Ver [roadmap](../roadmap/backlog.md) para o que ainda falta.
 
 ## Testes
 
-Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 184 unitários + 45 de integração, todos passando — incluindo Dolos, JPlag e envio real de email (via smtp4dev) rodando de verdade (não mock) no teste de integração.
+Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 211 unitários + 52 de integração, todos passando — incluindo Dolos, JPlag, envio real de email (via smtp4dev), export CSV e zip de submissões rodando de verdade (não mock) no teste de integração.

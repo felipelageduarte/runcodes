@@ -14,7 +14,8 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 - ✅ **Gestão de turma** — matrícula por código, promover/rebaixar professor/assistente, banir. Ver [enrollments.md](../backend/enrollments.md).
 - ✅ **Submissão de código** — upload S3, fila pro `compiler-engine`, resultado por caso de teste. Ver [commits.md](../backend/commits.md).
 - ✅ **Detecção de plágio (Dolos + JPlag)** — fila assíncrona, worker separado, verificado com as ferramentas reais. Ver [plagiarism-detection.md](./plagiarism-detection.md). MOSS fora de escopo (serviço externo Stanford).
-- ✅ **Notas (grades matrix)** — `GET /api/offerings/:id/grades`, matriz aluno × exercício.
+- ✅ **Notas (grades matrix) + export CSV** — `GET /api/offerings/:id/grades`, matriz aluno × exercício; `GET /api/offerings/:id/grades/export.csv` pra exportar.
+- ✅ **Stats/infográficos** — correção por caso (`GET /api/exercises/:id/stats`), histórico de commit de um aluno (`GET /api/exercises/:id/participants/:email/commits`), média da turma por exercício (`GET /api/offerings/:id/stats`), infográfico agregado (`GET /api/offerings/:id/infographic`), zip com a última submissão de cada aluno (`GET /api/exercises/:id/export-submissions.zip`, streamado direto do S3 em vez do vai-e-vem por disco local do legado).
 - ✅ **Envio real de email** — `EmailSender`/`SmtpEmailSender` (nodemailer) substitui o placeholder que devolvia o token bruto na resposta HTTP. `local-dev` expõe a porta SMTP do `smtp4dev` (2525), testado de ponta a ponta via a API REST dele. Ver [users.md](../backend/users.md).
 - ✅ **Admin** — universidades, tipos de arquivo permitido, usuários (CRUD), logs (leitura).
 - ✅ **Tickets, alerts, questions, public-exercises** — suporte, avisos, FAQ, catálogo de exercícios reutilizáveis.
@@ -23,7 +24,6 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 ## Backlog real (não implementado)
 
 - **Casos de teste baseados em arquivo** (`ExerciseCaseFile`) — hoje `ExerciseCaseService` só aceita input/output como texto inline; o legado também suporta casos cujo input é um arquivo binário. Mesma infra de upload do `ExerciseAttachmentService` daria conta, não implementado ainda.
-- **Stats/infográficos detalhados** — `ExercisesController::stats/participantCommits/getAllScoresZipped`, `OfferingsController::infographic/exportToCsv`. A matriz de notas cobre o caso de uso principal (ver nota por aluno/exercício); gráficos e exportação CSV ainda não.
 - **Log de auditoria (escrita)** — o legado chama `Log::register()` em quase toda ação de mutação; a leitura (`GET /api/admin/logs`) já existe, mas nada no `runcodes-api` escreve nessa tabela ainda. Virar isso um cross-cutting concern de verdade (middleware/decorator) é trabalho de design, não um patch pontual.
 
 ## Fora de escopo deliberado
