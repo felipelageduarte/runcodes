@@ -38,9 +38,20 @@ export interface ButtonProps
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild, loading, disabled, children, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+    // asChild (Radix Slot) requires exactly one element child — `loading`/
+    // `disabled` only make sense for an actual <button> (asChild is for
+    // passing visuals onto a <Link>/<a>, never a pending-mutation
+    // trigger), so skip the spinner wrapper and the disabled prop
+    // entirely in that branch instead of conditionally rendering it.
+    if (asChild) {
+      return (
+        <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props}>
+          {children}
+        </Slot>
+      );
+    }
     return (
-      <Comp
+      <button
         ref={ref}
         className={cn(buttonVariants({ variant, size }), className)}
         disabled={disabled || loading}
@@ -49,7 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading && <Loader2 className="size-4 animate-spin" aria-hidden />}
         {children}
-      </Comp>
+      </button>
     );
   },
 );

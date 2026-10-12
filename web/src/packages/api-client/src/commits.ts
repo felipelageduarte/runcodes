@@ -50,3 +50,7 @@ export function getCommit(id: number): Promise<CommitRecord> {
 export function getCommitCases(id: number): Promise<CommitCaseResult[]> {
   return apiFetch(`/commits/${id}/cases`);
 }
+
+export function getCommitContent(id: number): Promise<{ filename: string; content: string }> {
+  return apiFetch(`/commits/${id}/content`);
+}
