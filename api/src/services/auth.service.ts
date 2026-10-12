@@ -14,6 +14,7 @@ export class AuthService {
     private readonly users: UserRepository,
     private readonly jwtSecret: string,
     private readonly jwtExpiresIn: string,
+    private readonly legacyPasswordSalt: string,
   ) {}
 
   async login(email: string, password: string): Promise<AuthTokens> {
@@ -21,7 +22,7 @@ export class AuthService {
     if (!user) throw new UnauthorizedError("Invalid credentials", "invalid_credentials");
 
     const valid = isLegacyHash(user.password)
-      ? hashLegacyPassword(password) === user.password
+      ? hashLegacyPassword(this.legacyPasswordSalt, password) === user.password
       : await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedError("Invalid credentials", "invalid_credentials");
 

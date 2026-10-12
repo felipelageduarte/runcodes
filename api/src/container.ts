@@ -51,7 +51,12 @@ export function buildContainer() {
   };
 
   const services = {
-    auth: new AuthService(repositories.users, env.JWT_SECRET, env.JWT_EXPIRES_IN),
+    auth: new AuthService(
+      repositories.users,
+      env.JWT_SECRET,
+      env.JWT_EXPIRES_IN,
+      env.LEGACY_PASSWORD_SALT,
+    ),
     enrollment: new EnrollmentService(
       repositories.enrollments,
       repositories.offerings,
