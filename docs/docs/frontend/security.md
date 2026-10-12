@@ -30,7 +30,7 @@ Dois pontos de risco real, ambos já existentes como *dado* no backend, novos co
 default-src 'self';
 connect-src 'self' <URL do runcodes-api>;
 script-src 'self';
-style-src 'self' 'unsafe-inline';  # Tailwind gera classe, não <style> inline por padrão — revisar se algum componente precisar
+style-src 'self' 'unsafe-inline';  # Tailwind compila CSS estático, não precisa disso — quem injeta <style>/style inline em runtime é o próprio Monaco Editor (não dá pra evitar sem alternativa de editor); revisar se algum outro componente também passar a precisar
 img-src 'self' data: <URL do S3/SeaweedFS público, se avatares/anexos forem exibidos inline>;
 frame-ancestors 'none';
 ```

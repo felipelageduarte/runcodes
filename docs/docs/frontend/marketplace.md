@@ -55,13 +55,15 @@ interface ExerciseMarketplaceStats {
   exerciseId: number;
   adoptionCount: number;        // COUNT(ghost exercises WHERE real_id = exerciseId)
   totalSubmitters: number;      // alunos distintos com >=1 commit em qualquer cópia
-  avgAttemptsToSuccess: number; // média de commits até o 1º commit com corrects = total de casos, por aluno
+  avgAttemptsToSuccess: number; // média de commits até o 1º commit com corrects = total de casos, só entre quem acertou (ver nota abaixo)
   avgScore: number;             // média de score do último commit de cada aluno, por cópia, agregado
   passRate: number;             // % de alunos cujo último commit teve status "aprovado"
 }
 ```
 
 Cálculo via `CommitRepository` (reaproveitando `listLatestPerStudentForExercise`, já existe) rodado contra o exercício real **e** cada ghost (`WHERE real_id = exerciseId OR id = exerciseId`) — agregado no service, não no banco via view materializada por enquanto (volume baixo o suficiente pra não justificar a complexidade de manter uma view atualizada; revisitar se o catálogo crescer a ponto de a agregação on-demand pesar).
+
+**Decisão explícita sobre quem entra em `avgAttemptsToSuccess`**: a métrica só soma tentativas de alunos que **chegaram a acertar** — quem nunca resolveu é excluído do numerador/denominador dessa métrica específica, não contado como "infinitas tentativas" (distorceria a média pra qualquer exercício com 1 aluno que desistiu). Isso sozinho enviesaria a dificuldade pra parecer sempre mais fácil do que é — por isso a métrica nunca é exibida isolada: sempre ao lado de `passRate` (que capta exatamente a fração que nunca chegou a acertar). As duas juntas não enviesam; cada uma sozinha sim.
 
 Dificuldade exibida na UI é um bucket (`Fácil`/`Médio`/`Difícil`) derivado de `avgAttemptsToSuccess` + `passRate` combinados, não os números brutos — números brutos ficam disponíveis no detalhe do exercício pra quem quiser ver.
 
@@ -89,7 +91,13 @@ interface PublicExerciseSummary {
 }
 ```
 
-### 7. Endpoint de adoção dedicado (opcional, UX)
+### 7. `shareToOffering()` não valida que a origem é pública — gap de segurança, não só de marketplace
+
+Achado durante esta revisão: `ExerciseManagementService.shareToOffering()` hoje só checa se o requester é staff da **oferta de destino**. Não checa nada sobre a oferta de origem — qualquer staff, de qualquer turma, clona qualquer exercício do sistema inteiro só sabendo o `exerciseId`, público ou não. Isso já é verdade hoje (recurso de "compartilhar entre turmas" direto), mas o marketplace **piora o risco real**: ele vai expor e divulgar ids de exercícios publicados, tornando trivial descobrir ids vizinhos e tentar cloná-los mesmo sem terem sido marcados públicos.
+
+Fix necessário no `runcodes-api`, antes do marketplace ir pro ar: `shareToOffering()` passa a exigir que **ou** o exercício de origem esteja em `public_exercises`, **ou** o requester já seja staff/admin da oferta de origem (ele teria acesso de qualquer forma, então não é regressão). Sem essa checagem, o endpoint `adopt`/`share` vira uma forma de enumerar e vazar exercícios privados de outras turmas.
+
+### 8. Endpoint de adoção dedicado (opcional, UX)
 
 `shareToOffering()` já serve como mecanismo de adoção. Opcionalmente, um alias semântico `POST /api/marketplace/exercises/:exerciseId/adopt { targetOfferingId }` que apenas chama o mesmo service por trás — mais claro na telemetria/log de auditoria ("adotou do marketplace" vs. "compartilhou manualmente") do que reusar o endpoint genérico de share. Decisão de nomenclatura, não de lógica nova.
 
@@ -100,5 +108,5 @@ Hoje nada impede (nem deveria impedir) um professor da UFMG descobrir e adotar u
 ## Fronteira de responsabilidade no frontend (módulo `marketplace`)
 
 - `modules/marketplace/` — tela de listagem (filtros, ordenação, busca), card de exercício, modal/página de detalhe com preview do enunciado, fluxo de adoção (seleção de turma destino).
-- Reusa `modules/professor/` pra tudo que acontece *depois* de adotar (editar o exercício ghost, gerenciar casos de teste) — marketplace não duplica a tela de edição de exercício, só a descoberta e o ponto de entrada.
+- **Navega** pra rota do módulo `professor` pra tudo que acontece *depois* de adotar (editar o exercício ghost, gerenciar casos de teste) — nunca importa componente de `modules/professor/` diretamente (ver a regra de fronteira em [overview.md](./overview.md#estrutura-de-pastas-monorepo-single-app)). Na prática: um `navigate()` pra rota `/professor/offerings/:targetOfferingId/exercises/:ghostExerciseId` depois do `POST /adopt` resolver, não um componente de formulário de edição importado dentro do módulo `marketplace`. Marketplace não duplica a tela de edição de exercício, só a descoberta e o ponto de entrada.
 - O preview do enunciado reusa o mesmo renderer de markdown sanitizado especificado em [security.md](./security.md#xss-via-conteúdo-gerado-por-usuário) — é conteúdo de outro professor, tratado como não-confiável do mesmo jeito que o enunciado da própria turma.

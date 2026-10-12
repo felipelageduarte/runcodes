@@ -29,9 +29,19 @@ sidebar_position: 4
 - Terminal, debugger, extensões — isso é `code-server`, fora de escopo (documentado acima).
 - Edição colaborativa em tempo real — não há caso de uso hoje (submissão é individual).
 
+## Gap de backend: não existe endpoint pra ler o conteúdo de um commit
+
+`GET /api/exercises/:id/commits` (já existe) devolve só **metadado** da lista de submissões (status, score, data, `awsKey` opaco) — nunca os bytes do arquivo. Hoje não existe nenhum caminho, nem pro próprio aluno, de ler de volta o conteúdo que ele enviou (o backend só aceita upload, nunca expõe download do commit a quem o criou). Pré-carregar o Monaco com a última submissão — comportamento desejável, evita o aluno reescrever do zero a cada tentativa — depende de um endpoint novo:
+
+```
+GET /api/commits/:id/content   → bytes do arquivo (dono do commit, ou staff da oferta)
+```
+
+Mirror do que `S3StorageRepository.getCommitFile(awsKey)` já faz internamente pro `compiler-engine`/stats — só falta expor isso por HTTP com a checagem de autorização de `CommitService.getById()` (já existe) na frente. Até esse endpoint existir, o editor abre vazio a cada exercício — upload de arquivo continua sendo o único jeito de "recuperar" uma submissão anterior (baixando do disco local do aluno, não do servidor).
+
 ## Fluxo de uso
 
-1. Aluno abre um exercício compilável (`type` no catálogo de tipos compiláveis) → editor abre com o arquivo vazio ou o conteúdo da última submissão (se houver, carregado via `GET /api/exercises/:id/commits` — mostra a última tentativa, não força reescrever do zero).
+1. Aluno abre um exercício compilável (`type` no catálogo de tipos compiláveis) → editor abre com o arquivo vazio ou, depois do gap acima ser resolvido, o conteúdo da última submissão via `GET /api/commits/:id/content` — mostra a última tentativa, não força reescrever do zero.
 2. Edita no Monaco. Autosave em `localStorage` por exercício (rascunho local, nunca enviado ao servidor até o aluno confirmar) — perde o aluno recarregar a página sem ter submetido.
 3. Botão "Submeter" empacota o conteúdo do editor como um `File`/`Blob` e reusa exatamente o mesmo caminho de upload multipart que hoje aceita arquivo de disco — o backend nunca sabe se o conteúdo veio do editor ou de um upload de arquivo.
 4. Depois de submeter, o painel de resultado (polling em `GET /api/commits/:id`, já especificado em [architecture/overview.md](../architecture/overview.md#fluxo-de-uma-submissão-commit)) aparece ao lado (desktop) ou abaixo (mobile/tablet — mas como [design-system.md](./design-system.md#responsividade--mobile-e-tablet-são-requisito-não-também-funciona) descreve, criar uma submissão nova no editor em mobile é desencorajado por UX, não bloqueado tecnicamente).

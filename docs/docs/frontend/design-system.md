@@ -11,7 +11,7 @@ O legado (CakePHP + Bootstrap 3-era) tem UI datada: formulários sem validação
 
 - **Clean, não minimalista vazio**: hierarquia visual clara (tipografia com 3-4 pesos, não 8), espaçamento generoso, cor usada com intenção (status de submissão, severidade de erro) — não decoração.
 - **Densidade adaptativa**: a tela do professor (tabela de notas de 40 alunos × 10 exercícios) precisa de densidade alta; a tela do aluno (3 exercícios da semana) precisa de respiro. O design system permite as duas sem dois sistemas visuais diferentes — via tokens de espaçamento/tamanho de tabela, não via telas desenhadas do zero cada vez.
-- **Acessibilidade como padrão, não feature**: Radix UI garante foco/teclado/ARIA corretos nos primitivos (modal, dropdown, tabs, tooltip); contraste AA mínimo em todos os tokens de cor; toda imagem/ícone funcional tem label.
+- **Acessibilidade como padrão, não feature**: Radix UI garante foco/teclado/ARIA corretos nos primitivos (modal, dropdown, tabs, tooltip); contraste AA mínimo em todos os tokens de cor; toda imagem/ícone funcional tem label. **Limitação aceita, não resolvida por este princípio**: editor de código (Monaco, qualquer um do mercado) tem suporte ruim a leitor de tela — é um problema de indústria, não deste produto, e não existe solução boa hoje. Mitigação real: upload de arquivo (ver [code-editor.md](./code-editor.md#upload-de-arquivo-continua-existindo)) continua sendo um caminho completo e acessível pra quem usa leitor de tela, nunca forçado a passar pelo Monaco pra submeter.
 
 ## Tema e tokens
 

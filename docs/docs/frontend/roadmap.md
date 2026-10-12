@@ -33,7 +33,7 @@ Cada fase é implementável e testável isoladamente — entrega valor real, nã
 
 ## Fase 2 — Editor de código (Monaco)
 
-**Escopo:** integração especificada em [code-editor.md](./code-editor.md) — editor como alternativa ao upload de arquivo na tela de submissão da Fase 1, com rascunho local, detecção de edição não salva, tema sincronizado.
+**Escopo:** integração especificada em [code-editor.md](./code-editor.md) — editor como alternativa ao upload de arquivo na tela de submissão da Fase 1, com rascunho local, detecção de edição não salva, tema sincronizado. Inclui o gap de backend `GET /api/commits/:id/content` ([code-editor.md](./code-editor.md#gap-de-backend-não-existe-endpoint-pra-ler-o-conteúdo-de-um-commit)), sem o qual o editor não consegue pré-carregar a última submissão.
 
 **Critério de saída**: aluno escreve e submete código sem nunca precisar de um editor externo, pros exercícios de 1 arquivo.
 

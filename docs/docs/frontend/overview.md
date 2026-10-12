@@ -20,7 +20,7 @@ Este documento é o SDD (Software Design Document) de referência pro frontend n
 
 Microfrontend de verdade (times/módulos com deploy independente via Module Federation) resolve um problema que este projeto não tem hoje: múltiplos times trabalhando em paralelo em módulos com ciclos de release diferentes. Pagar a complexidade operacional disso agora (CI/CD por módulo, versionamento de contratos entre remotes, duplicação de runtime de React se não for cuidadoso) sem o problema que justifica é dívida técnica adiantada.
 
-O que se compra agora, sem esse custo: **baixo acoplamento entre módulos de produto**. Cada módulo (`student`, `professor`, `marketplace`, `editor`, `admin`, ...) é uma pasta com sua própria árvore de rotas, hooks de dados, e tipos — só se comunica com o resto do app através de:
+O que se compra agora, sem esse custo: **baixo acoplamento entre módulos de produto**. Cada módulo (`auth`, `student`, `professor`, `marketplace`, `admin`) é uma pasta com sua própria árvore de rotas, hooks de dados, e tipos — só se comunica com o resto do app através de:
 1. Um **contrato de rotas** (o shell registra `<Module path="/..." />`, nunca importa componentes internos de outro módulo).
 2. Um **design system compartilhado** (`packages/ui` — só primitivos visuais, zero regra de negócio).
 3. Um **cliente de API compartilhado** (`packages/api-client` — tipos gerados/derivados do contrato da API, zero UI).
@@ -38,24 +38,26 @@ runcodes-web/
       providers.tsx
       layout/
         AppShell.tsx           # casca com nav responsiva (sidebar desktop / bottom-nav mobile)
-    modules/
+    modules/                   # SÓ área com rota própria — nunca importado por outro módulo, só navegado via <Link>/router
       auth/                    # login, signup, confirmação, reset de senha
       student/                 # dashboard do aluno, lista de exercícios, submissão, notas
       professor/                # gestão de turma, exercícios, casos de teste, stats/csv, plágio
       marketplace/              # catálogo de exercícios públicos entre professores
       admin/                    # universidades, allowed-files, usuários, logs
-      editor/                   # integração Monaco — usado por student e professor
-      shared/                   # hooks/componentes usados por 2+ módulos de produto (não é "utils" genérico)
-    packages/                   # (dentro do mesmo repo por ora — ver nota abaixo)
+    packages/                   # bibliotecas internas — importáveis por qualquer module, nunca o inverso (dentro do mesmo repo por ora — ver nota abaixo)
       ui/                       # design system: Button, Card, Table, Modal, Toast, Skeleton...
+      editor/                   # integração Monaco — usado por student e professor como componente, não como rota
       api-client/               # 1 arquivo por recurso da API (auth.ts, exercises.ts, commits.ts...)
       auth/                     # AuthProvider, useSession, token storage — única fonte de verdade de "quem é o usuário"
+      shared/                   # hooks/componentes usados por 2+ módulos de produto sem ser design system puro (não é "utils" genérico)
     lib/                        # utilidades puras sem estado (formatters, date, csv parse client-side se precisar)
     test/                       # setup de testes, mocks (msw), fixtures compartilhadas
   e2e/                          # Playwright, fora de src (não faz parte do bundle)
 ```
 
-`packages/*` vivem dentro do mesmo repo (não são pacotes npm publicados) — usamos path aliases do TypeScript (`@runcodes/ui`, `@runcodes/api-client`, `@runcodes/auth`) pra impor a fronteira de import sem o overhead operacional de um monorepo multi-pacote (Turborepo/Nx) que a escala atual do projeto não justifica. Se um dia esses pacotes precisarem de versionamento/release independente (ex. compartilhar o design system com outro produto), a extração é mecânica — a fronteira já existe.
+**Regra de fronteira, sem exceção**: se a pasta não tem rota própria registrada no shell, ela é `packages/`, não `modules/` — mesmo que o conteúdo seja específico de produto (`editor` só existe nesse produto, mas não é navegado, é importado). Foi exatamente misturar os dois que gerou a primeira versão deste documento ter `editor/`/`shared/` dentro de `modules/` e ao mesmo tempo dizer "módulo nunca importa componente interno de outro módulo" — contradição corrigida aqui. Um módulo de produto (`student`, `professor`, `marketplace`, `admin`, `auth`) só importa de `packages/*`, nunca de outro `modules/*`; quando um fluxo precisa continuar em outro módulo (ex. depois de adotar um exercício no marketplace, editar casos de teste é tela do `professor`), a transição é uma navegação de rota, não um import de componente — ver [marketplace.md](./marketplace.md#fronteira-de-responsabilidade-no-frontend-módulo-marketplace).
+
+`packages/*` vivem dentro do mesmo repo (não são pacotes npm publicados) — usamos path aliases do TypeScript (`@runcodes/ui`, `@runcodes/editor`, `@runcodes/api-client`, `@runcodes/auth`, `@runcodes/shared`) pra impor a fronteira de import sem o overhead operacional de um monorepo multi-pacote (Turborepo/Nx) que a escala atual do projeto não justifica. Se um dia esses pacotes precisarem de versionamento/release independente (ex. compartilhar o design system com outro produto), a extração é mecânica — a fronteira já existe.
 
 ## Stack completa
 
@@ -66,8 +68,8 @@ runcodes-web/
 | UI framework | React 19 | Decidido em migration-strategy.md |
 | Estilo | Tailwind CSS v4 | Já no scaffold; utility-first, zero CSS-in-JS runtime |
 | Componentes base | Radix UI (primitivos sem estilo) + Tailwind | Acessibilidade (ARIA, foco, teclado) correta por padrão, sem depender de disciplina manual em cada componente |
-| Roteamento | React Router v7 (data mode) | Loaders/actions por rota dão lugar natural pra isolar chamadas de API por módulo, code-splitting por rota de fábrica |
-| Dados remotos | TanStack Query | Cache, revalidação, estados de loading/erro — commits em polling (`GET /api/commits/:id` até saír de `IN_QUEUE`) usam `refetchInterval`, não poll manual |
+| Roteamento | React Router v7 | **Só roteamento e code-splitting** (`lazy()` por rota) — sem loaders/actions de dados. Loader de rota e hook de query competindo pela mesma responsabilidade cria duas fontes de cache (e loader não tem como expressar `refetchInterval` pro polling de commit) — TanStack Query é a única camada de data-fetching, ver linha abaixo |
+| Dados remotos | TanStack Query | Única fonte de fetch/cache/revalidação do app — todo dado vem de um hook (`useExercise`, `useCommit`...) chamado dentro do componente da rota, nunca de loader. Commits em polling (`GET /api/commits/:id` até saír de `IN_QUEUE`) usam `refetchInterval` |
 | Formulários | React Hook Form + Zod | Zod já é o validador do `runcodes-api` — o mesmo schema (ou um irmão gerado a partir do mesmo contrato) valida no cliente antes de gastar uma request |
 | Estado de UI local | React state/context — **sem Redux/Zustand global** | Não há estado de app complexo compartilhado fora de sessão (que mora em `packages/auth`) e cache de servidor (que mora no TanStack Query). Introduzir uma lib de estado global sem um problema que a justifique é a mesma dívida adiantada do Module Federation prematuro. |
 | Editor de código | Monaco Editor (`@monaco-editor/react`) | Ver [code-editor.md](./code-editor.md) |
