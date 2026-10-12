@@ -39,9 +39,10 @@ Essa arquitetura foi uma refatoração deliberada — a primeira versão dos mó
 | [Exercise management](./exercise-management.md) | `POST/PUT/DELETE /api/exercises*`, `.../cases` | Criar/editar/apagar exercício e casos de teste (staff/admin) |
 | [Enrollments](./enrollments.md) | `POST /api/enrollments`, `PUT .../members/:email/role`, `POST .../members/:email/ban` | Entrar em turma por código + gestão de turma (promover, banir) |
 | [Commits](./commits.md) | `POST/GET /api/exercises/:id/commits`, `GET /api/commits/:id` | Submissão de código — upload S3 + fila pro `compiler-engine` |
+| [Plagiarism detection](../roadmap/plagiarism-detection.md) | `POST/GET /api/exercises/:id/plagiarism-runs`, `GET /api/plagiarism-runs/:id` | Dolos + JPlag, fila assíncrona (BullMQ/Redis), worker separado |
 
 Ver [roadmap](../roadmap/backlog.md) para o que ainda falta.
 
 ## Testes
 
-Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 89 unitários + 33 de integração, todos passando.
+Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 109 unitários + 37 de integração, todos passando — incluindo Dolos e JPlag rodando de verdade (não mock) no teste de integração.

@@ -9,13 +9,13 @@ Dois níveis, propositalmente separados — configs e comandos diferentes:
 
 ## Unitário — `npm test`
 
-`vitest.config.ts`. 46 testes, todos os services, **zero banco/rede** — cada teste instancia o service passando repositórios mockados (`vi.fn()` implementando a interface do repositório, não o Prisma). Roda em menos de 1 segundo, pode rodar em qualquer CI sem infra.
+`vitest.config.ts`. 109 testes, todos os services, **zero banco/rede** — cada teste instancia o service passando repositórios mockados (`vi.fn()` implementando a interface do repositório, não o Prisma). Roda em menos de 1 segundo, pode rodar em qualquer CI sem infra.
 
-Cobertura: toda regra de negócio de cada service (auth, enrollment, course, offering, exercise, commit) — ver código-fonte em `src/services/*.test.ts`, cada arquivo ao lado do service que testa.
+Cobertura: toda regra de negócio de cada service (auth, user/signup, enrollment, offering membership, course, offering, exercise, exercise management, exercise case, commit, plagiarism, plagiarism worker) — ver código-fonte em `src/services/*.test.ts`, cada arquivo ao lado do service que testa.
 
 ## Integração — `npm run test:integration`
 
-`vitest.integration.config.ts`. Exercita o stack real: Postgres real (via `PrismaClient` de verdade), S3/SeaweedFS real, roteamento Express real via `supertest`, **e o `compiler-engine` Python real** rodando no `local-dev`.
+`vitest.integration.config.ts`. Exercita o stack real: Postgres real (via `PrismaClient` de verdade), S3/SeaweedFS real, roteamento Express real via `supertest`, **o `compiler-engine` Python real** rodando no `local-dev`, e **Dolos/JPlag reais** (não mockados) via um worker BullMQ iniciado in-process no `beforeAll` do próprio teste — não depende de `npm run start:worker` rodando à parte.
 
 Requer:
 
@@ -24,7 +24,7 @@ Requer:
 docker compose -f docker-compose.local.yml up -d
 ```
 
-Cada execução cria seus próprios fixtures (course/offering/exercise/usuários com sufixo de timestamp) e limpa tudo em `afterAll` — não depende do seed do `local-dev` nem o modifica. 12 testes, incluindo o fluxo completo: login real, controle de acesso antes/depois de matrícula, rejeição de tipo de arquivo, e a submissão real sendo pega e corrigida pelo engine Python (poll até status sair de `IN_QUEUE`, tipicamente ~1-8s).
+Cada execução cria seus próprios fixtures (course/offering/exercise/usuários com sufixo de timestamp) e limpa tudo em `afterAll` — não depende do seed do `local-dev` nem o modifica. 37 testes, incluindo o fluxo completo: login real, controle de acesso antes/depois de matrícula, rejeição de tipo de arquivo, submissão real sendo pega e corrigida pelo engine Python (poll até status sair de `IN_QUEUE`, tipicamente ~1-8s), signup/confirmação, gestão de turma, CRUD de exercício/caso com round-trip real no S3, e detecção de plágio rodando Dolos e JPlag de verdade sobre submissões reais.
 
 ## Por que essa separação
 

@@ -12,10 +12,10 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 - ✅ **Cadastro de usuário** — `POST /api/users` (signup) + `POST /api/users/confirm`. Ver [users.md](../backend/users.md). Falta: reset de senha, reenvio de confirmação.
 - ✅ **Gestão de turma** — promover/rebaixar professor/assistente, banir. Ver [enrollments.md](../backend/enrollments.md#gestão-de-turma-staff). Falta: exportação de notas (CSV), infográficos/stats por turma.
 - ✅ **CRUD de exercícios e casos de teste** — criar/editar/apagar exercício, casos de teste (input/output em S3, na chave exata que o `compiler-engine` lê). Ver [exercise-management.md](../backend/exercise-management.md). Falta: upload de arquivos auxiliares de compilação/exercício, exercícios "ghost" (compartilhar entre turmas), import de `public_exercises`.
+- ✅ **Detecção de plágio (Dolos + JPlag)** — fila assíncrona, worker separado, verificado com as ferramentas reais (não mock). Ver [plagiarism-detection.md](./plagiarism-detection.md). MOSS fica fora de escopo (serviço externo Stanford).
 
 ## Backlog (sem data)
 
-- **Detecção de plágio** — MOSS (já existe como `similarity-checker` no legado) + JPlag + Dolos. Plano detalhado: [plagiarism-detection.md](./plagiarism-detection.md).
 - **Tickets e mensagens** — suporte aluno↔professor, sistema de alertas.
 - **Emails transacionais** — confirmação de cadastro, recuperação de senha, notificações (hoje só existe no PHP via `smtp4dev` local / provedor real em produção). O signup já gera o token de confirmação — só falta o envio de fato.
 - **Reset de senha** — token expirável + definição de nova senha pelo usuário (não replica o legado, que manda a senha em texto plano por email).

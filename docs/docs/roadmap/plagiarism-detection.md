@@ -6,7 +6,7 @@ sidebar_position: 2
 # Detecção de plágio
 
 :::info Status
-Documento de **arquitetura/design**. Nenhuma das três integrações está implementada ainda — este é o plano antes de escrever código, para que a primeira implementação (Dolos) já nasça na forma certa para plugar as outras duas depois.
+**Dolos e JPlag implementados e verificados contra as ferramentas reais** (não mock) — ver [resultado abaixo](#verificação). MOSS segue fora de escopo, por design: depende de serviço externo da Stanford, sem self-hosting.
 :::
 
 ## Por que as três ferramentas são fundamentalmente diferentes
@@ -14,50 +14,64 @@ Documento de **arquitetura/design**. Nenhuma das três integrações está imple
 | | MOSS | JPlag | Dolos |
 |---|---|---|---|
 | Execução | Serviço externo (Stanford) | Processo local (JVM) | Processo local (Node/TS) |
-| Protocolo | Socket TCP próprio + script Perl (`moss.pl`) | CLI/biblioteca Java | CLI/biblioteca TypeScript |
+| Protocolo | Socket TCP próprio + script Perl (`moss.pl`) | CLI (jar) | CLI (`@dodona/dolos`) |
 | Self-hosted? | Não — depende do servidor da Stanford | Sim | Sim |
-| Autenticação | `userid` registrado por email | N/A | N/A |
-| Resultado | URL de relatório HTML (gerado no servidor deles) | Arquivo (zip) com JSON + viewer embutido | JSON/CSV + dashboard web |
-| Latência | Minutos (fila do lado deles, fora do nosso controle) | Segundos a minutos (CPU-bound local) | Segundos a minutos (CPU-bound local) |
-| Runtime necessário | Nenhum binário nosso — upload via socket | Java (JRE) | Já é Node — roda no mesmo runtime do `runcodes-api` |
+| Resultado | URL de relatório HTML (gerado no servidor deles) | CSV (`--csv-export`) | CSV (`-f csv`) |
+| Latência | Minutos (fila do lado deles, fora do nosso controle) | ~1-2s pra turmas pequenas (CPU-bound local) | ~1-2s pra turmas pequenas (CPU-bound local) |
+| Runtime necessário | Nenhum binário nosso — upload via socket | Java (JVM) | Node (já é o runtime do `runcodes-api`) |
 
-Essa tabela é a razão de **não** desenhar uma integração request/response síncrona: nenhuma das três devolve resultado na mesma chamada. É um job assíncrono em todos os casos, variando só o grau de "externo" vs "local".
+Nenhuma das três devolve resultado na mesma chamada — por isso a arquitetura é job assíncrono em fila, não request/response.
 
-## Arquitetura: `PlagiarismProvider` + fila de jobs
+## Arquitetura implementada
 
-Mesmo padrão repository já usado no resto do backend ([ver arquitetura](../backend/overview.md#arquitetura-em-camadas)), adaptado para execução assíncrona:
+Mesmo padrão repository do resto do backend ([ver arquitetura](../backend/overview.md#arquitetura-em-camadas)):
 
 ```ts
 interface PlagiarismProvider {
-  readonly name: "moss" | "jplag" | "dolos";
-  submit(job: PlagiarismJobInput): Promise<ProviderRunRef>; // opaco: URL, job id, path...
-  fetchResult(ref: ProviderRunRef): Promise<PlagiarismResult | "pending" | "failed">;
+  readonly name: "dolos" | "jplag";
+  compare(submissions: SubmissionFile[]): Promise<PlagiarismComparisonResult>;
 }
 ```
 
-- `PlagiarismJobInput`: id do exercício, lista de `(commit_id, user_email, file_content)` — tipicamente o último commit de cada aluno na turma.
-- Cada provider concreto (`MossProvider`, `JPlagProvider`, `DolosProvider`) implementa esse contrato do seu jeito — MOSS fala socket com Stanford, JPlag faz `spawn()` do jar, Dolos roda a lib TS direto ou via `spawn()` do CLI.
-- Uma tabela nova `plagiarism_runs` (id, exercise_id, provider, status, provider_run_ref, result_summary jsonb, requested_by, created_at, completed_at) guarda o estado — o mesmo padrão polling que o `compiler-engine` já usa pra `commits`, reaproveitado.
-- Um worker (processo separado ou fila com Redis — **já existe `redis` no `local-dev`**, usar BullMQ em vez de inventar um poller do zero) processa `plagiarism_runs` com `status = queued`, chama `provider.submit()`, e depois faz polling periódico via `provider.fetchResult()` até sair de `pending`.
+- **`DolosProvider`** / **`JPlagProvider`** (`src/repositories/*-provider.ts`): cada um escreve as submissões num diretório temporário, dá `execFile` na CLI (`npx @dodona/dolos` / `java -jar vendor/jplag/jplag.jar`), parseia o CSV de saída, normaliza pra `{ studentA, studentB, similarity }`, limpa o diretório temporário.
+- **`plagiarism_runs`** (tabela nova, migration 003): `id, exercise_id, provider, status (queued/running/completed/failed), requested_by, result jsonb, error, created_at, completed_at`.
+- **`PlagiarismJobQueue`** (interface) + **`BullMqPlagiarismJobQueue`** (implementação, Redis — já existe no `local-dev`, só precisou expor a porta 6379 pro host). O service nunca importa BullMQ diretamente, mesma decisão de desacoplamento usada em todo o resto.
+- **Worker separado** (`src/worker.ts`, `npm run start:worker`) — processo próprio, **não** roda dentro da API. Mesma razão do `compiler-engine` ser isolado: JPlag precisa de JVM no host, as duas ferramentas podem rodar minutos numa turma grande, e nenhuma das duas deveria travar — nem ser dependência de deploy — da API HTTP.
 
-### Superfície de API prevista
+### API
 
 ```
-POST /api/exercises/:id/plagiarism-runs   { provider: "dolos" | "jplag" | "moss" }   (staff/admin)
-GET  /api/exercises/:id/plagiarism-runs                                              (staff/admin)
-GET  /api/plagiarism-runs/:id                                                        (staff/admin)
+POST /api/exercises/:id/plagiarism-runs   { provider: "dolos" | "jplag" }   (staff/admin) → 202 + run (status=queued)
+GET  /api/exercises/:id/plagiarism-runs                                     (staff/admin)
+GET  /api/plagiarism-runs/:id                                               (staff/admin) → polling até status sair de queued/running
 ```
 
-Resultado armazenado como `result_summary` normalizado (pares de alunos + score de similaridade 0-1), independente de qual provider gerou — o relatório bruto de cada ferramenta (zip do JPlag, URL do MOSS, JSON do Dolos) fica referenciado mas não é o formato de consumo da UI.
+Dataset comparado: o commit mais recente de cada aluno matriculado no exercício (`CommitRepository.listLatestPerStudentForExercise`), baixado do mesmo bucket S3 `runcodes-commits` que a submissão já usa.
 
-## Ordem de implementação recomendada
+## Verificação
 
-1. **Dolos primeiro.** É TypeScript-nativo — roda no mesmo runtime do `runcodes-api`, sem JVM, sem dependência de terceiro externo, sem protocolo de socket pra reimplementar. Menor risco, maior velocidade de entrega, e valida a interface `PlagiarismProvider` com uma implementação real antes de generalizar.
-2. **JPlag segundo.** Mesma categoria de risco do `compiler-engine` (já lidamos com spawnar processo externo + parsear saída) — `spawn()` do CLI jar, parsear o zip de resultado. Requer Java disponível no ambiente de execução (imagem Docker própria, como `compiler-images` já faz por linguagem).
-3. **MOSS por último.** Depende de infraestrutura de terceiro (servidor Stanford) fora do nosso controle — latência variável, protocolo não documentado oficialmente (reverse-engineered pela comunidade), requer `userid` registrado por email para cada instalação. Prioridade mais baixa porque é a única opção que não escala/não é self-hosted; mantida no plano porque o legado (`similarity-checker` em `server`) já integra com ela e pode haver continuidade de histórico de relatórios a preservar.
+Testado com dados reais, não mock — 3 alunos, 2 soluções idênticas + 1 não relacionada, mesmo exercício Python:
+
+```json
+[
+  { "studentA": "alice", "studentB": "bob",   "similarity": 1.0  },
+  { "studentA": "alice", "studentB": "carol", "similarity": 0.08 },
+  { "studentA": "bob",   "studentB": "carol", "similarity": 0.08 }
+]
+```
+
+Prova que a ferramenta discrimina de verdade (não devolve 1.0 pra qualquer par) — resultado idêntico no Dolos e no JPlag. Testes de integração automatizam exatamente esse cenário ([testing.md](../backend/testing.md)), com um worker BullMQ rodando in-process durante o teste (sem depender de `npm run start:worker` rodando à parte).
+
+### Bug real encontrado no processo
+
+JPlag tem `--min-tokens` default = 12. Qualquer exercício curto (ex. `print("hello")`) fica abaixo disso e o JPlag **aborta a corrida inteira** (`Not enough valid submissions!`) em vez de só pontuar baixo. Ajustado pra `-t 1` — deixa o próprio score de similaridade discriminar, em vez de um corte rígido de tokens que mata exercícios triviais (que são a maioria num curso introdutório).
 
 ## Riscos conhecidos
 
-- **JPlag/MOSS exigem runtime externo** (JVM / rede pra Stanford) — o worker de plágio não pode rodar no mesmo processo do `runcodes-api` sem acoplar esses requisitos ao deploy da API. Recomenda-se processo/serviço separado (mesmo padrão do `compiler-engine` sendo um serviço isolado), não um módulo dentro do monólito Express.
-- **Volume de dados**: comparar todos os pares de alunos de uma turma grande é O(n²) nas três ferramentas — jobs podem demorar minutos. A UI precisa assumir polling de longo prazo, não espera síncrona.
-- **Falsos positivos em exercícios "Hello World"-like**: qualquer ferramenta de similaridade de código acerta demais em exercícios triviais onde a solução canônica é quase única. Resultado deve ser apresentado como "sinal para revisão humana", nunca como veredito automático — isso é uma decisão de produto, não só técnica.
+- **JPlag exige JVM no host** do worker — por isso processo separado (`src/worker.ts`), nunca empacotado dentro do deploy da API.
+- **Volume de dados**: comparar todos os pares de alunos é O(n²) — turmas grandes podem levar minutos. A API já reflete isso (fila assíncrona), a UI que consumir precisa assumir polling de longo prazo.
+- **Falsos positivos em exercícios triviais**: mesmo com `-t 1`, exercícios tipo "Hello World" têm poucas formas diferentes de serem escritos — similaridade alta não é prova de cópia. Resultado deve ser tratado como "sinal para revisão humana", nunca veredito automático.
+
+## MOSS — segue fora de escopo
+
+Depende de infraestrutura de terceiro (servidor Stanford), protocolo de socket não documentado oficialmente, `userid` registrado por email por instalação. Nenhuma dessas três coisas combina com o resto da arquitetura (self-hosted, sem dependência de rede externa pra funcionar). O legado (`similarity-checker` em `server`) já integra com MOSS — se for preciso preservar continuidade de relatórios antigos, isso é o único motivo pra revisitar essa decisão.
