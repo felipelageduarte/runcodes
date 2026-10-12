@@ -46,4 +46,4 @@ Ver [roadmap](../roadmap/backlog.md) para o que ainda falta.
 
 ## Testes
 
-Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 184 unitários + 43 de integração, todos passando — incluindo Dolos e JPlag rodando de verdade (não mock) no teste de integração.
+Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 184 unitários + 45 de integração, todos passando — incluindo Dolos, JPlag e envio real de email (via smtp4dev) rodando de verdade (não mock) no teste de integração.

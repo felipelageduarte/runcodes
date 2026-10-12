@@ -14,14 +14,25 @@ Hoje só cobre o que faltava pra alguém conseguir entrar no sistema pela primei
 { "email": "aluno@usp.br", "name": "Fulano", "password": "pelomenos8caracteres", "universityId": 1 }
 
 // 201
-{ "email": "aluno@usp.br", "confirmationToken": "a3f9..." }
+{ "email": "aluno@usp.br" }
 ```
 
-Cria o usuário com `type = 0` (aluno — promoção é ação de admin, nunca de signup), `confirmed = false`. Gera um token de confirmação aleatório (32 bytes) e guarda só o **hash sha256** dele, com expiração de 24h.
+Cria o usuário com `type = 0` (aluno — promoção é ação de admin, nunca de signup), `confirmed = false`. Gera um token de confirmação aleatório (32 bytes) e guarda só o **hash sha256** dele, com expiração de 24h. O token é entregue por email (link `{APP_BASE_URL}/confirm?email=...&token=...`) via `EmailSender` — nunca aparece na resposta HTTP.
 
-:::warning Sem serviço de email ainda
-Não existe módulo de envio de email no `runcodes-api` ainda ([backlog](../roadmap/backlog.md)). Por isso a rota devolve o `confirmationToken` bruto na resposta — é temporário, até existir um serviço de email que consuma esse token e mande o link por email em vez de devolvê-lo na API.
-:::
+`POST /api/users/resend-confirmation` (`{ "email": "..." }` → `{ "sent": true }`) reenvia com um token novo, mesmo que o anterior já tenha expirado.
+
+## Envio de email
+
+`EmailSender` (interface em `repositories/email-sender.ts`) é o mesmo padrão de repository de tudo mais no projeto: `UserService` conhece só a interface, nunca o nodemailer. A implementação concreta (`SmtpEmailSender`) manda via SMTP, configurado por `SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`. No `local-dev`, aponta pro `smtp4dev` (porta 2525) — a UI em `localhost:8081` mostra tudo que foi "enviado", e os testes de integração usam a API REST do smtp4dev pra pegar o email real e extrair o token, em vez de mockar o envio.
+
+## Recuperação de senha
+
+```
+POST /api/users/request-password-reset  { "email": "..." }      → { "sent": true }
+POST /api/users/reset-password          { "email", "token", "newPassword" } → { "reset": true }
+```
+
+Token aleatório, hash sha256 guardado, expira em 1h, entregue por email (link `{APP_BASE_URL}/reset-password?...`). Diferente do legado: o `UsersController::recoveryPassword()` do CakePHP gera uma senha nova no servidor e manda ela **em texto puro** por email. Aqui o email só carrega um token — a senha nova é escolhida pelo próprio usuário depois, nunca passa pelo corpo do email, então um email interceptado não expõe a senha.
 
 ### Por que não é igual ao CakePHP legado
 

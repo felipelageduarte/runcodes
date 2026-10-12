@@ -24,7 +24,9 @@ Requer:
 docker compose -f docker-compose.local.yml up -d
 ```
 
-Cada execução cria seus próprios fixtures (course/offering/exercise/usuários com sufixo de timestamp) e limpa tudo em `afterAll` — não depende do seed do `local-dev` nem o modifica. 43 testes, incluindo o fluxo completo: login real, controle de acesso antes/depois de matrícula, rejeição de tipo de arquivo, submissão real sendo pega e corrigida pelo engine Python (poll até status sair de `IN_QUEUE`, tipicamente ~1-8s), signup/confirmação, gestão de turma, CRUD de exercício/caso com round-trip real no S3, detecção de plágio rodando Dolos e JPlag de verdade sobre submissões reais, e upload de arquivo + compartilhamento ghost entre turmas (achou um bug real de redirecionamento nesse último).
+Cada execução cria seus próprios fixtures (course/offering/exercise/usuários com sufixo de timestamp) e limpa tudo em `afterAll` — não depende do seed do `local-dev` nem o modifica. 45 testes, incluindo o fluxo completo: login real, controle de acesso antes/depois de matrícula, rejeição de tipo de arquivo, submissão real sendo pega e corrigida pelo engine Python (poll até status sair de `IN_QUEUE`, tipicamente ~1-8s), signup/confirmação/reenvio/reset de senha com email real entregue via `smtp4dev` (extrai o token pela API REST dele, em vez de mockar), gestão de turma, CRUD de exercício/caso com round-trip real no S3, detecção de plágio rodando Dolos e JPlag de verdade sobre submissões reais, e upload de arquivo + compartilhamento ghost entre turmas (achou um bug real de redirecionamento nesse último).
+
+Pegadinha encontrada no caminho: o helper que busca o email no `smtp4dev` não pode simplesmente pegar "a mensagem mais recente pra esse endereço" — uma conta pode ter um email antigo nunca consumido (ex. a confirmação do signup inicial) ainda sentado na caixa quando um passo posterior (reenvio, reset) dispara um novo. O helper filtra por mensagens recebidas depois de um timestamp `since` capturado antes da requisição que disparou o envio, não só "a mais nova que existir".
 
 ## Por que essa separação
 
