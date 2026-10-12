@@ -26,4 +26,10 @@ export const handlers = [
     const body = (await request.json()) as { email: string };
     return HttpResponse.json({ email: body.email }, { status: 201 });
   }),
+
+  http.get(`${BASE}/offerings/mine`, () => HttpResponse.json({ open: [], closed: [] })),
+
+  http.get(`${BASE}/exercises/:id/files`, () => HttpResponse.json([])),
+
+  http.get(`${BASE}/exercises/:id/commits`, () => HttpResponse.json([])),
 ];
