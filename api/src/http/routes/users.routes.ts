@@ -28,16 +28,13 @@ export function createUsersRouter(userService: UserService) {
   router.post("/", async (req, res, next) => {
     try {
       const input = signupSchema.parse(req.body);
-      const { confirmationToken } = await userService.signup({
+      await userService.signup({
         email: input.email,
         name: input.name,
         password: input.password,
         universityId: input.universityId ?? null,
       });
-      // TODO(roadmap: emails transacionais): deliver confirmationToken by
-      // email instead of returning it — no email-sending module exists
-      // yet, so this is the only way to complete the flow for now.
-      res.status(201).json({ email: input.email, confirmationToken });
+      res.status(201).json({ email: input.email });
     } catch (err) {
       next(err);
     }
@@ -56,8 +53,8 @@ export function createUsersRouter(userService: UserService) {
   router.post("/resend-confirmation", async (req, res, next) => {
     try {
       const { email } = emailOnlySchema.parse(req.body);
-      const { confirmationToken } = await userService.resendConfirmation(email);
-      res.json({ confirmationToken }); // same TODO as signup — no email sender yet
+      await userService.resendConfirmation(email);
+      res.json({ sent: true });
     } catch (err) {
       next(err);
     }
@@ -66,8 +63,8 @@ export function createUsersRouter(userService: UserService) {
   router.post("/request-password-reset", async (req, res, next) => {
     try {
       const { email } = emailOnlySchema.parse(req.body);
-      const { resetToken } = await userService.requestPasswordReset(email);
-      res.json({ resetToken }); // same TODO — no email sender yet
+      await userService.requestPasswordReset(email);
+      res.json({ sent: true });
     } catch (err) {
       next(err);
     }

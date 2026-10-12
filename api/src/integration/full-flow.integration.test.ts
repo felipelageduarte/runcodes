@@ -34,6 +34,45 @@ const emails = {
   professor: `itest-professor-${RUN_ID}@example.com`,
 };
 
+const SMTP4DEV_URL = "http://localhost:8081";
+
+interface Smtp4devMessage {
+  id: string;
+  to: string[];
+  subject: string;
+  receivedDate: string;
+}
+
+// Polls smtp4dev's REST API (local-dev's SMTP sink) for a message to the
+// given address received after `since`, extracts the confirmation/reset
+// token from its plaintext body, then deletes it — exercising the real
+// SmtpEmailSender end to end instead of mocking it. Filtering by `since`
+// (rather than just taking the newest match) matters because a test's
+// own account may have an earlier, never-consumed email still sitting in
+// the inbox (e.g. the initial signup confirmation) — without the cutoff,
+// a still-indexing new message can lose a race to that stale one.
+async function fetchTokenFromEmail(to: string, since: Date): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const listRes = await fetch(
+      `${SMTP4DEV_URL}/api/Messages?pageSize=100&sortColumn=receivedDate&sortIsDescending=true`,
+    );
+    const list = (await listRes.json()) as { results: Smtp4devMessage[] };
+    const message = list.results
+      .filter((m) => m.to.includes(to) && new Date(m.receivedDate) >= since)
+      .sort((a, b) => b.receivedDate.localeCompare(a.receivedDate))[0];
+    if (message) {
+      const bodyRes = await fetch(`${SMTP4DEV_URL}/api/Messages/${message.id}/plaintext`);
+      const body = await bodyRes.text();
+      await fetch(`${SMTP4DEV_URL}/api/Messages/${message.id}`, { method: "DELETE" });
+      const match = /token=([0-9a-f]{64})/.exec(body);
+      if (!match) throw new Error(`no token found in email body: ${body}`);
+      return match[1];
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(`no email arrived for ${to} after ${since.toISOString()}`);
+}
+
 let container: Container;
 let app: ReturnType<typeof buildApp>;
 
@@ -311,7 +350,6 @@ describe("signup + email confirmation", () => {
       password: "a-strong-password",
     });
     expect(signupRes.status).toBe(201);
-    expect(signupRes.body.confirmationToken).toBeTruthy();
 
     const loginRes = await request(app)
       .post("/api/auth/login")
@@ -328,12 +366,14 @@ describe("signup + email confirmation", () => {
   });
 
   it("confirms with the real token and allows login afterwards", async () => {
+    const since = new Date();
     const signupRes = await request(app).post("/api/users").send({
       email: `second-${emails.signup}`,
       name: "ITest Signup 2",
       password: "a-strong-password",
     });
-    const token = signupRes.body.confirmationToken;
+    expect(signupRes.status).toBe(201);
+    const token = await fetchTokenFromEmail(`second-${emails.signup}`, since);
 
     const confirmRes = await request(app)
       .post("/api/users/confirm")
@@ -355,6 +395,37 @@ describe("signup + email confirmation", () => {
       password: "a-strong-password",
     });
     expect(res.status).toBe(409);
+  });
+
+  it("resends a confirmation email with a fresh token", async () => {
+    const since = new Date();
+    const res = await request(app).post("/api/users/resend-confirmation").send({ email: emails.signup });
+    expect(res.status).toBe(200);
+    const token = await fetchTokenFromEmail(emails.signup, since);
+
+    const confirmRes = await request(app)
+      .post("/api/users/confirm")
+      .send({ email: emails.signup, token });
+    expect(confirmRes.status).toBe(200);
+  });
+
+  it("completes a password reset via the emailed token", async () => {
+    const since = new Date();
+    const res = await request(app)
+      .post("/api/users/request-password-reset")
+      .send({ email: emails.signup });
+    expect(res.status).toBe(200);
+    const token = await fetchTokenFromEmail(emails.signup, since);
+
+    const resetRes = await request(app)
+      .post("/api/users/reset-password")
+      .send({ email: emails.signup, token, newPassword: "a-new-strong-password" });
+    expect(resetRes.status).toBe(200);
+
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email: emails.signup, password: "a-new-strong-password" });
+    expect(loginRes.status).toBe(200);
   });
 });
 

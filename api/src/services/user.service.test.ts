@@ -7,6 +7,9 @@ import type {
   UserConfirmationRecord,
   PasswordResetState,
 } from "../repositories/user.repository.js";
+import type { EmailSender } from "../repositories/email-sender.js";
+
+const APP_BASE_URL = "http://localhost:5173";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -32,43 +35,62 @@ function makeRepo(
   };
 }
 
+function makeEmailSender(): EmailSender {
+  return { send: vi.fn().mockResolvedValue(undefined) };
+}
+
+function extractToken(emailSender: EmailSender): string {
+  const call = (emailSender.send as ReturnType<typeof vi.fn>).mock.calls[0][0];
+  const match = /token=([0-9a-f]{64})/.exec(call.text);
+  if (!match) throw new Error(`no token found in email text: ${call.text}`);
+  return match[1];
+}
+
 describe("UserService.signup", () => {
   it("rejects an email already registered", async () => {
     const repo = makeRepo();
     repo.existsByEmail = vi.fn().mockResolvedValue(true);
-    const service = new UserService(repo);
+    const emailSender = makeEmailSender();
+    const service = new UserService(repo, emailSender, APP_BASE_URL);
 
     await expect(
       service.signup({ email: "a@x.com", name: "A", password: "secret123", universityId: 1 }),
     ).rejects.toThrow(ConflictError);
     expect(repo.create).not.toHaveBeenCalled();
+    expect(emailSender.send).not.toHaveBeenCalled();
   });
 
-  it("creates the user with a hashed password and returns a confirmation token", async () => {
+  it("creates the user with a hashed password and emails a confirmation link", async () => {
     const repo = makeRepo();
-    const service = new UserService(repo);
+    const emailSender = makeEmailSender();
+    const service = new UserService(repo, emailSender, APP_BASE_URL);
 
-    const result = await service.signup({
+    await service.signup({
       email: "a@x.com",
       name: "A",
       password: "secret123",
       universityId: 1,
     });
 
-    expect(result.confirmationToken).toMatch(/^[0-9a-f]{64}$/);
     expect(repo.create).toHaveBeenCalledTimes(1);
     const input = (repo.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(input.passwordHash).not.toBe("secret123");
     expect(input.passwordHash.startsWith("$2")).toBe(true);
-    expect(input.confirmationTokenHash).toBe(hashToken(result.confirmationToken));
     expect(input.confirmationTokenExpiresAt.getTime()).toBeGreaterThan(Date.now());
+
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    const confirmationToken = extractToken(emailSender);
+    expect(input.confirmationTokenHash).toBe(hashToken(confirmationToken));
+    const message = (emailSender.send as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(message.to).toBe("a@x.com");
+    expect(message.text).toContain(`${APP_BASE_URL}/confirm?email=a%40x.com&token=${confirmationToken}`);
   });
 });
 
 describe("UserService.confirm", () => {
   it("throws NotFoundError for an unknown user", async () => {
     const repo = makeRepo(null);
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await expect(service.confirm("nobody@x.com", "token")).rejects.toThrow(NotFoundError);
   });
@@ -80,7 +102,7 @@ describe("UserService.confirm", () => {
       confirmationTokenHash: null,
       confirmationTokenExpiresAt: null,
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await service.confirm("a@x.com", "whatever");
     expect(repo.confirm).not.toHaveBeenCalled();
@@ -93,7 +115,7 @@ describe("UserService.confirm", () => {
       confirmationTokenHash: null,
       confirmationTokenExpiresAt: null,
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await expect(service.confirm("a@x.com", "token")).rejects.toThrow(ValidationError);
   });
@@ -105,7 +127,7 @@ describe("UserService.confirm", () => {
       confirmationTokenHash: hashToken("tok"),
       confirmationTokenExpiresAt: new Date(Date.now() - 1000),
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     const promise = service.confirm("a@x.com", "tok");
     await expect(promise).rejects.toMatchObject({ code: "confirmation_token_expired" });
@@ -118,7 +140,7 @@ describe("UserService.confirm", () => {
       confirmationTokenHash: hashToken("tok"),
       confirmationTokenExpiresAt: new Date(Date.now() + 1000),
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     const promise = service.confirm("a@x.com", "wrong-token");
     await expect(promise).rejects.toMatchObject({ code: "invalid_confirmation_token" });
@@ -131,7 +153,7 @@ describe("UserService.confirm", () => {
       confirmationTokenHash: hashToken("tok"),
       confirmationTokenExpiresAt: new Date(Date.now() + 1000),
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await service.confirm("a@x.com", "tok");
     expect(repo.confirm).toHaveBeenCalledWith("a@x.com");
@@ -141,7 +163,7 @@ describe("UserService.confirm", () => {
 describe("UserService.resendConfirmation", () => {
   it("throws NotFoundError for an unknown user", async () => {
     const repo = makeRepo(null);
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await expect(service.resendConfirmation("nobody@x.com")).rejects.toThrow(NotFoundError);
   });
@@ -153,27 +175,29 @@ describe("UserService.resendConfirmation", () => {
       confirmationTokenHash: null,
       confirmationTokenExpiresAt: null,
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     const promise = service.resendConfirmation("a@x.com");
     await expect(promise).rejects.toMatchObject({ code: "already_confirmed" });
   });
 
-  it("issues a fresh token for an unconfirmed account", async () => {
+  it("issues a fresh token and emails it for an unconfirmed account", async () => {
     const repo = makeRepo({
       email: "a@x.com",
       confirmed: false,
       confirmationTokenHash: hashToken("old-token"),
       confirmationTokenExpiresAt: new Date(Date.now() - 1000), // even expired, resend still works
     });
-    const service = new UserService(repo);
+    const emailSender = makeEmailSender();
+    const service = new UserService(repo, emailSender, APP_BASE_URL);
 
-    const result = await service.resendConfirmation("a@x.com");
+    await service.resendConfirmation("a@x.com");
 
-    expect(result.confirmationToken).toMatch(/^[0-9a-f]{64}$/);
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    const confirmationToken = extractToken(emailSender);
     expect(repo.setConfirmationToken).toHaveBeenCalledWith(
       "a@x.com",
-      hashToken(result.confirmationToken),
+      hashToken(confirmationToken),
       expect.any(Date),
     );
   });
@@ -183,31 +207,31 @@ describe("UserService.requestPasswordReset", () => {
   it("throws NotFoundError for an unknown user", async () => {
     const repo = makeRepo();
     repo.existsByEmail = vi.fn().mockResolvedValue(false);
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await expect(service.requestPasswordReset("nobody@x.com")).rejects.toThrow(NotFoundError);
   });
 
-  it("issues a reset token for a known user", async () => {
+  it("issues a reset token and emails it for a known user", async () => {
     const repo = makeRepo();
     repo.existsByEmail = vi.fn().mockResolvedValue(true);
-    const service = new UserService(repo);
+    const emailSender = makeEmailSender();
+    const service = new UserService(repo, emailSender, APP_BASE_URL);
 
-    const result = await service.requestPasswordReset("a@x.com");
+    await service.requestPasswordReset("a@x.com");
 
-    expect(result.resetToken).toMatch(/^[0-9a-f]{64}$/);
-    expect(repo.setResetToken).toHaveBeenCalledWith(
-      "a@x.com",
-      hashToken(result.resetToken),
-      expect.any(Date),
-    );
+    expect(emailSender.send).toHaveBeenCalledTimes(1);
+    const resetToken = extractToken(emailSender);
+    expect(repo.setResetToken).toHaveBeenCalledWith("a@x.com", hashToken(resetToken), expect.any(Date));
+    const message = (emailSender.send as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(message.text).toContain(`${APP_BASE_URL}/reset-password?email=a%40x.com&token=${resetToken}`);
   });
 });
 
 describe("UserService.resetPassword", () => {
   it("throws NotFoundError for an unknown user", async () => {
     const repo = makeRepo(null, null);
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await expect(service.resetPassword("nobody@x.com", "tok", "newpassword1")).rejects.toThrow(
       NotFoundError,
@@ -216,7 +240,7 @@ describe("UserService.resetPassword", () => {
 
   it("rejects when there's no pending reset", async () => {
     const repo = makeRepo(null, { email: "a@x.com", resetTokenHash: null, resetTokenExpiresAt: null });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     const promise = service.resetPassword("a@x.com", "tok", "newpassword1");
     await expect(promise).rejects.toMatchObject({ code: "no_pending_reset" });
@@ -228,7 +252,7 @@ describe("UserService.resetPassword", () => {
       resetTokenHash: hashToken("tok"),
       resetTokenExpiresAt: new Date(Date.now() - 1000),
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     const promise = service.resetPassword("a@x.com", "tok", "newpassword1");
     await expect(promise).rejects.toMatchObject({ code: "reset_token_expired" });
@@ -240,7 +264,7 @@ describe("UserService.resetPassword", () => {
       resetTokenHash: hashToken("tok"),
       resetTokenExpiresAt: new Date(Date.now() + 1000),
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     const promise = service.resetPassword("a@x.com", "wrong", "newpassword1");
     await expect(promise).rejects.toMatchObject({ code: "invalid_reset_token" });
@@ -252,7 +276,7 @@ describe("UserService.resetPassword", () => {
       resetTokenHash: hashToken("tok"),
       resetTokenExpiresAt: new Date(Date.now() + 1000),
     });
-    const service = new UserService(repo);
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL);
 
     await service.resetPassword("a@x.com", "tok", "newpassword1");
 

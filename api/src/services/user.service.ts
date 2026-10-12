@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { UserRepository } from "../repositories/user.repository.js";
+import type { EmailSender } from "../repositories/email-sender.js";
 import { ConflictError, ValidationError, NotFoundError } from "../domain/errors.js";
 
 const CONFIRMATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -22,7 +23,11 @@ export interface SignupInput {
 }
 
 export class UserService {
-  constructor(private readonly users: UserRepository) {}
+  constructor(
+    private readonly users: UserRepository,
+    private readonly emailSender: EmailSender,
+    private readonly appBaseUrl: string,
+  ) {}
 
   /**
    * Mirrors UsersController::add() functionally (self-registration,
@@ -31,13 +36,12 @@ export class UserService {
    * sha1(salt + email) with no expiry — anyone who learns the salt can
    * recompute it forever. This generates a random token per signup and
    * stores only its hash, with a 24h expiry — the modern, correct version
-   * of the same idea.
-   *
-   * Sending the email itself is out of scope until a transactional-email
-   * module exists (see docs roadmap) — the raw token is returned here so
-   * the caller (eventually: an email service) can deliver it.
+   * of the same idea. The token is delivered by email, never returned
+   * over HTTP (legacy's MessagesController sent plaintext emails but at
+   * least never echoed secrets back in API responses — this keeps that
+   * one thing legacy got right).
    */
-  async signup(input: SignupInput): Promise<{ confirmationToken: string }> {
+  async signup(input: SignupInput): Promise<void> {
     if (await this.users.existsByEmail(input.email)) {
       throw new ConflictError("An account with this email already exists", "email_already_registered");
     }
@@ -54,7 +58,7 @@ export class UserService {
       confirmationTokenExpiresAt: new Date(Date.now() + CONFIRMATION_TOKEN_TTL_MS),
     });
 
-    return { confirmationToken };
+    await this.sendConfirmationEmail(input.email, confirmationToken);
   }
 
   async confirm(email: string, token: string): Promise<void> {
@@ -75,9 +79,8 @@ export class UserService {
     await this.users.confirm(email);
   }
 
-  /** Mirrors UsersController::sendConfirmationEmail(). Same token-return
-   * caveat as signup() — no email sender wired up yet. */
-  async resendConfirmation(email: string): Promise<{ confirmationToken: string }> {
+  /** Mirrors UsersController::sendConfirmationEmail(). */
+  async resendConfirmation(email: string): Promise<void> {
     const state = await this.users.findConfirmationState(email);
     if (!state) throw new NotFoundError("User not found");
     if (state.confirmed) {
@@ -90,7 +93,7 @@ export class UserService {
       hashToken(confirmationToken),
       new Date(Date.now() + CONFIRMATION_TOKEN_TTL_MS),
     );
-    return { confirmationToken };
+    await this.sendConfirmationEmail(email, confirmationToken);
   }
 
   /**
@@ -101,13 +104,20 @@ export class UserService {
    * never in a position to be intercepted in an email body, and a token
    * that leaks is useless without also knowing what new password to set.
    */
-  async requestPasswordReset(email: string): Promise<{ resetToken: string }> {
+  async requestPasswordReset(email: string): Promise<void> {
     if (!(await this.users.existsByEmail(email))) {
       throw new NotFoundError("User not found");
     }
     const resetToken = generateToken();
     await this.users.setResetToken(email, hashToken(resetToken), new Date(Date.now() + RESET_TOKEN_TTL_MS));
-    return { resetToken };
+
+    const link = `${this.appBaseUrl}/reset-password?email=${encodeURIComponent(email)}&token=${resetToken}`;
+    await this.emailSender.send({
+      to: email,
+      subject: "run.codes — redefinição de senha",
+      text: `Para redefinir sua senha, acesse: ${link}\n\nSe você não solicitou isso, ignore este email. O link expira em 1 hora.`,
+      html: `<p>Para redefinir sua senha, acesse: <a href="${link}">${link}</a></p><p>Se você não solicitou isso, ignore este email. O link expira em 1 hora.</p>`,
+    });
   }
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<void> {
@@ -126,5 +136,15 @@ export class UserService {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await this.users.resetPassword(email, passwordHash);
+  }
+
+  private async sendConfirmationEmail(email: string, confirmationToken: string): Promise<void> {
+    const link = `${this.appBaseUrl}/confirm?email=${encodeURIComponent(email)}&token=${confirmationToken}`;
+    await this.emailSender.send({
+      to: email,
+      subject: "run.codes — confirme seu cadastro",
+      text: `Para confirmar seu cadastro, acesse: ${link}\n\nO link expira em 24 horas.`,
+      html: `<p>Para confirmar seu cadastro, acesse: <a href="${link}">${link}</a></p><p>O link expira em 24 horas.</p>`,
+    });
   }
 }

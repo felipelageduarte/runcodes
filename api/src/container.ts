@@ -24,6 +24,7 @@ import { PrismaLogRepository } from "./repositories/log.repository.js";
 import { PrismaExerciseFileRepository } from "./repositories/exercise-file.repository.js";
 import { PrismaCompilationFileRepository } from "./repositories/compilation-file.repository.js";
 import { S3AttachmentStorageRepository } from "./repositories/attachment-storage.repository.js";
+import { SmtpEmailSender } from "./repositories/email-sender.js";
 
 import { AuthService } from "./services/auth.service.js";
 import { UserService } from "./services/user.service.js";
@@ -100,6 +101,14 @@ export function buildContainer() {
 
   const plagiarismQueue = new BullMqPlagiarismJobQueue(env.REDIS_URL);
 
+  const emailSender = new SmtpEmailSender(env.SMTP_FROM, {
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_SECURE,
+    user: env.SMTP_USER,
+    password: env.SMTP_PASSWORD,
+  });
+
   const services = {
     auth: new AuthService(
       repositories.users,
@@ -107,7 +116,7 @@ export function buildContainer() {
       env.JWT_EXPIRES_IN,
       env.LEGACY_PASSWORD_SALT,
     ),
-    user: new UserService(repositories.users),
+    user: new UserService(repositories.users, emailSender, env.APP_BASE_URL),
     enrollment: new EnrollmentService(
       repositories.enrollments,
       repositories.offerings,

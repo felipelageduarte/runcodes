@@ -14,6 +14,16 @@ const schema = z.object({
   S3_BUCKET_PREFIX: z.string().default("runcodes"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   JPLAG_JAR_PATH: z.string().default("vendor/jplag/jplag.jar"),
+  SMTP_HOST: z.string().default("localhost"),
+  SMTP_PORT: z.coerce.number().default(2525),
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().default("run.codes <no-reply@run.codes>"),
+  APP_BASE_URL: z.string().default("http://localhost:5173"),
 });
 
 export const env = schema.parse(process.env);
