@@ -48,8 +48,21 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
   };
   const allowedFiles: AllowedFileRepository = {
     list: vi.fn(),
+    findById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
     findByIds: vi.fn().mockImplementation((ids: number[]) =>
-      Promise.resolve(ids.map((id) => ({ id, name: "x", extension: "py", compilable: true, available: true }))),
+      Promise.resolve(
+        ids.map((id) => ({
+          id,
+          name: "x",
+          extension: "py",
+          compilable: true,
+          compileCommand: null,
+          runCommand: null,
+          available: true,
+        })),
+      ),
     ),
   };
   return { exercises, enrollments, allowedFiles };

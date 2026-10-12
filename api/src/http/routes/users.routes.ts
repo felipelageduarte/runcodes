@@ -14,6 +14,14 @@ const confirmSchema = z.object({
   token: z.string().min(1),
 });
 
+const emailOnlySchema = z.object({ email: z.string().min(1) });
+
+const resetPasswordSchema = z.object({
+  email: z.string().min(1),
+  token: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
 export function createUsersRouter(userService: UserService) {
   const router = Router();
 
@@ -40,6 +48,36 @@ export function createUsersRouter(userService: UserService) {
       const { email, token } = confirmSchema.parse(req.body);
       await userService.confirm(email, token);
       res.json({ confirmed: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/resend-confirmation", async (req, res, next) => {
+    try {
+      const { email } = emailOnlySchema.parse(req.body);
+      const { confirmationToken } = await userService.resendConfirmation(email);
+      res.json({ confirmationToken }); // same TODO as signup — no email sender yet
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/request-password-reset", async (req, res, next) => {
+    try {
+      const { email } = emailOnlySchema.parse(req.body);
+      const { resetToken } = await userService.requestPasswordReset(email);
+      res.json({ resetToken }); // same TODO — no email sender yet
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/reset-password", async (req, res, next) => {
+    try {
+      const { email, token, newPassword } = resetPasswordSchema.parse(req.body);
+      await userService.resetPassword(email, token, newPassword);
+      res.json({ reset: true });
     } catch (err) {
       next(err);
     }

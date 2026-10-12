@@ -14,6 +14,9 @@ import { createEnrollmentsRouter } from "./http/routes/enrollments.routes.js";
 import { createCommitsRouters } from "./http/routes/commits.routes.js";
 import { createUsersRouter } from "./http/routes/users.routes.js";
 import { createPlagiarismRouters } from "./http/routes/plagiarism.routes.js";
+import { createUniversitiesRouter } from "./http/routes/universities.routes.js";
+import { createAllowedFilesRouter } from "./http/routes/allowed-files.routes.js";
+import { createAdminUsersRouter } from "./http/routes/admin-users.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -51,6 +54,9 @@ export function buildApp(container: Container) {
   app.use("/api/plagiarism-runs", plagiarismRuns);
   app.use("/api/enrollments", createEnrollmentsRouter(services.enrollment, middleware.requireAuth));
   app.use("/api/commits", commits);
+  app.use("/api/universities", createUniversitiesRouter(services.university, middleware.requireAuth));
+  app.use("/api/allowed-files", createAllowedFilesRouter(services.allowedFile, middleware.requireAuth));
+  app.use("/api/admin/users", createAdminUsersRouter(services.adminUser, middleware.requireAuth));
 
   app.use(errorHandler);
 

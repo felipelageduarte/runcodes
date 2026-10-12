@@ -41,6 +41,12 @@ function makeRepos(overrides: { staff?: boolean } = {}) {
     create: vi.fn(),
     findConfirmationState: vi.fn(),
     confirm: vi.fn(),
+    setConfirmationToken: vi.fn(),
+    setResetToken: vi.fn(),
+    findResetState: vi.fn(),
+    resetPassword: vi.fn(),
+    listForAdmin: vi.fn(),
+    updateByAdmin: vi.fn(),
   };
   return { enrollments, users };
 }

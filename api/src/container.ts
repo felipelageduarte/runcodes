@@ -27,6 +27,9 @@ import { ExerciseManagementService } from "./services/exercise-management.servic
 import { ExerciseCaseService } from "./services/exercise-case.service.js";
 import { CommitService } from "./services/commit.service.js";
 import { PlagiarismService } from "./services/plagiarism.service.js";
+import { UniversityService } from "./services/university.service.js";
+import { AllowedFileService } from "./services/allowed-file.service.js";
+import { AdminUserService } from "./services/admin-user.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 
@@ -113,6 +116,9 @@ export function buildContainer() {
       repositories.plagiarismRuns,
       plagiarismQueue,
     ),
+    university: new UniversityService(repositories.universities),
+    allowedFile: new AllowedFileService(repositories.allowedFiles),
+    adminUser: new AdminUserService(repositories.users),
   };
 
   const middleware = {

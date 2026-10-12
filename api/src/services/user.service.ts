@@ -4,9 +4,14 @@ import type { UserRepository } from "../repositories/user.repository.js";
 import { ConflictError, ValidationError, NotFoundError } from "../domain/errors.js";
 
 const CONFIRMATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function generateToken(): string {
+  return randomBytes(32).toString("hex");
 }
 
 export interface SignupInput {
@@ -38,7 +43,7 @@ export class UserService {
     }
 
     const passwordHash = await bcrypt.hash(input.password, 12);
-    const confirmationToken = randomBytes(32).toString("hex");
+    const confirmationToken = generateToken();
 
     await this.users.create({
       email: input.email,
@@ -68,5 +73,58 @@ export class UserService {
     }
 
     await this.users.confirm(email);
+  }
+
+  /** Mirrors UsersController::sendConfirmationEmail(). Same token-return
+   * caveat as signup() — no email sender wired up yet. */
+  async resendConfirmation(email: string): Promise<{ confirmationToken: string }> {
+    const state = await this.users.findConfirmationState(email);
+    if (!state) throw new NotFoundError("User not found");
+    if (state.confirmed) {
+      throw new ConflictError("This account is already confirmed", "already_confirmed");
+    }
+
+    const confirmationToken = generateToken();
+    await this.users.setConfirmationToken(
+      email,
+      hashToken(confirmationToken),
+      new Date(Date.now() + CONFIRMATION_TOKEN_TTL_MS),
+    );
+    return { confirmationToken };
+  }
+
+  /**
+   * Mirrors UsersController::recoveryPassword() functionally, not
+   * literally: the legacy flow generates a new password server-side and
+   * emails it in plaintext. This instead issues a short-lived (1h) token
+   * the user exchanges for a password *they* choose — the password is
+   * never in a position to be intercepted in an email body, and a token
+   * that leaks is useless without also knowing what new password to set.
+   */
+  async requestPasswordReset(email: string): Promise<{ resetToken: string }> {
+    if (!(await this.users.existsByEmail(email))) {
+      throw new NotFoundError("User not found");
+    }
+    const resetToken = generateToken();
+    await this.users.setResetToken(email, hashToken(resetToken), new Date(Date.now() + RESET_TOKEN_TTL_MS));
+    return { resetToken };
+  }
+
+  async resetPassword(email: string, token: string, newPassword: string): Promise<void> {
+    const state = await this.users.findResetState(email);
+    if (!state) throw new NotFoundError("User not found");
+
+    if (!state.resetTokenHash || !state.resetTokenExpiresAt) {
+      throw new ValidationError("No pending password reset for this account", "no_pending_reset");
+    }
+    if (state.resetTokenExpiresAt < new Date()) {
+      throw new ValidationError("Reset token has expired", "reset_token_expired");
+    }
+    if (hashToken(token) !== state.resetTokenHash) {
+      throw new ValidationError("Invalid reset token", "invalid_reset_token");
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.users.resetPassword(email, passwordHash);
   }
 }

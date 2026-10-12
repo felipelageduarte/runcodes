@@ -35,6 +35,11 @@ function makeRepos() {
   };
   const universities: UniversityRepository = {
     findByIds: vi.fn().mockResolvedValue(new Map()),
+    findById: vi.fn(),
+    list: vi.fn(),
+    existsByAbbreviation: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   };
   const enrollments: EnrollmentRepository = {
     isEnrolled: vi.fn().mockResolvedValue(false),

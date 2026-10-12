@@ -19,6 +19,8 @@ model User {
   source                        Int?              @default(0)
   confirmation_token_hash       String?           @db.VarChar(64)
   confirmation_token_expires_at DateTime?         @db.Timestamp(6)
+  reset_token_hash              String?           @db.VarChar(64)
+  reset_token_expires_at        DateTime?         @db.Timestamp(6)
   alerts                        alerts[]
   commits                       commits[]
   enrollments                   enrollments[]
