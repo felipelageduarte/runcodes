@@ -33,13 +33,14 @@ Essa arquitetura foi uma refatoração deliberada — a primeira versão dos mó
 
 | Módulo | Rotas | O que faz |
 |---|---|---|
-| [Auth](./auth.md) | `POST /api/auth/login` | Login, JWT, migração transparente sha1→bcrypt |
+| [Auth](./auth.md) | `POST /api/auth/login` | Login, JWT, migração transparente sha1→bcrypt, bloqueia login não-confirmado |
+| [Users](./users.md) | `POST /api/users`, `POST /api/users/confirm` | Cadastro (signup) + confirmação de email com token aleatório expirável |
 | [Courses/Offerings/Exercises](./courses-offerings-exercises.md) | `GET /api/{courses,offerings,exercises}*` | Leitura, com as mesmas regras de visibilidade do CakePHP legado |
-| [Enrollments](./enrollments.md) | `POST /api/enrollments` | Entrar em turma por código |
+| [Enrollments](./enrollments.md) | `POST /api/enrollments`, `PUT .../members/:email/role`, `POST .../members/:email/ban` | Entrar em turma por código + gestão de turma (promover, banir) |
 | [Commits](./commits.md) | `POST/GET /api/exercises/:id/commits`, `GET /api/commits/:id` | Submissão de código — upload S3 + fila pro `compiler-engine` |
 
 Ver [roadmap](../roadmap/backlog.md) para o que ainda falta.
 
 ## Testes
 
-Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real), ambos passando.
+Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 64 unitários + 22 de integração, todos passando.

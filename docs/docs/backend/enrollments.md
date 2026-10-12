@@ -36,4 +36,22 @@ Lista as matrículas do usuário autenticado (não-banidas).
 | 1 | Assistente/monitor |
 | 2 | Professor |
 
-Diferente do `type` do usuário (global) — um usuário `type=0` pode ter `role=2` numa turma específica se o admin o promoveu ali (gestão de turma, ver [roadmap](../roadmap/backlog.md)).
+Diferente do `type` do usuário (global) — um usuário `type=0` pode ter `role=2` numa turma específica se foi promovido ali (gestão de turma, abaixo).
+
+## Gestão de turma (staff)
+
+Implementado em `OfferingMembershipService` — deliberadamente separado do `EnrollmentService`: matricular a si mesmo (aluno) e gerenciar membros de outros (staff) são atores diferentes, com regras de autorização diferentes, sobre o mesmo agregado.
+
+### `PUT /api/offerings/:id/members/:email/role`
+
+```json
+{ "role": 2 }
+```
+
+Promove/rebaixa um membro já matriculado. Requer staff da turma (professor/assistente) **ou** admin. Se o alvo não tem matrícula na turma → `404 user_not_enrolled` (promoção não cria matrícula, só muda o papel de quem já está).
+
+### `POST /api/offerings/:id/members/:email/ban`
+
+Bane um membro da turma (`banned = true` — soft, não deleta a matrícula). **Admin-only** — nem professor nem assistente podem, espelhando o CakePHP legado (`OfferingsController::ban()` não está na lista `professorAuthorized`, mantido de propósito: um professor não deveria conseguir remover um aluno unilateralmente da própria turma, sem supervisão).
+
+Verificado em teste de integração real: um admin promove um aluno matriculado a professor, esse novo professor consegue se autogerenciar (demover a si mesmo), mas **não** consegue banir ninguém — só admin consegue.

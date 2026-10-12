@@ -30,10 +30,10 @@ Mesmo padrão já usado no projeto (`server`, `database`, `compiler-engine`, `co
 2. ✅ Courses / Offerings / Exercises (leitura)
 3. ✅ Enrollments (entrar em turma por código)
 4. ✅ Commits (submissão de código — o caminho crítico: sem isso a API não serve pra nada)
-5. 🔜 Cadastro de usuário (signup, confirmação de email, reset de senha)
-6. 🔜 Gestão de turma (adicionar professor/assistente, banir aluno, notas)
+5. ✅ Cadastro de usuário (signup, confirmação de email — reset de senha ainda falta)
+6. ✅ Gestão de turma (promover/rebaixar professor/assistente, banir aluno — notas/CSV ainda faltam)
 7. 🔜 CRUD de exercícios e casos de teste
 8. 🔜 Detecção de plágio (ver [roadmap](../roadmap/plagiarism-detection.md))
-9. Backlog: tickets, mensagens, alerts, emails, questions, admin de universidades
+9. Backlog: tickets, mensagens, alerts, emails transacionais, reset de senha, questions, admin de universidades
 
 Status detalhado por módulo: [backend overview](../backend/overview.md).
