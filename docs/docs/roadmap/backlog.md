@@ -19,12 +19,13 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 - ✅ **Envio real de email** — `EmailSender`/`SmtpEmailSender` (nodemailer) substitui o placeholder que devolvia o token bruto na resposta HTTP. `local-dev` expõe a porta SMTP do `smtp4dev` (2525), testado de ponta a ponta via a API REST dele. Ver [users.md](../backend/users.md).
 - ✅ **Admin** — universidades, tipos de arquivo permitido, usuários (CRUD), logs (leitura).
 - ✅ **Tickets, alerts, questions, public-exercises** — suporte, avisos, FAQ, catálogo de exercícios reutilizáveis.
-- ✅ **Upload de arquivo** (`ExerciseFile`/`CompilationFile`) **e exercícios "ghost"** — upload direto multipart pro S3 (sem o vai-e-vem de duas fases do legado), compartilhamento de exercício entre turmas. Ver [exercise-management.md](../backend/exercise-management.md). `ExerciseCaseFile` (caso de teste baseado em arquivo, não texto inline) ainda não — ver abaixo.
+- ✅ **Upload de arquivo** (`ExerciseFile`/`CompilationFile`) **e exercícios "ghost"** — upload direto multipart pro S3 (sem o vai-e-vem de duas fases do legado), compartilhamento de exercício entre turmas. Ver [exercise-management.md](../backend/exercise-management.md).
+- ✅ **`ExerciseCaseFile`** — caso de teste com arquivo de input além do texto inline, mesma infra de upload do `ExerciseAttachmentService`, staff/admin-only (diferente de `ExerciseFile`/`CompilationFile`, esses arquivos são material de correção). Ver [exercise-management.md](../backend/exercise-management.md).
 - ✅ **Log de auditoria (escrita)** — um middleware Express (`http/middleware/auditLog.ts`), montado globalmente, registra toda requisição de mutação (POST/PUT/PATCH/DELETE) autenticada, em vez de 60+ chamadas a `Log::register()` espalhadas pelos controllers legados. Mensagem perde a prosa do legado ("Enrolled in the offering #5" → "POST /api/enrollments -> 201"), mas cobre toda rota de mutação automaticamente, inclusive as criadas depois.
 
 ## Backlog real (não implementado)
 
-- **Casos de teste baseados em arquivo** (`ExerciseCaseFile`) — hoje `ExerciseCaseService` só aceita input/output como texto inline; o legado também suporta casos cujo input é um arquivo binário. Mesma infra de upload do `ExerciseAttachmentService` daria conta, não implementado ainda.
+Nada pendente no momento — ver [histórico de migração para o frontend](../architecture/migration-strategy.md) pro próximo passo (`runcodes-web`).
 
 ## Fora de escopo deliberado
 

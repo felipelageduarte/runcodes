@@ -54,3 +54,18 @@ Qualquer mudança nesse formato de chave quebra a correção de todo caso de tes
 ### Valores default herdados do legado
 
 `maxmemsize` (4096), `stacksize` (2048) e `file_size` (10000) são os mesmos hardcoded que o CakePHP usa em `ExerciseCasesController::add()` — mantidos como default quando a API não recebe esses campos, não porque sejam bons valores, mas porque são o que todo caso existente já assume. Podem ser sobrescritos por requisição.
+
+## Casos de teste baseados em arquivo (`ExerciseCaseFile`)
+
+Além do input/output de texto inline acima, um caso pode ter um ou mais arquivos anexados — um programa que lê um arquivo de dados, por exemplo. Mirrors `ExerciseCaseFilesController`, mas sem a dança de duas fases do legado (upload pra uma chave temporária, depois "anexar" no save do caso — artefato do widget jQuery de upload do legado): aqui é um único request multipart.
+
+```
+GET    /api/exercise-cases/:exerciseCaseId/files            (staff/admin)
+POST   /api/exercise-cases/:exerciseCaseId/files            (staff/admin, multipart, campo "file")
+GET    /api/exercise-case-files/:id/download                (staff/admin)
+DELETE /api/exercise-case-files/:id                         (staff/admin)
+```
+
+**Staff/admin-only em tudo**, diferente de `ExerciseFile`/`CompilationFile` (que aluno matriculado também lê): o arquivo de input de um caso é material de correção, não algo que o aluno deveria ver.
+
+Mesmo contrato de S3 do input/output de texto: chave **`{caseId}/files/{filename}`**, no mesmo bucket `runcodes-cases`. `compiler-engine` já lê isso (`fetch_test_case_files()`) — só faltava o lado do Node escrever. Apagar um caso agora limpa tanto `{caseId}/in`/`{caseId}/out` quanto todo arquivo sob `{caseId}/files/` (via `ListObjectsV2` + batch delete), não só os dois primeiros.

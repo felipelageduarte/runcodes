@@ -36,14 +36,14 @@ Essa arquitetura foi uma refatoração deliberada — a primeira versão dos mó
 | [Auth](./auth.md) | `POST /api/auth/login` | Login, JWT, migração transparente sha1→bcrypt, bloqueia login não-confirmado |
 | [Users](./users.md) | `POST /api/users`, `POST /api/users/confirm` | Cadastro (signup) + confirmação de email com token aleatório expirável |
 | [Courses/Offerings/Exercises](./courses-offerings-exercises.md) | `GET /api/{courses,offerings,exercises}*` | Leitura, com as mesmas regras de visibilidade do CakePHP legado |
-| [Exercise management](./exercise-management.md) | `POST/PUT/DELETE /api/exercises*`, `.../cases`, `.../files`, `.../compilation-files`, `.../share` | Criar/editar/apagar exercício, casos de teste, arquivos, compartilhar entre turmas (staff/admin) |
+| [Exercise management](./exercise-management.md) | `POST/PUT/DELETE /api/exercises*`, `.../cases`, `.../files`, `.../compilation-files`, `.../share`, `/api/exercise-cases/:id/files` | Criar/editar/apagar exercício, casos de teste (texto e com arquivo), arquivos, compartilhar entre turmas (staff/admin) |
 | [Enrollments](./enrollments.md) | `POST /api/enrollments`, `PUT .../members/:email/role`, `POST .../members/:email/ban` | Entrar em turma por código + gestão de turma (promover, banir) |
 | [Commits](./commits.md) | `POST/GET /api/exercises/:id/commits`, `GET /api/commits/:id` | Submissão de código — upload S3 + fila pro `compiler-engine` |
 | [Plagiarism detection](../roadmap/plagiarism-detection.md) | `POST/GET /api/exercises/:id/plagiarism-runs`, `GET /api/plagiarism-runs/:id` | Dolos + JPlag, fila assíncrona (BullMQ/Redis), worker separado |
 | [Admin & suporte](./admin-and-support.md) | universidades, allowed-files, admin de usuários, logs, notas/stats/exports, tickets, alerts, questions, public-exercises | Os módulos menores — ver página dedicada |
 
-Ver [roadmap](../roadmap/backlog.md) para o que ainda falta.
+Backend funcionalmente completo — ver [roadmap](../roadmap/backlog.md) (nada pendente; próximo passo é o frontend, `runcodes-web`).
 
 ## Testes
 
-Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 216 unitários + 54 de integração, todos passando — incluindo Dolos, JPlag, envio real de email (via smtp4dev), export CSV e zip de submissões rodando de verdade (não mock) no teste de integração.
+Ver [testing.md](./testing.md) — dois níveis (unitário com mock de repositório, integração contra `local-dev` real). 230 unitários + 61 de integração, todos passando — incluindo Dolos, JPlag, envio real de email (via smtp4dev), export CSV e zip de submissões rodando de verdade (não mock) no teste de integração.
