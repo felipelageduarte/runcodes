@@ -135,6 +135,18 @@ def create_container_cfg_file(
     container_cfg.extend(
         [(f"t_{test.id}", test.cpu_time, False) for test in test_cases]
     )
+    # Per-test memory ceiling (falls back to the global monitor_max_ms in
+    # base-script.sh when a test case leaves max_mem_size at 0/unset) --
+    # this field already existed on TestCase but was never threaded through
+    # to the container, so every test ran under the same global memory
+    # limit regardless of what an exercise actually configured per case.
+    container_cfg.extend(
+        [
+            (f"m_{test.id}", test.max_mem_size, False)
+            for test in test_cases
+            if test.max_mem_size > 0
+        ]
+    )
     with open(os.path.join(base_dir, str(cfg.container_cfg_file)), "w") as cfg_file:
         for cfg_item in container_cfg:
             if cfg_item[2]:  # value needs shell quoting
