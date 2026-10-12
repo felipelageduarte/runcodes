@@ -9,21 +9,25 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 
 ## Feito
 
-- ✅ **Cadastro de usuário** — `POST /api/users` (signup) + `POST /api/users/confirm`. Ver [users.md](../backend/users.md). Falta: reset de senha, reenvio de confirmação.
-- ✅ **Gestão de turma** — promover/rebaixar professor/assistente, banir. Ver [enrollments.md](../backend/enrollments.md#gestão-de-turma-staff). Falta: exportação de notas (CSV), infográficos/stats por turma.
-- ✅ **CRUD de exercícios e casos de teste** — criar/editar/apagar exercício, casos de teste (input/output em S3, na chave exata que o `compiler-engine` lê). Ver [exercise-management.md](../backend/exercise-management.md). Falta: upload de arquivos auxiliares de compilação/exercício, exercícios "ghost" (compartilhar entre turmas), import de `public_exercises`.
-- ✅ **Detecção de plágio (Dolos + JPlag)** — fila assíncrona, worker separado, verificado com as ferramentas reais (não mock). Ver [plagiarism-detection.md](./plagiarism-detection.md). MOSS fica fora de escopo (serviço externo Stanford).
+- ✅ **Auth completo** — login, signup, confirmação de email, reenvio de confirmação, reset de senha (fluxo por token, não a senha em texto plano que o legado manda por email). Ver [auth.md](../backend/auth.md) e [users.md](../backend/users.md).
+- ✅ **Courses/Offerings/Exercises** — leitura com as mesmas regras de visibilidade do legado, CRUD de exercício e casos de teste. Ver [courses-offerings-exercises.md](../backend/courses-offerings-exercises.md) e [exercise-management.md](../backend/exercise-management.md).
+- ✅ **Gestão de turma** — matrícula por código, promover/rebaixar professor/assistente, banir. Ver [enrollments.md](../backend/enrollments.md).
+- ✅ **Submissão de código** — upload S3, fila pro `compiler-engine`, resultado por caso de teste. Ver [commits.md](../backend/commits.md).
+- ✅ **Detecção de plágio (Dolos + JPlag)** — fila assíncrona, worker separado, verificado com as ferramentas reais. Ver [plagiarism-detection.md](./plagiarism-detection.md). MOSS fora de escopo (serviço externo Stanford).
+- ✅ **Notas (grades matrix)** — `GET /api/offerings/:id/grades`, matriz aluno × exercício.
+- ✅ **Admin** — universidades, tipos de arquivo permitido, usuários (CRUD), logs (leitura).
+- ✅ **Tickets, alerts, questions, public-exercises** — suporte, avisos, FAQ, catálogo de exercícios reutilizáveis.
 
-## Backlog (sem data)
+## Backlog real (não implementado)
 
-- **Tickets e mensagens** — suporte aluno↔professor, sistema de alertas.
-- **Emails transacionais** — confirmação de cadastro, recuperação de senha, notificações (hoje só existe no PHP via `smtp4dev` local / provedor real em produção). O signup já gera o token de confirmação — só falta o envio de fato.
-- **Reset de senha** — token expirável + definição de nova senha pelo usuário (não replica o legado, que manda a senha em texto plano por email).
-- **Questions / public_exercises** — banco de questões reutilizável, exercícios públicos (fora de turma).
-- **Admin de universidades e usuários** — CRUD completo (hoje só signup+login existem, sem listagem/edição administrativa).
-- **Notas/CSV e stats de turma** — `OfferingsController::grades/exportToCsv/infographic/stats`.
+- **Upload de arquivo auxiliar** — `ExerciseFile`/`CompilationFile`/`ExerciseCaseFile` do legado: arquivos de apoio à compilação, material extra do exercício, casos de teste baseados em arquivo (hoje só input/output inline como texto é suportado). Precisa de infra de upload multipart + S3 por tipo, não implementado.
+- **Exercícios "ghost"** — compartilhar o mesmo exercício entre turmas diferentes (clone leve apontando pro original). O campo `ghost`/`real_id` já existe no schema e é respeitado onde relevante (ex. delete cascateia, cases redirecionam pro original), mas não há endpoint pra *criar* um ghost a partir de um exercício existente.
+- **Envio real de email** — `POST /api/users` e as rotas de confirmação/reset já geram o token certo; falta o serviço de envio de fato (hoje a API devolve o token bruto na resposta, documentado como provisório). `local-dev` já tem `smtp4dev` rodando, pronto pra um `MessagesController`-equivalente consumir.
+- **Stats/infográficos detalhados** — `ExercisesController::stats/participantCommits/getAllScoresZipped`, `OfferingsController::infographic/exportToCsv`. A matriz de notas cobre o caso de uso principal (ver nota por aluno/exercício); gráficos e exportação CSV ainda não.
+- **Log de auditoria (escrita)** — o legado chama `Log::register()` em quase toda ação de mutação; a leitura (`GET /api/admin/logs`) já existe, mas nada no `runcodes-api` escreve nessa tabela ainda. Virar isso um cross-cutting concern de verdade (middleware/decorator) é trabalho de design, não um patch pontual.
 
 ## Fora de escopo deliberado
 
-- **Clonar o CakePHP 1:1.** Onde o padrão legado é claramente pior (ex. `recoveryPassword` envia a senha em texto plano por email), a versão nova implementa o equivalente funcional com prática atual (fluxo de token + definição de nova senha pelo usuário), não replica o comportamento antigo.
+- **Clonar o CakePHP 1:1.** Onde o padrão legado é claramente pior (ex. `recoveryPassword` envia a senha em texto plano por email; `AlertsController` sem `isAuthorized`, permitindo qualquer usuário autenticado publicar avisos site-wide), a versão nova implementa o equivalente funcional com prática atual — nunca replica um bug ou brecha de segurança do legado só por paridade.
 - **Reescrever `compiler-engine`/`compiler-monitor` em Node.** Ver [estratégia de migração](../architecture/migration-strategy.md) — sem justificativa técnica, é um serviço isolado que já funciona.
+- **`CookiesController`/`PagesController`/`TestsController`.** Banner de cookies e páginas estáticas são responsabilidade do frontend, não da API; `TestsController` é ferramenta de debug interna do time, não requisito de produto.

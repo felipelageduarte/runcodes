@@ -9,9 +9,9 @@ Dois níveis, propositalmente separados — configs e comandos diferentes:
 
 ## Unitário — `npm test`
 
-`vitest.config.ts`. 109 testes, todos os services, **zero banco/rede** — cada teste instancia o service passando repositórios mockados (`vi.fn()` implementando a interface do repositório, não o Prisma). Roda em menos de 1 segundo, pode rodar em qualquer CI sem infra.
+`vitest.config.ts`. 165 testes, todos os services, **zero banco/rede** — cada teste instancia o service passando repositórios mockados (`vi.fn()` implementando a interface do repositório, não o Prisma). Roda em cerca de 1 segundo, pode rodar em qualquer CI sem infra.
 
-Cobertura: toda regra de negócio de cada service (auth, user/signup, enrollment, offering membership, course, offering, exercise, exercise management, exercise case, commit, plagiarism, plagiarism worker) — ver código-fonte em `src/services/*.test.ts`, cada arquivo ao lado do service que testa.
+Cobertura: toda regra de negócio de cada service (auth, user/signup, enrollment, offering membership, course, offering, exercise, exercise management, exercise case, commit, commit case result, plagiarism, plagiarism worker, university, allowed-file, admin user, grades, ticket, alert, question, public-exercise, log) — ver código-fonte em `src/services/*.test.ts`, cada arquivo ao lado do service que testa.
 
 ## Integração — `npm run test:integration`
 
