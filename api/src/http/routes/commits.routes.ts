@@ -54,6 +54,20 @@ export function createCommitsRouters(
     }
   });
 
+  // Mirrors the Monaco-preload gap tracked in docs/frontend/code-editor.md
+  // — text content (not a binary download), for prefilling the editor
+  // with the student's last submission.
+  commits.get("/:id/content", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
+      const { filename, content } = await commitService.getContent(id, req.user!);
+      res.json({ filename, content: Buffer.from(content).toString("utf-8") });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   commits.get("/:id/cases", requireAuth, async (req: AuthedRequest, res, next) => {
     try {
       const id = Number(req.params.id);

@@ -384,6 +384,24 @@ describe("submission pipeline", () => {
     expect(res.status).toBe(403);
   });
 
+  it("GET /api/commits/:id/content returns the submitted source, recovering the original filename", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .get(`/api/commits/${commitId}/content`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.filename).toBe("solution.py");
+    expect(res.body.content).toBe('print("integration ok")');
+  });
+
+  it("GET /api/commits/:id/content is forbidden for a student who isn't the owner and isn't staff", async () => {
+    const token = await login(emails.outsider);
+    const res = await request(app)
+      .get(`/api/commits/${commitId}/content`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+
   it("the offering detail embeds the student's own latest commit on this exercise", async () => {
     const token = await login(emails.student);
     const res = await request(app)

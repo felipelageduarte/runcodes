@@ -260,3 +260,64 @@ describe("CommitService.getById", () => {
     await expect(service.getById(1, { email: "prof@x.com", type: 0 })).resolves.toBeDefined();
   });
 });
+
+describe("CommitService.getContent", () => {
+  it("throws NotFoundError for a missing commit", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(null);
+    const service = buildService(repos);
+
+    await expect(service.getContent(1, STUDENT)).rejects.toThrow(NotFoundError);
+  });
+
+  it("rejects a different student who isn't staff", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord({ userEmail: "other@x.com" }));
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    const service = buildService(repos);
+
+    await expect(service.getContent(1, STUDENT)).rejects.toThrow(ForbiddenError);
+  });
+
+  it("throws NotFoundError when the commit has no stored file yet", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(
+      makeCommitRecord({ userEmail: "s@x.com", awsKey: null }),
+    );
+    const service = buildService(repos);
+
+    await expect(service.getContent(1, STUDENT)).rejects.toThrow(NotFoundError);
+  });
+
+  it("fetches the file from storage and recovers the original filename from the key", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(
+      makeCommitRecord({
+        userEmail: "s@x.com",
+        awsKey: "1/2f1c9b9a-7b3d-4e2a-9c4e-1a2b3c4d5e6f-solution.py",
+      }),
+    );
+    repos.storage.getCommitFile = vi.fn().mockResolvedValue(new Uint8Array(Buffer.from('print("hi")')));
+    const service = buildService(repos);
+
+    const result = await service.getContent(1, STUDENT);
+
+    expect(repos.storage.getCommitFile).toHaveBeenCalledWith(
+      "1/2f1c9b9a-7b3d-4e2a-9c4e-1a2b3c4d5e6f-solution.py",
+    );
+    expect(result.filename).toBe("solution.py");
+    expect(Buffer.from(result.content).toString()).toBe('print("hi")');
+  });
+
+  it("allows staff of the owning offering to read another student's commit content", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(
+      makeCommitRecord({ userEmail: "other@x.com", awsKey: "1/uuid-x.py" }),
+    );
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    repos.storage.getCommitFile = vi.fn().mockResolvedValue(new Uint8Array());
+    const service = buildService(repos);
+
+    await expect(service.getContent(1, { email: "prof@x.com", type: 0 })).resolves.toBeDefined();
+  });
+});

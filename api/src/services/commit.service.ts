@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { ExerciseRepository } from "../repositories/exercise.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
-import type { CommitRepository } from "../repositories/commit.repository.js";
+import type { CommitRepository, CommitRecord } from "../repositories/commit.repository.js";
 import type { StorageRepository } from "../repositories/storage.repository.js";
 import { CommitStatus, CompilableExerciseTypes, UserType } from "../lib/constants.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../domain/errors.js";
@@ -90,15 +90,37 @@ export class CommitService {
   async getById(id: number, requester: Requester) {
     const commit = await this.commits.findById(id);
     if (!commit) throw new NotFoundError("Commit not found");
-
-    const isAdmin = requester.type >= UserType.ADMIN;
-    if (!isAdmin && commit.userEmail !== requester.email) {
-      const exercise = await this.exercises.findById(commit.exerciseId);
-      const isStaff =
-        exercise !== null && (await this.enrollments.isStaff(requester.email, exercise.offeringId));
-      if (!isStaff) throw new ForbiddenError();
-    }
-
+    await this.requireAccessToCommit(commit, requester);
     return commit;
+  }
+
+  /** Mirrors the raw bytes CommitsController::download() would serve —
+   * needed for the Monaco editor to preload the last submission instead
+   * of always opening empty (docs/frontend/code-editor.md). Same
+   * owner-or-staff rule as getById(); a commit with no awsKey yet
+   * (upload still in flight, shouldn't normally be observable) 404s. */
+  async getContent(id: number, requester: Requester): Promise<{ filename: string; content: Uint8Array }> {
+    const commit = await this.commits.findById(id);
+    if (!commit) throw new NotFoundError("Commit not found");
+    await this.requireAccessToCommit(commit, requester);
+    if (!commit.awsKey) throw new NotFoundError("Commit has no stored file");
+
+    const content = await this.storage.getCommitFile(commit.awsKey);
+    // Key shape is "{exerciseId}/{uuid}-{originalFilename}" (see submit()
+    // below) — strip the exercise-id prefix and the fixed-length UUID to
+    // recover the name the student uploaded.
+    const afterSlash = commit.awsKey.split("/").slice(1).join("/");
+    const filename = afterSlash.replace(/^[0-9a-f-]{36}-/, "");
+    return { filename, content };
+  }
+
+  private async requireAccessToCommit(commit: CommitRecord, requester: Requester): Promise<void> {
+    const isAdmin = requester.type >= UserType.ADMIN;
+    if (isAdmin || commit.userEmail === requester.email) return;
+
+    const exercise = await this.exercises.findById(commit.exerciseId);
+    const isStaff =
+      exercise !== null && (await this.enrollments.isStaff(requester.email, exercise.offeringId));
+    if (!isStaff) throw new ForbiddenError();
   }
 }
