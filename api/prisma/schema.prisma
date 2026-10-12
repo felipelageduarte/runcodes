@@ -7,19 +7,379 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Run `npm run prisma:pull` against the real DB to replace this with the
-// full introspected schema (28 tables — see database/schema/base.sql).
-// Kept minimal here so the auth module has something to compile against.
 model User {
-  email        String    @id @db.VarChar(255)
-  name         String    @db.VarChar(255)
-  password     String    @db.VarChar(255) // legacy rows hold sha1 (40 chars); bcrypt rehash migrates in place on login
+  email        String        @id(map: "pk_users") @db.VarChar(255)
+  name         String        @db.VarChar(255)
+  password     String        @db.VarChar(255)
   type         Int
-  creation     DateTime  @default(now())
-  confirmed    Boolean?  @default(false)
-  universityId Int?      @map("university_id")
-  identifier   String?   @db.VarChar(50)
-  source       Int?      @default(0)
+  creation     DateTime      @default(now()) @db.Timestamp(6)
+  confirmed    Boolean?      @default(false)
+  universityId Int?          @map("university_id")
+  identifier   String?       @db.VarChar(50)
+  source       Int?          @default(0)
+  alerts       alerts[]
+  commits      commits[]
+  enrollments  enrollments[]
+  tickets      tickets[]
 
   @@map("users")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model alerts {
+  id          Int        @id(map: "pk_alerts") @default(autoincrement())
+  type        Int
+  offering_id Int?
+  recipients  Int
+  user_email  String     @db.VarChar(255)
+  valid       DateTime   @db.Date
+  title       String     @db.VarChar(100)
+  message     String     @db.VarChar(255)
+  offerings   offerings? @relation(fields: [offering_id], references: [id], onDelete: Cascade, map: "fk_alerts_offerings_id")
+  users       User       @relation(fields: [user_email], references: [email], onDelete: Cascade, map: "fk_alerts_users_email")
+}
+
+model allowed_files {
+  id                      Int                       @id(map: "pk_files") @default(autoincrement())
+  name                    String                    @db.VarChar(200)
+  extension               String                    @db.VarChar(20)
+  compilable              Boolean?
+  compile_command         String?                   @db.VarChar(255)
+  run_command             String?                   @db.VarChar(255)
+  available               Boolean?                  @default(true)
+  allowed_files_exercises allowed_files_exercises[]
+}
+
+model allowed_files_exercises {
+  id              Int            @id(map: "pk_exercises_allowed_files") @default(autoincrement())
+  exercise_id     Int
+  allowed_file_id Int?
+  allowed_files   allowed_files? @relation(fields: [allowed_file_id], references: [id], onDelete: Cascade, map: "fk_allowed_files_exercises_id")
+  exercises       exercises      @relation(fields: [exercise_id], references: [id], onDelete: Cascade, map: "fk_exercises_allowed_files_id")
+}
+
+model blacklist_mails {
+  id      Int     @id @default(autoincrement())
+  type    Int?    @db.SmallInt
+  address String? @db.VarChar(200)
+}
+
+model commits {
+  id                     Int                      @id(map: "pk_commits") @default(autoincrement())
+  user_email             String                   @db.VarChar(255)
+  exercise_id            Int
+  commit_time            DateTime                 @default(now()) @db.Timestamp(6)
+  status                 Int
+  hash                   String?                  @db.VarChar(150)
+  corrects               Int?                     @default(0)
+  score                  Decimal?                 @default(0.0) @db.Decimal(10, 2)
+  compiled               Boolean?
+  compiled_message       String?
+  compilation_started    DateTime?                @db.Timestamp(6)
+  compilation_finished   DateTime?                @db.Timestamp(6)
+  compiled_signal        String?                  @default("") @db.VarChar(50)
+  compiled_error         String?                  @default("")
+  ip                     String?                  @db.VarChar(30)
+  aws_key                String?                  @db.VarChar(150)
+  exercises              exercises                @relation(fields: [exercise_id], references: [id], onDelete: Cascade, map: "fk_commits_exercises_id")
+  users                  User                     @relation(fields: [user_email], references: [email], onDelete: Cascade, map: "fk_commits_users_email")
+  commits_exercise_cases commits_exercise_cases[]
+
+  @@index([commit_time], map: "idx_commits_commit_time")
+  @@index([exercise_id], map: "idx_commits_exercise_id")
+  @@index([status], map: "idx_commits_status")
+  @@index([user_email], map: "idx_commits_user_email")
+  @@index([user_email], map: "idx_commits_user_email_hash", type: Hash)
+}
+
+model commits_exercise_cases {
+  id               Int            @id(map: "pk_commits_exercise_case") @default(autoincrement())
+  commit_id        Int
+  exercise_case_id Int
+  cputime          Decimal        @db.Decimal(15, 4)
+  memused          Int
+  output           String
+  output_type      Int
+  status           Int
+  status_message   String?
+  error            String?        @default("")
+  commits          commits        @relation(fields: [commit_id], references: [id], onDelete: Cascade, map: "fk_commits_exercise_cases_commits_id")
+  exercise_cases   exercise_cases @relation(fields: [exercise_case_id], references: [id], onDelete: Cascade, map: "fk_commits_exercise_cases_exercise_cases_id")
+
+  @@index([commit_id], map: "idx_commits_exercise_cases_commit_id")
+  @@index([exercise_case_id], map: "idx_commits_exercise_cases_exercise_case_id")
+}
+
+model compilation_files {
+  id          Int       @id @default(autoincrement())
+  exercise_id Int
+  path        String    @db.VarChar(150)
+  exercises   exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_compilation_files_exercise")
+}
+
+model courses {
+  id            Int         @id(map: "pk_courses") @default(autoincrement())
+  code          String      @db.VarChar(16)
+  title         String      @db.VarChar(255)
+  university_id Int         @default(1)
+  offerings     offerings[]
+
+  @@index([university_id])
+}
+
+model cria_schools {
+  id                  Int      @id @default(autoincrement())
+  name                String   @db.VarChar(300)
+  supervisor          String   @db.VarChar(500)
+  city                String   @db.VarChar(100)
+  state               String   @db.VarChar(100)
+  edition             Int
+  password            String   @db.VarChar(10)
+  email               String   @db.VarChar(500)
+  next_student_number Int?     @default(100)
+  removed             Boolean? @default(false)
+}
+
+model cria_students {
+  id             Int      @id @default(autoincrement())
+  name           String   @db.VarChar(100)
+  cria_school_id Int
+  edition        Int
+  password       String   @db.VarChar(10)
+  number         Int?     @default(999)
+  email          String   @db.VarChar(150)
+  removed        Boolean? @default(false)
+}
+
+model disk_reports {
+  id       Int       @id @default(autoincrement())
+  datetime DateTime? @db.Timestamptz(6)
+  disk     String?   @db.VarChar(100)
+  used     Float?    @db.Real
+  free     Float?    @db.Real
+  size     Float?    @db.Real
+}
+
+model droplets {
+  id      Int     @id(map: "pk_droplets") @default(autoincrement())
+  ip      String? @db.Inet
+  active  Boolean
+  memsize Int
+  hdsize  Int
+  place   String  @db.VarChar(100)
+  os      String  @db.VarChar(100)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model enrollments {
+  id          Int       @id(map: "pk_enrollments") @default(autoincrement())
+  offering_id Int
+  user_email  String    @db.VarChar(255)
+  role        Int
+  banned      Boolean?  @default(false)
+  offerings   offerings @relation(fields: [offering_id], references: [id], onDelete: Cascade, map: "fk_enrollments_offerings_id")
+  users       User      @relation(fields: [user_email], references: [email], onDelete: Cascade, map: "fk_enrollments_users_email")
+
+  @@unique([offering_id, user_email], map: "unique_enrollments")
+  @@index([offering_id], map: "idx_enrollments_offering_id")
+  @@index([user_email], map: "idx_enrollments_user_email")
+}
+
+model exercise_case_files {
+  id               Int            @id(map: "pk_exercise_case_files") @default(autoincrement())
+  exercise_case_id Int
+  path             String         @db.VarChar(150)
+  created_at       DateTime?      @default(now()) @db.Timestamp(6)
+  exercise_cases   exercise_cases @relation(fields: [exercise_case_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_exercise_case_files_exercise")
+}
+
+model exercise_cases {
+  id                     Int                      @id(map: "pk_exercise_cases") @default(autoincrement())
+  exercise_id            Int
+  input                  String?
+  input_type             Int
+  output                 String?
+  output_type            Int
+  show_input             Boolean?
+  show_expected_output   Boolean?
+  maxmemsize             Int
+  cputime                Int
+  stacksize              Int
+  show_user_output       Boolean?
+  file_size              Int
+  abs_error              Float?
+  last_update            DateTime?                @default(now()) @db.Timestamp(6)
+  input_md5              String?                  @db.VarChar(40)
+  output_md5             String?                  @db.VarChar(40)
+  commits_exercise_cases commits_exercise_cases[]
+  exercise_case_files    exercise_case_files[]
+  exercises              exercises                @relation(fields: [exercise_id], references: [id], onDelete: Cascade, map: "fk_exercise_cases_exercise_id")
+
+  @@index([exercise_id], map: "idx_exercise_cases_exercise_id")
+}
+
+model exercise_files {
+  id          Int       @id(map: "pk_exercise_files") @default(autoincrement())
+  exercise_id Int
+  path        String    @db.VarChar(150)
+  exercises   exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, map: "fk_exercise_files_exercise_id")
+}
+
+model exercises {
+  id                      Int                       @id(map: "pk_exercises") @default(autoincrement())
+  offering_id             Int
+  title                   String                    @db.VarChar(255)
+  description             String?
+  deadline                DateTime                  @default(now()) @db.Timestamp(6)
+  user_email              String                    @db.VarChar(255)
+  type                    Int                       @default(0)
+  open_date               DateTime?                 @default(now()) @db.Timestamp(6)
+  show_before_opening     Boolean?
+  cases_change            DateTime?                 @db.Timestamp(6)
+  removed                 Boolean?                  @default(false)
+  ghost                   Boolean?                  @default(false)
+  real_id                 Int?
+  public                  Boolean?                  @default(false)
+  markdown                Boolean?                  @default(false)
+  allowed_files_exercises allowed_files_exercises[]
+  commits                 commits[]
+  compilation_files       compilation_files[]
+  exercise_cases          exercise_cases[]
+  exercise_files          exercise_files[]
+  offerings               offerings                 @relation(fields: [offering_id], references: [id], onDelete: Cascade, map: "fk_exercises_offerings_id")
+
+  @@index([deadline], map: "idx_exercises_deadline")
+  @@index([offering_id], map: "idx_exercises_offering_id")
+  @@index([open_date], map: "idx_exercises_open_date")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ganglia {
+  ip          String?  @db.VarChar(15)
+  name        String?  @db.VarChar(255)
+  reported    Decimal? @db.Decimal(100, 0)
+  boottime    Decimal? @db.Decimal(100, 0)
+  machinetype String?  @db.VarChar(255)
+  osname      String?  @db.VarChar(255)
+  osrelease   String?  @db.VarChar(255)
+  proctotal   Int?
+  cpunum      Int?
+  cpuspeed    Float?
+  cpuidle     Float?
+  ioreads     Float?
+  iowrites    Float?
+  ionread     Float?
+  ionwrite    Float?
+  memtotal    Float?
+  memcached   Float?
+  membuffers  Float?
+  memfree     Float?
+  swaptotal   Float?
+  swapfree    Float?
+  disktotal   Float?
+  diskfree    Float?
+  loadone     Float?
+  loadfive    Float?
+  loadfifteen Float?
+  pktsin      Float?
+  pktsout     Float?
+  bytesin     Float?
+  bytesout    Float?
+  isjail      Boolean? @default(false)
+
+  @@ignore
+}
+
+model jail_status {
+  jailname   String    @id @db.VarChar(255)
+  status     Int?
+  tsmp       DateTime? @db.Timestamp(6)
+  ipaddress  String?   @db.VarChar(39)
+  ssh_port   Int?
+  ssh_status Int?
+}
+
+model logs {
+  id         Int      @id(map: "pk_actionlogs") @default(autoincrement())
+  user_email String   @db.VarChar(255)
+  datetime   DateTime @default(now()) @db.Timestamp(6)
+  ip         String   @db.VarChar(15)
+  action     String
+}
+
+model mail_logs {
+  id                Int       @id @default(autoincrement())
+  sent_to           String?   @db.VarChar(150)
+  subject           String?   @db.VarChar(200)
+  message           String?
+  hash              String?   @db.VarChar(80)
+  opened            Int?      @default(0)
+  sent_date         DateTime? @default(now()) @db.Timestamp(6)
+  first_opened_time DateTime? @db.Timestamp(6)
+
+  @@index([hash], map: "idx_mail_logs_hash", type: Hash)
+}
+
+model messages {
+  id          Int     @id @default(autoincrement())
+  recipes     String?
+  subject     String?
+  message     String?
+  attachments String?
+  template    String?
+}
+
+model offerings {
+  id                Int           @id(map: "pk_offerings") @default(autoincrement())
+  course_id         Int
+  year              Int
+  term              Int
+  classroom         String?       @db.VarChar(45)
+  end_date          DateTime      @db.Date
+  visible_to_enroll Boolean?      @default(true)
+  enrollment_code   String?       @db.VarChar(10)
+  max_students      Int?          @default(0)
+  max_exercises     Int?          @default(0)
+  alerts            alerts[]
+  enrollments       enrollments[]
+  exercises         exercises[]
+  courses           courses       @relation(fields: [course_id], references: [id], onDelete: Cascade, map: "fk_offerings_courses_code")
+
+  @@unique([course_id, year, term, classroom], map: "un_offerings_offerings")
+}
+
+model public_exercises {
+  id          Int     @id @default(autoincrement())
+  exercise_id Int
+  level       Int?
+  obs         String?
+  keywords    String? @db.VarChar(255)
+}
+
+model questions {
+  id    Int     @id @default(autoincrement())
+  title String? @db.VarChar(350)
+  text  String?
+  tags  String? @db.VarChar(350)
+}
+
+model tickets {
+  id          Int      @id(map: "pk_tickets") @default(autoincrement())
+  users_email String   @db.VarChar(255)
+  datetime    DateTime @default(now()) @db.Timestamp(6)
+  type        Int
+  status      Int
+  solved      Boolean?
+  priority    Int
+  message     String
+  users       User     @relation(fields: [users_email], references: [email], onDelete: Cascade, map: "fk_tickets_users_email")
+}
+
+model universities {
+  id                      Int     @id @default(autoincrement())
+  abbreviation            String  @db.VarChar(20)
+  name                    String  @db.VarChar(210)
+  student_identifier_text String? @db.VarChar(40)
+  type                    Int?    @default(1)
+  state                   String? @default("BR") @db.VarChar(5)
 }
