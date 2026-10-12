@@ -9,9 +9,9 @@ Dois níveis, propositalmente separados — configs e comandos diferentes:
 
 ## Unitário — `npm test`
 
-`vitest.config.ts`. 165 testes, todos os services, **zero banco/rede** — cada teste instancia o service passando repositórios mockados (`vi.fn()` implementando a interface do repositório, não o Prisma). Roda em cerca de 1 segundo, pode rodar em qualquer CI sem infra.
+`vitest.config.ts`. 184 testes, todos os services, **zero banco/rede** — cada teste instancia o service passando repositórios mockados (`vi.fn()` implementando a interface do repositório, não o Prisma). Roda em cerca de 1 segundo, pode rodar em qualquer CI sem infra.
 
-Cobertura: toda regra de negócio de cada service (auth, user/signup, enrollment, offering membership, course, offering, exercise, exercise management, exercise case, commit, commit case result, plagiarism, plagiarism worker, university, allowed-file, admin user, grades, ticket, alert, question, public-exercise, log) — ver código-fonte em `src/services/*.test.ts`, cada arquivo ao lado do service que testa.
+Cobertura: toda regra de negócio de cada service (auth, user/signup, enrollment, offering membership, course, offering, exercise, exercise management, exercise attachment, exercise case, commit, commit case result, plagiarism, plagiarism worker, university, allowed-file, admin user, grades, ticket, alert, question, public-exercise, log) — ver código-fonte em `src/services/*.test.ts`, cada arquivo ao lado do service que testa.
 
 ## Integração — `npm run test:integration`
 
@@ -24,7 +24,7 @@ Requer:
 docker compose -f docker-compose.local.yml up -d
 ```
 
-Cada execução cria seus próprios fixtures (course/offering/exercise/usuários com sufixo de timestamp) e limpa tudo em `afterAll` — não depende do seed do `local-dev` nem o modifica. 37 testes, incluindo o fluxo completo: login real, controle de acesso antes/depois de matrícula, rejeição de tipo de arquivo, submissão real sendo pega e corrigida pelo engine Python (poll até status sair de `IN_QUEUE`, tipicamente ~1-8s), signup/confirmação, gestão de turma, CRUD de exercício/caso com round-trip real no S3, e detecção de plágio rodando Dolos e JPlag de verdade sobre submissões reais.
+Cada execução cria seus próprios fixtures (course/offering/exercise/usuários com sufixo de timestamp) e limpa tudo em `afterAll` — não depende do seed do `local-dev` nem o modifica. 43 testes, incluindo o fluxo completo: login real, controle de acesso antes/depois de matrícula, rejeição de tipo de arquivo, submissão real sendo pega e corrigida pelo engine Python (poll até status sair de `IN_QUEUE`, tipicamente ~1-8s), signup/confirmação, gestão de turma, CRUD de exercício/caso com round-trip real no S3, detecção de plágio rodando Dolos e JPlag de verdade sobre submissões reais, e upload de arquivo + compartilhamento ghost entre turmas (achou um bug real de redirecionamento nesse último).
 
 ## Por que essa separação
 

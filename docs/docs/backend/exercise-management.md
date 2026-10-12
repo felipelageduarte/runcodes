@@ -12,8 +12,27 @@ Professor/assistente/admin cria e mantém exercícios e seus casos de teste. Lei
 - `POST /api/offerings/:offeringId/exercises` — cria. Staff da turma ou admin.
 - `PUT /api/exercises/:id` — edita (todos os campos opcionais, PATCH-like).
 - `DELETE /api/exercises/:id` — **soft delete** (`removed = true`), nunca apaga a linha. Cascateia pra clones "ghost" (`real_id = id`) — mirror exato de `ExercisesController::delete()`.
+- `POST /api/exercises/:id/share` — compartilha o exercício com outra turma como clone "ghost" (`ghost=true`, `real_id` apontando pro original). Autorização exige staff/admin da turma **de destino** (não da turma original) — mirror exato de `Exercise::createGhostExercise()`. Casos, allow-list de arquivo e anexos ficam todos no exercício real; todo módulo que lê isso já redireciona via `real_id`.
 
-Upload de arquivos auxiliares (arquivos de compilação, arquivos extras do exercício) fica fora de escopo por enquanto — não implementado.
+## Arquivos (exercise files e compilation files)
+
+Upload direto via multipart — uma única requisição, sem o vai-e-vem de duas fases do legado (upload pra um S3 temporário, depois "copiar" pro destino no save do form — resquício da UX do widget jQuery File Upload antigo).
+
+```
+GET/POST  /api/exercises/:id/files                   (listar / subir — staff+ pra upload, qualquer matriculado pra listar)
+GET       /api/exercise-files/:id/download
+DELETE    /api/exercise-files/:id                     (staff+)
+
+GET/POST  /api/exercises/:id/compilation-files        (mesma forma, arquivo usado na compilação)
+GET       /api/compilation-files/:id/download
+DELETE    /api/compilation-files/:id
+```
+
+Extensões bloqueadas (`exe`, `php`, `htm`, `html`) são rejeitadas **no upload**, não só no download como o legado fazia — não tem sentido aceitar um arquivo que nunca vamos concordar em servir de volta. Toda resposta de download usa `application/octet-stream` independente do tipo real do arquivo, então nada é servido de um jeito que o navegador tentaria executar.
+
+### Compilation files: outro contrato de S3 que não pode mudar
+
+Vivem em `compilationfiles/{exerciseId}/{nome}` dentro do bucket `{prefix}-files` — o `compiler-engine` (`fetch_exercise_file()`) lê exatamente essa chave, resolvendo `compilation_files.path` (só o nome do arquivo) contra `exercise.real_id` quando o exercício é ghost. [Verificado](./testing.md): upload pela API, leitura direta do SeaweedFS na chave exata.
 
 ## Casos de teste (`ExerciseCase`)
 

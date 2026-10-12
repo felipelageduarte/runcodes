@@ -17,11 +17,11 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 - ✅ **Notas (grades matrix)** — `GET /api/offerings/:id/grades`, matriz aluno × exercício.
 - ✅ **Admin** — universidades, tipos de arquivo permitido, usuários (CRUD), logs (leitura).
 - ✅ **Tickets, alerts, questions, public-exercises** — suporte, avisos, FAQ, catálogo de exercícios reutilizáveis.
+- ✅ **Upload de arquivo** (`ExerciseFile`/`CompilationFile`) **e exercícios "ghost"** — upload direto multipart pro S3 (sem o vai-e-vem de duas fases do legado), compartilhamento de exercício entre turmas. Ver [exercise-management.md](../backend/exercise-management.md). `ExerciseCaseFile` (caso de teste baseado em arquivo, não texto inline) ainda não — ver abaixo.
 
 ## Backlog real (não implementado)
 
-- **Upload de arquivo auxiliar** — `ExerciseFile`/`CompilationFile`/`ExerciseCaseFile` do legado: arquivos de apoio à compilação, material extra do exercício, casos de teste baseados em arquivo (hoje só input/output inline como texto é suportado). Precisa de infra de upload multipart + S3 por tipo, não implementado.
-- **Exercícios "ghost"** — compartilhar o mesmo exercício entre turmas diferentes (clone leve apontando pro original). O campo `ghost`/`real_id` já existe no schema e é respeitado onde relevante (ex. delete cascateia, cases redirecionam pro original), mas não há endpoint pra *criar* um ghost a partir de um exercício existente.
+- **Casos de teste baseados em arquivo** (`ExerciseCaseFile`) — hoje `ExerciseCaseService` só aceita input/output como texto inline; o legado também suporta casos cujo input é um arquivo binário. Mesma infra de upload do `ExerciseAttachmentService` daria conta, não implementado ainda.
 - **Envio real de email** — `POST /api/users` e as rotas de confirmação/reset já geram o token certo; falta o serviço de envio de fato (hoje a API devolve o token bruto na resposta, documentado como provisório). `local-dev` já tem `smtp4dev` rodando, pronto pra um `MessagesController`-equivalente consumir.
 - **Stats/infográficos detalhados** — `ExercisesController::stats/participantCommits/getAllScoresZipped`, `OfferingsController::infographic/exportToCsv`. A matriz de notas cobre o caso de uso principal (ver nota por aluno/exercício); gráficos e exportação CSV ainda não.
 - **Log de auditoria (escrita)** — o legado chama `Log::register()` em quase toda ação de mutação; a leitura (`GET /api/admin/logs`) já existe, mas nada no `runcodes-api` escreve nessa tabela ainda. Virar isso um cross-cutting concern de verdade (middleware/decorator) é trabalho de design, não um patch pontual.
