@@ -46,6 +46,8 @@ import { AlertService } from "./services/alert.service.js";
 import { QuestionService } from "./services/question.service.js";
 import { PublicExerciseService } from "./services/public-exercise.service.js";
 import { GradesService } from "./services/grades.service.js";
+import { StatsService } from "./services/stats.service.js";
+import { ExerciseExportService } from "./services/exercise-export.service.js";
 import { LogService } from "./services/log.service.js";
 import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
 
@@ -175,6 +177,24 @@ export function buildContainer() {
       repositories.exercises,
       repositories.enrollments,
       repositories.commits,
+      repositories.courses,
+      repositories.universities,
+    ),
+    stats: new StatsService(
+      repositories.exercises,
+      repositories.exerciseCases,
+      repositories.offerings,
+      repositories.enrollments,
+      repositories.commits,
+      repositories.commitCaseResults,
+      repositories.users,
+    ),
+    exerciseExport: new ExerciseExportService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.commits,
+      repositories.storage,
+      repositories.users,
     ),
     log: new LogService(repositories.logs),
     exerciseFile: new ExerciseAttachmentService(

@@ -5,7 +5,19 @@ import type { OfferingRepository, OfferingRecord } from "../repositories/offerin
 import type { ExerciseRepository, ExerciseRecord } from "../repositories/exercise.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { CommitRepository, CommitRecord } from "../repositories/commit.repository.js";
+import type { CourseRepository, CourseRecord } from "../repositories/course.repository.js";
+import type { UniversityRepository, UniversityRecord } from "../repositories/university.repository.js";
 import { UserType } from "../lib/constants.js";
+
+const COURSE: CourseRecord = { id: 1, code: "MAC0101", title: "Intro", universityId: 1 };
+const UNIVERSITY: UniversityRecord = {
+  id: 1,
+  abbreviation: "USP",
+  name: "USP",
+  studentIdentifierText: "NUSP",
+  type: 0,
+  state: "SP",
+};
 
 const OFFERING: OfferingRecord = {
   id: 1,
@@ -80,9 +92,10 @@ function makeRepos(overrides: { offering?: OfferingRecord | null; isStaff?: bool
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
-    listStudentsForOffering: vi
-      .fn()
-      .mockResolvedValue([{ email: "alice@x.com", name: "Alice" }, { email: "bob@x.com", name: "Bob" }]),
+    listStudentsForOffering: vi.fn().mockResolvedValue([
+      { email: "alice@x.com", name: "Alice", identifier: "111" },
+      { email: "bob@x.com", name: "Bob", identifier: "222" },
+    ]),
   };
   const commits: CommitRepository = {
     create: vi.fn(),
@@ -90,11 +103,31 @@ function makeRepos(overrides: { offering?: OfferingRecord | null; isStaff?: bool
     listForUserOnExercise: vi.fn(),
     listLatestPerStudentForExercise: vi.fn().mockResolvedValue([makeCommit()]), // only alice submitted
   };
-  return { offerings, exercises, enrollments, commits };
+  const courses: CourseRepository = {
+    list: vi.fn(),
+    findById: vi.fn().mockResolvedValue(COURSE),
+    searchByUniversity: vi.fn(),
+  };
+  const universities: UniversityRepository = {
+    findByIds: vi.fn(),
+    findById: vi.fn().mockResolvedValue(UNIVERSITY),
+    list: vi.fn(),
+    existsByAbbreviation: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  };
+  return { offerings, exercises, enrollments, commits, courses, universities };
 }
 
 function buildService(repos: ReturnType<typeof makeRepos>) {
-  return new GradesService(repos.offerings, repos.exercises, repos.enrollments, repos.commits);
+  return new GradesService(
+    repos.offerings,
+    repos.exercises,
+    repos.enrollments,
+    repos.commits,
+    repos.courses,
+    repos.universities,
+  );
 }
 
 const STAFF = { email: "prof@x.com", type: 0 };
@@ -147,5 +180,44 @@ describe("GradesService.getGrades", () => {
     await service.getGrades(1, STAFF);
 
     expect(repos.exercises.listVisible).toHaveBeenCalledWith({ offeringId: 1, includeUnopened: true });
+  });
+});
+
+describe("GradesService.exportCsv", () => {
+  it("builds a CSV with the university's identifier label as a header, defaulting missing grades to 0.0", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    const { filename, csv } = await service.exportCsv(1, STAFF);
+
+    expect(filename).toBe("grades-MAC0101-1.csv");
+    const lines = csv.trim().split("\r\n");
+    expect(lines[0]).toBe("Name,NUSP,Email,Role,Ex");
+    expect(lines[1]).toBe("Alice,111,alice@x.com,Student,10");
+    expect(lines[2]).toBe("Bob,222,bob@x.com,Student,0");
+  });
+
+  it("falls back to a generic label when the university has none", async () => {
+    const repos = makeRepos();
+    repos.universities.findById = vi.fn().mockResolvedValue({ ...UNIVERSITY, studentIdentifierText: null });
+    const service = buildService(repos);
+
+    const { csv } = await service.exportCsv(1, STAFF);
+
+    expect(csv.split("\r\n")[0]).toBe("Name,Identifier,Email,Role,Ex");
+  });
+
+  it("throws NotFoundError for a missing offering", async () => {
+    const repos = makeRepos({ offering: null });
+    const service = buildService(repos);
+
+    await expect(service.exportCsv(1, STAFF)).rejects.toThrow(NotFoundError);
+  });
+
+  it("is forbidden for a non-staff, non-admin requester", async () => {
+    const repos = makeRepos({ isStaff: false });
+    const service = buildService(repos);
+
+    await expect(service.exportCsv(1, STUDENT)).rejects.toThrow(ForbiddenError);
   });
 });

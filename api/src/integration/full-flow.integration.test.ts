@@ -342,6 +342,88 @@ describe("submission pipeline", () => {
   });
 });
 
+describe("grades, stats, and exports", () => {
+  it("rejects a non-staff requester on every dashboard endpoint", async () => {
+    const token = await login(emails.student);
+    const endpoints = [
+      `/api/offerings/${offeringId}/grades/export.csv`,
+      `/api/exercises/${exerciseId}/stats`,
+      `/api/exercises/${exerciseId}/participants/${emails.student}/commits`,
+      `/api/offerings/${offeringId}/stats`,
+      `/api/offerings/${offeringId}/infographic`,
+      `/api/exercises/${exerciseId}/export-submissions.zip`,
+    ];
+    for (const url of endpoints) {
+      const res = await request(app).get(url).set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    }
+  });
+
+  it("exports the grades matrix as CSV with the graded commit's score", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/offerings/${offeringId}/grades/export.csv`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.headers["content-disposition"]).toContain("attachment");
+    expect(res.text).toContain(emails.student);
+  });
+
+  it("computes per-case correctness stats for the exercise", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/exercises/${exerciseId}/stats`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.caseLabels.length).toBe(res.body.correctPercentage.length);
+  });
+
+  it("lists a student's commit history on the exercise", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/exercises/${exerciseId}/participants/${emails.student}/commits`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.some((c: { id: number }) => c.id === commitId)).toBe(true);
+  });
+
+  it("computes the offering-wide class average per exercise", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/offerings/${offeringId}/stats`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.exerciseLabels.length).toBe(res.body.classAverage.length);
+  });
+
+  it("computes the offering infographic", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/offerings/${offeringId}/infographic`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.studentCount).toBeGreaterThan(0);
+  });
+
+  it("streams a zip of every student's latest submission", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/exercises/${exerciseId}/export-submissions.zip`)
+      .set("Authorization", `Bearer ${token}`)
+      .buffer()
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("application/zip");
+    const body = res.body as Buffer;
+    expect(body.subarray(0, 2).toString()).toBe("PK");
+  });
+});
+
 describe("signup + email confirmation", () => {
   it("creates an unconfirmed account and refuses login before confirmation", async () => {
     const signupRes = await request(app).post("/api/users").send({

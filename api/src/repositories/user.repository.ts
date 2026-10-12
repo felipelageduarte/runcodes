@@ -7,6 +7,7 @@ export interface UserRecord {
   type: number;
   universityId: number | null;
   confirmed: boolean;
+  identifier: string | null;
 }
 
 export interface UserConfirmationRecord {
@@ -73,7 +74,15 @@ export class PrismaUserRepository implements UserRepository {
   async findByEmail(email: string): Promise<UserRecord | null> {
     const row = await this.prisma.user.findUnique({
       where: { email },
-      select: { email: true, name: true, password: true, type: true, universityId: true, confirmed: true },
+      select: {
+        email: true,
+        name: true,
+        password: true,
+        type: true,
+        universityId: true,
+        confirmed: true,
+        identifier: true,
+      },
     });
     if (!row) return null;
     return { ...row, confirmed: row.confirmed ?? false };
@@ -172,7 +181,15 @@ export class PrismaUserRepository implements UserRepository {
         orderBy: { name: "asc" },
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
-        select: { email: true, name: true, password: true, type: true, universityId: true, confirmed: true },
+        select: {
+          email: true,
+          name: true,
+          password: true,
+          type: true,
+          universityId: true,
+          confirmed: true,
+          identifier: true,
+        },
       }),
     ]);
     return { total, users: rows.map((r) => ({ ...r, confirmed: r.confirmed ?? false })) };
@@ -188,7 +205,15 @@ export class PrismaUserRepository implements UserRepository {
           ...(patch.confirmed !== undefined ? { confirmed: patch.confirmed } : {}),
           ...(patch.universityId !== undefined ? { universityId: patch.universityId } : {}),
         },
-        select: { email: true, name: true, password: true, type: true, universityId: true, confirmed: true },
+        select: {
+          email: true,
+          name: true,
+          password: true,
+          type: true,
+          universityId: true,
+          confirmed: true,
+          identifier: true,
+        },
       });
       return { ...row, confirmed: row.confirmed ?? false };
     } catch {

@@ -15,5 +15,19 @@ export function createGradesRouter(gradesService: GradesService, requireAuth: Re
     }
   });
 
+  router.get("/export.csv", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const offeringId = Number(req.params.offeringId);
+      if (!Number.isInteger(offeringId)) return res.status(400).json({ error: "invalid_id" });
+      const { filename, csv } = await gradesService.exportCsv(offeringId, req.user!);
+      const safeFilename = filename.replace(/[\r\n"]/g, "_");
+      res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.send(csv);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }

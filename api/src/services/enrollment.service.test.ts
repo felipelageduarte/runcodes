@@ -64,6 +64,7 @@ function makeRepos(overrides: {
           type: 0,
           universityId: 1,
           confirmed: true,
+          identifier: null,
         },
       ),
     updatePassword: vi.fn(),
@@ -92,7 +93,15 @@ describe("EnrollmentService.enrollByCode", () => {
   it("rejects when the offering belongs to a different university", async () => {
     const repos = makeRepos({
       course: { id: 10, code: "X", title: "X", universityId: 2 },
-      user: { email: "s@x.com", name: "S", password: "", type: 0, universityId: 1, confirmed: true },
+      user: {
+        email: "s@x.com",
+        name: "S",
+        password: "",
+        type: 0,
+        universityId: 1,
+        confirmed: true,
+        identifier: null,
+      },
     });
     const service = new EnrollmentService(repos.enrollments, repos.offerings, repos.courses, repos.users);
 

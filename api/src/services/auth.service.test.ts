@@ -15,6 +15,7 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
     type: 0,
     universityId: 1,
     confirmed: true,
+    identifier: null,
     ...overrides,
   };
 }

@@ -20,6 +20,7 @@ const TARGET_USER: UserRecord = {
   type: 0,
   universityId: 1,
   confirmed: true,
+  identifier: null,
 };
 
 function makeRepos(overrides: { staff?: boolean } = {}) {

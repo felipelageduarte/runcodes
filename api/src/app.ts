@@ -24,6 +24,8 @@ import { createPublicExercisesRouter } from "./http/routes/public-exercises.rout
 import { createGradesRouter } from "./http/routes/grades.routes.js";
 import { createLogsRouter } from "./http/routes/logs.routes.js";
 import { createExerciseAttachmentRouters } from "./http/routes/exercise-attachment.routes.js";
+import { createExerciseStatsRouter, createOfferingStatsRouter } from "./http/routes/stats.routes.js";
+import { createExerciseExportRouter } from "./http/routes/exercise-export.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -84,6 +86,18 @@ export function buildApp(container: Container) {
   app.use(
     "/api/offerings/:offeringId/grades",
     createGradesRouter(services.grades, middleware.requireAuth),
+  );
+  app.use(
+    "/api/offerings/:offeringId",
+    createOfferingStatsRouter(services.stats, middleware.requireAuth),
+  );
+  app.use(
+    "/api/exercises/:exerciseId",
+    createExerciseStatsRouter(services.stats, middleware.requireAuth),
+  );
+  app.use(
+    "/api/exercises/:exerciseId",
+    createExerciseExportRouter(services.exerciseExport, middleware.requireAuth),
   );
   app.use("/api/admin/logs", createLogsRouter(services.log, middleware.requireAuth));
   app.use("/api/exercises/:exerciseId/files", exerciseFilesByExercise);

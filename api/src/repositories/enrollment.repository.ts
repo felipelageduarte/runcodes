@@ -19,7 +19,9 @@ export interface EnrollmentRepository {
   listStaffForOfferings(
     offeringIds: number[],
   ): Promise<Map<number, { role: number; email: string; name: string }[]>>;
-  listStudentsForOffering(offeringId: number): Promise<{ email: string; name: string }[]>;
+  listStudentsForOffering(
+    offeringId: number,
+  ): Promise<{ email: string; name: string; identifier: string | null }[]>;
   create(offeringId: number, email: string, role: number): Promise<EnrollmentRecord>;
   setRole(offeringId: number, email: string, role: number): Promise<EnrollmentRecord | null>;
   ban(offeringId: number, email: string): Promise<EnrollmentRecord | null>;
@@ -96,10 +98,12 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
     return byOffering;
   }
 
-  async listStudentsForOffering(offeringId: number): Promise<{ email: string; name: string }[]> {
+  async listStudentsForOffering(
+    offeringId: number,
+  ): Promise<{ email: string; name: string; identifier: string | null }[]> {
     const rows = await this.prisma.enrollments.findMany({
       where: { offering_id: offeringId, banned: false, role: EnrollmentRole.STUDENT },
-      select: { users: { select: { email: true, name: true } } },
+      select: { users: { select: { email: true, name: true, identifier: true } } },
       orderBy: { users: { name: "asc" } },
     });
     return rows.map((r) => r.users);
