@@ -231,6 +231,49 @@ describe("auth", () => {
     const token = await login(emails.student);
     expect(token).toBeTruthy();
   });
+
+  it("sets an httpOnly session cookie on login, alongside the token in the body", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: emails.student, password: TEST_PASSWORD });
+    expect(res.status).toBe(200);
+    const setCookie = res.headers["set-cookie"];
+    expect(setCookie).toBeTruthy();
+    const cookieHeader = Array.isArray(setCookie) ? setCookie.join(";") : String(setCookie);
+    expect(cookieHeader).toContain("token=");
+    expect(cookieHeader.toLowerCase()).toContain("httponly");
+  });
+
+  it("GET /api/auth/me authenticates via the session cookie, no Authorization header needed", async () => {
+    const agent = request.agent(app);
+    const loginRes = await agent
+      .post("/api/auth/login")
+      .send({ email: emails.student, password: TEST_PASSWORD });
+    expect(loginRes.status).toBe(200);
+
+    const meRes = await agent.get("/api/auth/me");
+    expect(meRes.status).toBe(200);
+    expect(meRes.body.email).toBe(emails.student);
+  });
+
+  it("GET /api/auth/me still works via the Authorization header (API clients, this test suite)", async () => {
+    const token = await login(emails.student);
+    const res = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.email).toBe(emails.student);
+  });
+
+  it("POST /api/auth/logout clears the session cookie", async () => {
+    const agent = request.agent(app);
+    await agent.post("/api/auth/login").send({ email: emails.student, password: TEST_PASSWORD });
+    await expect(agent.get("/api/auth/me")).resolves.toMatchObject({ status: 200 });
+
+    const logoutRes = await agent.post("/api/auth/logout");
+    expect(logoutRes.status).toBe(204);
+
+    const meRes = await agent.get("/api/auth/me");
+    expect(meRes.status).toBe(401);
+  });
 });
 
 describe("courses", () => {

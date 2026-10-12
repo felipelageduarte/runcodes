@@ -46,4 +46,13 @@ export class AuthService {
     });
     return { token, user: { email: user.email, name: user.name, type: user.type } };
   }
+
+  /** Backs GET /api/auth/me — session rehydration on page load, since the
+   * httpOnly cookie carries only a signed JWT (email + type), never the
+   * display name the UI needs. */
+  async me(email: string): Promise<{ email: string; name: string; type: number } | null> {
+    const user = await this.users.findByEmail(email);
+    if (!user) return null;
+    return { email: user.email, name: user.name, type: user.type };
+  }
 }

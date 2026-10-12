@@ -1,7 +1,9 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import type { Container } from "./container.js";
+import { env } from "./lib/env.js";
 import { errorHandler } from "./http/middleware/errorHandler.js";
 import { createAuthRouter } from "./http/routes/auth.routes.js";
 import { createHealthRouter } from "./http/routes/health.routes.js";
@@ -57,11 +59,16 @@ export function buildApp(container: Container) {
 
   const app = express();
   app.use(helmet());
-  app.use(cors());
+  // `credentials: true` + an explicit origin (not "*") is required for the
+  // browser to accept the httpOnly session cookie set by /api/auth/login —
+  // APP_BASE_URL is already the frontend's origin (reused from the email
+  // confirmation/reset links).
+  app.use(cors({ origin: env.APP_BASE_URL, credentials: true }));
   app.use(express.json());
+  app.use(cookieParser());
   app.use(middleware.auditLog);
 
-  app.use("/api/auth", createAuthRouter(services.auth));
+  app.use("/api/auth", createAuthRouter(services.auth, middleware.requireAuth));
   app.use("/api/users", createUsersRouter(services.user));
   app.use("/api", createHealthRouter(middleware.requireAuth));
   app.use("/api/courses", createCoursesRouter(services.course, middleware.requireAuth));

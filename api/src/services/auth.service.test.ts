@@ -107,3 +107,23 @@ describe("AuthService.login", () => {
     });
   });
 });
+
+describe("AuthService.me", () => {
+  it("returns null for an unknown email (e.g. deleted after the token was issued)", async () => {
+    const users = makeUsersRepo(null);
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.me("gone@example.com")).resolves.toBeNull();
+  });
+
+  it("returns email/name/type without the password hash", async () => {
+    const users = makeUsersRepo(makeUser({ email: "a@example.com", name: "A", type: 2 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.me("a@example.com")).resolves.toEqual({
+      email: "a@example.com",
+      name: "A",
+      type: 2,
+    });
+  });
+});
