@@ -69,6 +69,7 @@ function makeRepos(exercise: ExerciseRecord | null) {
     create: vi.fn().mockImplementation((input) => Promise.resolve(makeCommitRecord({ ...input, id: 1 }))),
     findById: vi.fn(),
     listForUserOnExercise: vi.fn().mockResolvedValue([]),
+    listLatestPerStudentForExercise: vi.fn().mockResolvedValue([]),
   };
   const storage: StorageRepository = {
     putCommitFile: vi.fn().mockResolvedValue(undefined),

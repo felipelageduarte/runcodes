@@ -28,6 +28,9 @@ export interface CommitRepository {
   create(input: NewCommit): Promise<CommitRecord>;
   findById(id: number): Promise<CommitRecord | null>;
   listForUserOnExercise(exerciseId: number, userEmail: string): Promise<CommitRecord[]>;
+  /** Each enrolled student's most recent commit on the exercise (one row
+   * per student) — the dataset a plagiarism comparison runs against. */
+  listLatestPerStudentForExercise(exerciseId: number): Promise<CommitRecord[]>;
 }
 
 export class PrismaCommitRepository implements CommitRepository {
@@ -56,6 +59,15 @@ export class PrismaCommitRepository implements CommitRepository {
     const rows = await this.prisma.commits.findMany({
       where: { exercise_id: exerciseId, user_email: userEmail },
       orderBy: { commit_time: "desc" },
+    });
+    return rows.map(toRecord);
+  }
+
+  async listLatestPerStudentForExercise(exerciseId: number): Promise<CommitRecord[]> {
+    const rows = await this.prisma.commits.findMany({
+      where: { exercise_id: exerciseId, aws_key: { not: null } },
+      distinct: ["user_email"],
+      orderBy: [{ user_email: "asc" }, { commit_time: "desc" }],
     });
     return rows.map(toRecord);
   }

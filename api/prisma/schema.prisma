@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  email                         String        @id(map: "pk_users") @db.VarChar(255)
-  name                          String        @db.VarChar(255)
-  password                      String        @db.VarChar(255)
+  email                         String            @id(map: "pk_users") @db.VarChar(255)
+  name                          String            @db.VarChar(255)
+  password                      String            @db.VarChar(255)
   type                          Int
-  creation                      DateTime      @default(now()) @db.Timestamp(6)
-  confirmed                     Boolean?      @default(false)
-  universityId                  Int?          @map("university_id")
-  identifier                    String?       @db.VarChar(50)
-  source                        Int?          @default(0)
-  confirmation_token_hash       String?       @db.VarChar(64)
-  confirmation_token_expires_at DateTime?     @db.Timestamp(6)
+  creation                      DateTime          @default(now()) @db.Timestamp(6)
+  confirmed                     Boolean?          @default(false)
+  universityId                  Int?              @map("university_id")
+  identifier                    String?           @db.VarChar(50)
+  source                        Int?              @default(0)
+  confirmation_token_hash       String?           @db.VarChar(64)
+  confirmation_token_expires_at DateTime?         @db.Timestamp(6)
   alerts                        alerts[]
   commits                       commits[]
   enrollments                   enrollments[]
+  plagiarism_runs               plagiarism_runs[]
   tickets                       tickets[]
 
   @@map("users")
@@ -249,6 +250,7 @@ model exercises {
   exercise_cases          exercise_cases[]
   exercise_files          exercise_files[]
   offerings               offerings                 @relation(fields: [offering_id], references: [id], onDelete: Cascade, map: "fk_exercises_offerings_id")
+  plagiarism_runs         plagiarism_runs[]
 
   @@index([deadline], map: "idx_exercises_deadline")
   @@index([offering_id], map: "idx_exercises_offering_id")
@@ -384,4 +386,21 @@ model universities {
   student_identifier_text String? @db.VarChar(40)
   type                    Int?    @default(1)
   state                   String? @default("BR") @db.VarChar(5)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model plagiarism_runs {
+  id           Int       @id @default(autoincrement())
+  exercise_id  Int
+  provider     String    @db.VarChar(20)
+  status       String    @default("queued") @db.VarChar(20)
+  requested_by String    @db.VarChar(255)
+  result       Json?
+  error        String?
+  created_at   DateTime  @default(now()) @db.Timestamp(6)
+  completed_at DateTime? @db.Timestamp(6)
+  exercises    exercises @relation(fields: [exercise_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        User      @relation(fields: [requested_by], references: [email], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([exercise_id], map: "idx_plagiarism_runs_exercise_id")
 }

@@ -13,6 +13,8 @@ import { PrismaAllowedFileRepository } from "./repositories/allowed-file.reposit
 import { PrismaCommitRepository } from "./repositories/commit.repository.js";
 import { S3StorageRepository } from "./repositories/storage.repository.js";
 import { S3CaseStorageRepository } from "./repositories/case-storage.repository.js";
+import { PrismaPlagiarismRunRepository } from "./repositories/plagiarism-run.repository.js";
+import { BullMqPlagiarismJobQueue } from "./repositories/plagiarism-job-queue.js";
 
 import { AuthService } from "./services/auth.service.js";
 import { UserService } from "./services/user.service.js";
@@ -24,6 +26,7 @@ import { ExerciseService } from "./services/exercise.service.js";
 import { ExerciseManagementService } from "./services/exercise-management.service.js";
 import { ExerciseCaseService } from "./services/exercise-case.service.js";
 import { CommitService } from "./services/commit.service.js";
+import { PlagiarismService } from "./services/plagiarism.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 
@@ -58,7 +61,10 @@ export function buildContainer() {
     commits: new PrismaCommitRepository(prisma),
     storage: new S3StorageRepository(s3, `${env.S3_BUCKET_PREFIX}-commits`),
     caseStorage: new S3CaseStorageRepository(s3, `${env.S3_BUCKET_PREFIX}-cases`),
+    plagiarismRuns: new PrismaPlagiarismRunRepository(prisma),
   };
+
+  const plagiarismQueue = new BullMqPlagiarismJobQueue(env.REDIS_URL);
 
   const services = {
     auth: new AuthService(
@@ -101,6 +107,12 @@ export function buildContainer() {
       repositories.commits,
       repositories.storage,
     ),
+    plagiarism: new PlagiarismService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.plagiarismRuns,
+      plagiarismQueue,
+    ),
   };
 
   const middleware = {
@@ -112,7 +124,9 @@ export function buildContainer() {
     repositories,
     services,
     middleware,
+    plagiarismQueue,
     async close() {
+      await plagiarismQueue.close();
       await prisma.$disconnect();
     },
   };

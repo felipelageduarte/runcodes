@@ -13,6 +13,7 @@ import { createExerciseCaseRouters } from "./http/routes/exercise-case.routes.js
 import { createEnrollmentsRouter } from "./http/routes/enrollments.routes.js";
 import { createCommitsRouters } from "./http/routes/commits.routes.js";
 import { createUsersRouter } from "./http/routes/users.routes.js";
+import { createPlagiarismRouters } from "./http/routes/plagiarism.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -22,6 +23,10 @@ export function buildApp(container: Container) {
     middleware.requireAuth,
   );
   const { exerciseCases, cases } = createExerciseCaseRouters(services.exerciseCase, middleware.requireAuth);
+  const { exerciseRuns, runs: plagiarismRuns } = createPlagiarismRouters(
+    services.plagiarism,
+    middleware.requireAuth,
+  );
 
   const app = express();
   app.use(helmet());
@@ -42,6 +47,8 @@ export function buildApp(container: Container) {
   app.use("/api/exercises/:exerciseId/commits", exerciseCommits);
   app.use("/api/exercises/:exerciseId/cases", exerciseCases);
   app.use("/api/exercise-cases", cases);
+  app.use("/api/exercises/:exerciseId/plagiarism-runs", exerciseRuns);
+  app.use("/api/plagiarism-runs", plagiarismRuns);
   app.use("/api/enrollments", createEnrollmentsRouter(services.enrollment, middleware.requireAuth));
   app.use("/api/commits", commits);
 

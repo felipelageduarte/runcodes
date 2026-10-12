@@ -12,6 +12,8 @@ const schema = z.object({
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_BUCKET_PREFIX: z.string().default("runcodes"),
+  REDIS_URL: z.string().default("redis://localhost:6379"),
+  JPLAG_JAR_PATH: z.string().default("vendor/jplag/jplag.jar"),
 });
 
 export const env = schema.parse(process.env);

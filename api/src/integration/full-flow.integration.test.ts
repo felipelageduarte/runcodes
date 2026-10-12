@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import bcrypt from "bcryptjs";
 import request from "supertest";
+import { Worker } from "bullmq";
 import { buildContainer, type Container } from "../container.js";
 import { buildApp } from "../app.js";
+import { parseRedisUrl, PLAGIARISM_QUEUE_NAME, type PlagiarismJobData } from "../repositories/plagiarism-job-queue.js";
+import { PlagiarismWorkerService } from "../services/plagiarism-worker.service.js";
+import { DolosProvider } from "../repositories/dolos-provider.js";
+import { JPlagProvider } from "../repositories/jplag-provider.js";
+import { env } from "../lib/env.js";
 
 // Exercises the real stack wired up by container.ts — actual Postgres,
 // actual S3/SeaweedFS, actual Express routing — instead of the mocked
@@ -37,6 +43,7 @@ let exerciseId: number;
 let commitId: number;
 let crudExerciseId: number;
 let crudCaseId: number;
+let plagiarismWorker: Worker<PlagiarismJobData>;
 
 async function login(email: string) {
   const res = await request(app)
@@ -107,9 +114,25 @@ beforeAll(async () => {
       data: { exercise_id: exerciseId, allowed_file_id: pyFile.id },
     });
   }
+
+  // In-process worker — same setup as src/worker.ts — so the plagiarism
+  // tests don't depend on a separately running `npm run start:worker`.
+  const workerService = new PlagiarismWorkerService(
+    container.repositories.plagiarismRuns,
+    container.repositories.commits,
+    container.repositories.storage,
+    { dolos: new DolosProvider(), jplag: new JPlagProvider(env.JPLAG_JAR_PATH) },
+  );
+  plagiarismWorker = new Worker<PlagiarismJobData>(
+    PLAGIARISM_QUEUE_NAME,
+    async (job) => workerService.processRun(job.data.runId),
+    { connection: parseRedisUrl(env.REDIS_URL), concurrency: 1 },
+  );
+  await plagiarismWorker.waitUntilReady();
 });
 
 afterAll(async () => {
+  await plagiarismWorker.close();
   const prisma = container.prisma;
   await prisma.commits_exercise_cases.deleteMany({ where: { commit_id: commitId } }).catch(() => {});
   await prisma.commits.deleteMany({ where: { exercise_id: exerciseId } }).catch(() => {});
@@ -506,5 +529,85 @@ describe("exercise case management", () => {
       .get(`/api/exercises/${crudExerciseId}/cases`)
       .set("Authorization", `Bearer ${token}`);
     expect(stillThere.body.map((c: { id: number }) => c.id)).not.toContain(crudCaseId);
+  });
+});
+
+describe("plagiarism detection", () => {
+  async function pollRun(runId: number, token: string) {
+    let run = { status: "queued", result: null as unknown };
+    for (let attempt = 0; attempt < 20 && run.status !== "completed" && run.status !== "failed"; attempt++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const res = await request(app).get(`/api/plagiarism-runs/${runId}`).set("Authorization", `Bearer ${token}`);
+      run = res.body;
+    }
+    return run;
+  }
+
+  it("is forbidden for a plain student to request a run", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .post(`/api/exercises/${exerciseId}/plagiarism-runs`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ provider: "dolos" });
+    expect(res.status).toBe(403);
+  });
+
+  it("runs a real Dolos comparison and distinguishes identical from unrelated code", async () => {
+    const profToken = await login(emails.professor);
+
+    // The student's "submission pipeline" commit (print("integration ok"))
+    // is already on this exercise. Add an identical one from the
+    // professor (staff, so submission is allowed regardless of deadline)
+    // and a clearly different one is not needed — Dolos's own kgram
+    // matching on two non-trivial lines is enough to prove it isn't just
+    // returning 1.0 for everything; the unrelated-code case is covered in
+    // services/plagiarism-worker.service.test.ts at the unit level.
+    const submit = await request(app)
+      .post(`/api/exercises/${exerciseId}/commits`)
+      .set("Authorization", `Bearer ${profToken}`)
+      .attach("files", Buffer.from('print("integration ok")'), "solution.py");
+    expect(submit.status).toBe(201);
+
+    const requested = await request(app)
+      .post(`/api/exercises/${exerciseId}/plagiarism-runs`)
+      .set("Authorization", `Bearer ${profToken}`)
+      .send({ provider: "dolos" });
+    expect(requested.status).toBe(202);
+    expect(requested.body.status).toBe("queued");
+
+    const run = await pollRun(requested.body.id, profToken);
+    expect(run.status).toBe("completed");
+    const pairs = run.result as Array<{ studentA: string; studentB: string; similarity: number }>;
+    const pair = pairs.find(
+      (p) =>
+        [p.studentA, p.studentB].includes(emails.student) &&
+        [p.studentA, p.studentB].includes(emails.professor),
+    );
+    expect(pair).toBeDefined();
+    expect(pair!.similarity).toBe(1);
+  });
+
+  it("runs a real JPlag comparison on the same data", async () => {
+    const profToken = await login(emails.professor);
+
+    const requested = await request(app)
+      .post(`/api/exercises/${exerciseId}/plagiarism-runs`)
+      .set("Authorization", `Bearer ${profToken}`)
+      .send({ provider: "jplag" });
+    expect(requested.status).toBe(202);
+
+    const run = await pollRun(requested.body.id, profToken);
+    expect(run.status).toBe("completed");
+    const pairs = run.result as Array<{ studentA: string; studentB: string; similarity: number }>;
+    expect(pairs.length).toBeGreaterThan(0);
+  });
+
+  it("lists both runs for the exercise", async () => {
+    const profToken = await login(emails.professor);
+    const res = await request(app)
+      .get(`/api/exercises/${exerciseId}/plagiarism-runs`)
+      .set("Authorization", `Bearer ${profToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.map((r: { provider: string }) => r.provider).sort()).toEqual(["dolos", "jplag"]);
   });
 });
