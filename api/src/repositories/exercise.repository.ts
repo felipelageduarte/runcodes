@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { AllowedFileRecord } from "./allowed-file.repository.js";
 
 export interface ExerciseRecord {
   id: number;
@@ -60,6 +61,9 @@ export interface ExerciseRepository {
   listVisible(filter: VisibleExercisesFilter): Promise<ExerciseRecord[]>;
   countCases(exerciseId: number): Promise<number>;
   findAllowedExtensions(exerciseId: number): Promise<string[]>;
+  /** Full records (name, extension, compilable) — for the frontend to
+   * show accepted file types before submit, not just validate against. */
+  listAllowedFiles(exerciseId: number): Promise<AllowedFileRecord[]>;
   create(input: NewExercise): Promise<ExerciseRecord>;
   update(id: number, patch: ExercisePatch): Promise<ExerciseRecord | null>;
   /** Soft delete (removed=true), cascading to any ghost clones (real_id = id) — mirrors ExercisesController::delete(). */
@@ -133,6 +137,25 @@ export class PrismaExerciseRepository implements ExerciseRepository {
     if (ids.length === 0) return [];
     const files = await this.prisma.allowed_files.findMany({ where: { id: { in: ids } } });
     return files.map((f) => f.extension.replace(/^\*\./, "").toLowerCase());
+  }
+
+  async listAllowedFiles(exerciseId: number): Promise<AllowedFileRecord[]> {
+    const links = await this.prisma.allowed_files_exercises.findMany({
+      where: { exercise_id: exerciseId },
+      select: { allowed_file_id: true },
+    });
+    const ids = links.map((l) => l.allowed_file_id).filter((id): id is number => id !== null);
+    if (ids.length === 0) return [];
+    const files = await this.prisma.allowed_files.findMany({ where: { id: { in: ids } } });
+    return files.map((f) => ({
+      id: f.id,
+      name: f.name,
+      extension: f.extension,
+      compilable: f.compilable,
+      compileCommand: f.compile_command,
+      runCommand: f.run_command,
+      available: f.available,
+    }));
   }
 
   async create(input: NewExercise): Promise<ExerciseRecord> {

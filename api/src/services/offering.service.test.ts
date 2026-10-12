@@ -59,6 +59,7 @@ function makeRepos() {
     listVisible: vi.fn().mockResolvedValue([]),
     countCases: vi.fn(),
     findAllowedExtensions: vi.fn(),
+    listAllowedFiles: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
     softDelete: vi.fn(),

@@ -66,6 +66,7 @@ function makeRepos(overrides: { commit?: CommitRecord | null; isStaff?: boolean 
     listVisible: vi.fn(),
     countCases: vi.fn(),
     findAllowedExtensions: vi.fn(),
+    listAllowedFiles: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
     softDelete: vi.fn(),

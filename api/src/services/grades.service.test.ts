@@ -77,6 +77,7 @@ function makeRepos(overrides: { offering?: OfferingRecord | null; isStaff?: bool
     listVisible: vi.fn().mockResolvedValue([EXERCISE]),
     countCases: vi.fn(),
     findAllowedExtensions: vi.fn(),
+    listAllowedFiles: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
     softDelete: vi.fn(),

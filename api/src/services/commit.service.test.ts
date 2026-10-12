@@ -50,6 +50,7 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listVisible: vi.fn(),
     countCases: vi.fn(),
     findAllowedExtensions: vi.fn().mockResolvedValue([]),
+    listAllowedFiles: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
     softDelete: vi.fn(),

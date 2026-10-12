@@ -659,6 +659,14 @@ describe("exercise management (create/edit/delete)", () => {
 
   it("lets staff create an exercise", async () => {
     const token = await login(emails.professor);
+    const allowedFilesRes = await request(app)
+      .get("/api/allowed-files")
+      .set("Authorization", `Bearer ${token}`);
+    const pythonFile = allowedFilesRes.body.find((f: { extension: string }) =>
+      f.extension.includes("py"),
+    );
+    expect(pythonFile).toBeTruthy();
+
     const res = await request(app)
       .post(`/api/offerings/${offeringId}/exercises`)
       .set("Authorization", `Bearer ${token}`)
@@ -669,10 +677,21 @@ describe("exercise management (create/edit/delete)", () => {
         openDate: new Date(Date.now() - 1000).toISOString(),
         type: 0,
         showBeforeOpening: true,
+        allowedFileIds: [pythonFile.id],
       });
     expect(res.status).toBe(201);
     expect(res.body.title).toBe("CRUD Exercise");
     crudExerciseId = res.body.id;
+  });
+
+  it("the read-only endpoint includes the exercise's accepted file types", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .get(`/api/exercises/${crudExerciseId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.allowedFiles.length).toBe(1);
+    expect(res.body.allowedFiles[0].extension).toContain("py");
   });
 
   it("the new exercise is visible through the read-only endpoint", async () => {

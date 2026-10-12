@@ -30,6 +30,7 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listVisible: vi.fn(),
     countCases: vi.fn().mockResolvedValue(3),
     findAllowedExtensions: vi.fn(),
+    listAllowedFiles: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
     softDelete: vi.fn(),
@@ -110,6 +111,32 @@ describe("ExerciseService.getDetail", () => {
     await service.getDetail(1, { email: "admin@x.com", type: UserType.ADMIN });
 
     expect(repos.enrollments.isEnrolled).not.toHaveBeenCalled();
+  });
+
+  it("includes allowedFiles in the response", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.enrollments.isEnrolled = vi.fn().mockResolvedValue(true);
+    repos.exercises.listAllowedFiles = vi.fn().mockResolvedValue([
+      { id: 1, name: "Python", extension: "*.py", compilable: true, compileCommand: null, runCommand: null, available: true },
+    ]);
+    const service = new ExerciseService(repos.exercises, repos.enrollments);
+
+    const result = await service.getDetail(1, { email: "s@x.com", type: 0 });
+
+    expect(result.allowedFiles).toEqual([
+      { id: 1, name: "Python", extension: "*.py", compilable: true, compileCommand: null, runCommand: null, available: true },
+    ]);
+  });
+
+  it("reads cases count and allowed files from the real exercise for a ghost clone", async () => {
+    const repos = makeRepos(makeExercise({ ghost: true, realId: 99 }));
+    repos.enrollments.isEnrolled = vi.fn().mockResolvedValue(true);
+    const service = new ExerciseService(repos.exercises, repos.enrollments);
+
+    await service.getDetail(1, { email: "s@x.com", type: 0 });
+
+    expect(repos.exercises.countCases).toHaveBeenCalledWith(99);
+    expect(repos.exercises.listAllowedFiles).toHaveBeenCalledWith(99);
   });
 });
 

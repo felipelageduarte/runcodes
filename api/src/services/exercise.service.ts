@@ -35,8 +35,15 @@ export class ExerciseService {
       throw new NotFoundError("Exercise not found");
     }
 
-    const casesCount = await this.exercises.countCases(id);
-    return { ...exercise, isOpen, casesCount };
+    // Ghost exercises redirect to the real exercise for cases/files/
+    // allowed-files — same rule as everywhere else this comes up
+    // (commit submission, case CRUD, attachments).
+    const targetId = exercise.ghost && exercise.realId ? exercise.realId : exercise.id;
+    const [casesCount, allowedFiles] = await Promise.all([
+      this.exercises.countCases(targetId),
+      this.exercises.listAllowedFiles(targetId),
+    ]);
+    return { ...exercise, isOpen, casesCount, allowedFiles };
   }
 
   /** Resolves the offering an exercise belongs to, for access-control
