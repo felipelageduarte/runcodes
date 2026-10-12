@@ -1,8 +1,14 @@
+#define _DEFAULT_SOURCE /* wait4() is a glibc extension, not strict POSIX */
+
 #include "monitor.h"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <grp.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -10,10 +16,11 @@
 #include <unistd.h>
 
 #define COMMAND_MAX 2000
+#define TIMEOUT_POLL_NSEC 2000000L /* 2ms: wall-timeout poll resolution */
 
 const char *
 signal_name(int signal) {
-    static char *signal_list[] = {
+    static const char *const signal_list[] = {
             "UNKNOWN",   /* 0 */
             "SIGHUP",    /* 1 */
             "SIGINT",    /* 2 */
@@ -47,20 +54,37 @@ signal_name(int signal) {
             "SIGPWR",    /* 30 */
             "SIGSYS",    /* 31 */
     };
+    const int signal_count = (int) (sizeof(signal_list) / sizeof(signal_list[0]));
 
     if (signal == -1)
         return ""; /* No signal */
 
-    if (signal < 0 || signal >= sizeof(signal_list) / sizeof(char *))
+    if (signal < 0 || signal >= signal_count)
         signal = 0; /* Unknown signal */
     return signal_list[signal];
 }
 
-static float
-elapsed_secs(struct timespec *ts_start, struct timespec *ts_end) {
-    float delta_sec = ts_end->tv_sec - ts_start->tv_sec;
-    float delta_nsec = ts_end->tv_nsec - ts_start->tv_nsec;
-    return delta_sec + delta_nsec * 1e-9f;
+const char *
+status_name(MonitorStatus status) {
+    switch (status) {
+        case MONITOR_STATUS_OK:
+            return "OK";
+        case MONITOR_STATUS_NZEC:
+            return "NZEC";
+        case MONITOR_STATUS_RE:
+            return "RE";
+        case MONITOR_STATUS_TLE:
+            return "TLE";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static double
+elapsed_secs(const struct timespec *ts_start, const struct timespec *ts_end) {
+    double delta_sec = (double) (ts_end->tv_sec - ts_start->tv_sec);
+    double delta_nsec = (double) (ts_end->tv_nsec - ts_start->tv_nsec);
+    return delta_sec + delta_nsec * 1e-9;
 }
 
 static char **
@@ -117,27 +141,102 @@ set_limits(const MonitorParams *params) {
             return 0;
     }
 
+    /* CPU-time limit: a one-second cushion between the soft and hard
+     * limits means the process is terminated with SIGXCPU (the default
+     * disposition) rather than racing straight to an unconditional
+     * SIGKILL, so the caller can tell a CPU-time timeout apart from an
+     * arbitrary kill. */
+    if (params->cpu_limit_sec > 0) {
+        struct rlimit cpu_limit;
+
+        cpu_limit.rlim_cur = params->cpu_limit_sec;
+        cpu_limit.rlim_max = params->cpu_limit_sec + 1;
+        if (setrlimit(RLIMIT_CPU, &cpu_limit) < 0)
+            return 0;
+    }
+
+    return 1;
+}
+
+/*
+ * Opens `path` for the child's stdin/stdout/stderr and installs it as `fd`,
+ * refusing to follow a symlink (O_NOFOLLOW): a test's output/error files are
+ * siblings writable by whatever a monitored program does in the same
+ * directory, and transparently following a symlink planted there (e.g. onto
+ * another test's files, or a binary elsewhere in the container) would let
+ * the monitored program corrupt state it has no business touching.
+ */
+static int
+open_safe(const char *path, int for_write, int fd) {
+    int flags = for_write ? (O_WRONLY | O_CREAT | O_TRUNC) : O_RDONLY;
+    int opened = open(path, flags | O_NOFOLLOW | O_CLOEXEC, 0644);
+    if (opened < 0)
+        return 0;
+    if (dup2(opened, fd) < 0) {
+        close(opened);
+        return 0;
+    }
+    close(opened);
     return 1;
 }
 
 static int
 reopen_streams(const MonitorParams *params) {
     if (params->in_fname)
-        if (!freopen(params->in_fname, "r", stdin))
+        if (!open_safe(params->in_fname, 0, STDIN_FILENO))
             return 0;
-    if (!freopen(params->out_fname, "w", stdout))
+    if (!open_safe(params->out_fname, 1, STDOUT_FILENO))
         return 0;
-    if (!freopen(params->err_fname, "w", stderr))
+    if (!open_safe(params->err_fname, 1, STDERR_FILENO))
         return 0;
+    return 1;
+}
+
+/*
+ * Switches to an unprivileged uid/gid before exec, when configured (`-u`).
+ * A no-op when `drop_uid`/`drop_gid` are unset (-1): existing callers that
+ * never pass `-u` keep running exactly as before.
+ */
+static int
+drop_privileges(const MonitorParams *params) {
+    if (params->drop_uid < 0)
+        return 1;
+
+    if (setgroups(0, NULL) != 0)
+        return 0;
+    if (setgid((gid_t) params->drop_gid) != 0)
+        return 0;
+    if (setuid((uid_t) params->drop_uid) != 0)
+        return 0;
+    /* Belt and suspenders: even if some inherited capability survived the
+     * uid/gid switch, this stops it from granting anything extra across
+     * the exec. */
+    prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
     return 1;
 }
 
 static void
 exec_cmd(const MonitorParams *params) {
+    /* A copy of the monitor's original stderr, taken before stdin/out/err
+     * are redirected to the test's files: diagnostics about the monitor
+     * itself failing to set up (as opposed to anything the monitored
+     * program did) must not land in the test's `.error` file, where the
+     * grader would mistake an infrastructure failure for the submission's
+     * own stderr output. */
+    int diag_fd = dup(STDERR_FILENO);
+
+    /* Every process the monitored command spawns is placed in a fresh
+     * process group (this one's own pid becomes the group id). That lets
+     * the parent clean up the whole subtree at once -- directly-forked
+     * helpers as well as anything that tries to survive by daemonizing --
+     * instead of only ever being able to wait for/signal its one direct
+     * child. */
+    setpgid(0, 0);
+
     char buf[COMMAND_MAX + 1];
 
     if (strlen(params->command) > COMMAND_MAX) {
-        fprintf(stderr, "monitor: error: command exceeds %d characters\n", COMMAND_MAX);
+        dprintf(diag_fd, "monitor: error: command exceeds %d characters\n", COMMAND_MAX);
         exit(255);
     }
     strncpy(buf, params->command, COMMAND_MAX);
@@ -145,67 +244,123 @@ exec_cmd(const MonitorParams *params) {
 
     char **args = parse_args(buf);
     if (!args) {
-        fprintf(stderr, "monitor: error: empty or invalid command\n");
+        dprintf(diag_fd, "monitor: error: empty or invalid command\n");
         exit(255);
     }
 
     if (!set_limits(params)) {
-        fprintf(stderr, "monitor: Failed to set process limits.\n");
-        exit(255);
+        dprintf(diag_fd, "monitor: error: failed to set process limits\n");
+        exit(252);
     }
 
     if (!reopen_streams(params)) {
-        fprintf(stderr, "monitor: Failed to initialize streams.\n");
-        exit(255);
+        dprintf(diag_fd, "monitor: error: failed to initialize streams\n");
+        exit(253);
     }
 
+    if (!drop_privileges(params)) {
+        dprintf(diag_fd, "monitor: error: failed to drop privileges\n");
+        exit(254);
+    }
+
+    close(diag_fd);
     if (execvp(args[0], args) == -1) {
+        /* diag_fd is closed; stderr is already the test's own .error file
+         * at this point, which is the best remaining place to explain why
+         * exec itself never got off the ground (e.g. a bad command). */
         fprintf(stderr, "monitor: exec failed\n");
         exit(255);
     }
 }
 
 static void
+classify_status(MonitorStats *stats, const MonitorParams *params) {
+    if (stats->timed_out) {
+        stats->status = MONITOR_STATUS_TLE;
+    } else if (params->cpu_limit_sec > 0 && stats->signal == SIGXCPU) {
+        stats->status = MONITOR_STATUS_TLE;
+    } else if (stats->signal != -1) {
+        stats->status = MONITOR_STATUS_RE;
+    } else if (stats->exit_status == 0) {
+        stats->status = MONITOR_STATUS_OK;
+    } else {
+        stats->status = MONITOR_STATUS_NZEC;
+    }
+}
+
+static void
 trace_child(pid_t child_pid, const MonitorParams *params, MonitorStats *stats) {
-    pid_t pid;
-    int status;
+    struct timespec ts_start, ts_now;
+    struct rusage usage;
+    int status = 0;
+    pid_t r;
+    int killed_for_timeout = 0;
+    int have_wall_limit = params->wall_limit_sec > 0;
 
-    struct timespec ts_start, ts_end;
+    memset(&usage, 0, sizeof(usage));
     clock_gettime(CLOCK_MONOTONIC, &ts_start);
-    for (;;) {
-        pid = waitpid(-1, &status, __WALL);
-        if (pid == -1) {
-            if (errno == ECHILD)
-                break;
 
-            // error
-            fprintf(stderr, "monitor: error: waitpid()\n");
+    for (;;) {
+        int wait_flags = __WALL | ((have_wall_limit && !killed_for_timeout) ? WNOHANG : 0);
+        r = wait4(child_pid, &status, wait_flags, &usage);
+        if (r == child_pid)
+            break;
+        if (r == -1) {
+            if (errno == EINTR)
+                continue;
+            fprintf(stderr, "monitor: error: wait4()\n");
             break;
         }
+
+        /* r == 0: still running, and we're only here because a wall
+         * timeout is configured and hasn't fired yet. */
+        clock_gettime(CLOCK_MONOTONIC, &ts_now);
+        if (elapsed_secs(&ts_start, &ts_now) >= params->wall_limit_sec) {
+            kill(-child_pid, SIGKILL); /* whole process group */
+            stats->timed_out = 1;
+            killed_for_timeout = 1; /* next iteration blocks for the reap */
+        } else {
+            struct timespec poll_delay = {0, TIMEOUT_POLL_NSEC};
+            nanosleep(&poll_delay, NULL);
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &ts_now);
+    stats->time_sec = elapsed_secs(&ts_start, &ts_now);
+
+    if (r == child_pid) {
         if (WIFEXITED(status)) {
-            clock_gettime(CLOCK_MONOTONIC, &ts_end);
-            stats->time_sec = elapsed_secs(&ts_start, &ts_end);
             stats->exit_status = WEXITSTATUS(status);
-            break;
         } else if (WIFSIGNALED(status)) {
-            clock_gettime(CLOCK_MONOTONIC, &ts_end);
-            stats->time_sec = elapsed_secs(&ts_start, &ts_end);
             /* Report the terminating signal regardless of whether a core
              * dump was produced: a core dump does not mean the process
              * exited cleanly, and omitting the signal here let a crash
              * (e.g. SIGSEGV) be mistaken for a clean run by callers that
              * only check `signal`. */
             stats->signal = WTERMSIG(status);
-            break;
         }
+        stats->cpu_user_sec = (double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec * 1e-6;
+        stats->cpu_sys_sec = (double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec * 1e-6;
+        stats->max_rss_kb = usage.ru_maxrss;
+        stats->major_faults = usage.ru_majflt;
     }
+
+    /* Best-effort cleanup of anything left behind in the process group
+     * (e.g. a daemonized grandchild that tried to outlive this test) --
+     * this is the one direct child's group id, so it also covers
+     * processes that were never this monitor's own children to reap. */
+    kill(-child_pid, SIGKILL);
+
+    classify_status(stats, params);
 }
 
 static void
 init_stats(MonitorStats *stats) {
+    memset(stats, 0, sizeof(*stats));
     stats->exit_status = -1;
     stats->signal = -1;
-    stats->time_sec = -1.0f;
+    stats->time_sec = -1.0;
+    stats->status = MONITOR_STATUS_UNKNOWN;
 }
 
 int
