@@ -16,6 +16,10 @@ import { S3CaseStorageRepository } from "./repositories/case-storage.repository.
 import { PrismaPlagiarismRunRepository } from "./repositories/plagiarism-run.repository.js";
 import { PrismaCommitCaseResultRepository } from "./repositories/commit-case-result.repository.js";
 import { BullMqPlagiarismJobQueue } from "./repositories/plagiarism-job-queue.js";
+import { PrismaTicketRepository } from "./repositories/ticket.repository.js";
+import { PrismaAlertRepository } from "./repositories/alert.repository.js";
+import { PrismaQuestionRepository } from "./repositories/question.repository.js";
+import { PrismaPublicExerciseRepository } from "./repositories/public-exercise.repository.js";
 
 import { AuthService } from "./services/auth.service.js";
 import { UserService } from "./services/user.service.js";
@@ -32,6 +36,10 @@ import { UniversityService } from "./services/university.service.js";
 import { AllowedFileService } from "./services/allowed-file.service.js";
 import { AdminUserService } from "./services/admin-user.service.js";
 import { CommitCaseResultService } from "./services/commit-case-result.service.js";
+import { TicketService } from "./services/ticket.service.js";
+import { AlertService } from "./services/alert.service.js";
+import { QuestionService } from "./services/question.service.js";
+import { PublicExerciseService } from "./services/public-exercise.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 
@@ -68,6 +76,10 @@ export function buildContainer() {
     storage: new S3StorageRepository(s3, `${env.S3_BUCKET_PREFIX}-commits`),
     caseStorage: new S3CaseStorageRepository(s3, `${env.S3_BUCKET_PREFIX}-cases`),
     plagiarismRuns: new PrismaPlagiarismRunRepository(prisma),
+    tickets: new PrismaTicketRepository(prisma),
+    alerts: new PrismaAlertRepository(prisma),
+    questions: new PrismaQuestionRepository(prisma),
+    publicExercises: new PrismaPublicExerciseRepository(prisma),
   };
 
   const plagiarismQueue = new BullMqPlagiarismJobQueue(env.REDIS_URL);
@@ -129,6 +141,10 @@ export function buildContainer() {
       repositories.commitCaseResults,
       repositories.caseStorage,
     ),
+    ticket: new TicketService(repositories.tickets),
+    alert: new AlertService(repositories.alerts),
+    question: new QuestionService(repositories.questions),
+    publicExercise: new PublicExerciseService(repositories.exercises, repositories.publicExercises),
   };
 
   const middleware = {

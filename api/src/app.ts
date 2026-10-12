@@ -17,6 +17,10 @@ import { createPlagiarismRouters } from "./http/routes/plagiarism.routes.js";
 import { createUniversitiesRouter } from "./http/routes/universities.routes.js";
 import { createAllowedFilesRouter } from "./http/routes/allowed-files.routes.js";
 import { createAdminUsersRouter } from "./http/routes/admin-users.routes.js";
+import { createTicketsRouter } from "./http/routes/tickets.routes.js";
+import { createAlertsRouter } from "./http/routes/alerts.routes.js";
+import { createQuestionsRouter } from "./http/routes/questions.routes.js";
+import { createPublicExercisesRouter } from "./http/routes/public-exercises.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -61,6 +65,13 @@ export function buildApp(container: Container) {
   app.use("/api/universities", createUniversitiesRouter(services.university, middleware.requireAuth));
   app.use("/api/allowed-files", createAllowedFilesRouter(services.allowedFile, middleware.requireAuth));
   app.use("/api/admin/users", createAdminUsersRouter(services.adminUser, middleware.requireAuth));
+  app.use("/api/tickets", createTicketsRouter(services.ticket, middleware.requireAuth));
+  app.use("/api/alerts", createAlertsRouter(services.alert, middleware.requireAuth));
+  app.use("/api/questions", createQuestionsRouter(services.question, middleware.requireAuth));
+  app.use(
+    "/api/public-exercises",
+    createPublicExercisesRouter(services.publicExercise, middleware.requireAuth),
+  );
 
   app.use(errorHandler);
 
