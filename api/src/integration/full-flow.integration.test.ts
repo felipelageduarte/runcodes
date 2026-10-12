@@ -424,6 +424,39 @@ describe("grades, stats, and exports", () => {
   });
 });
 
+describe("audit logging", () => {
+  it("writes an audit log line for a mutating request, attributed to the authed user", async () => {
+    const token = await login(emails.outsider);
+    const createRes = await request(app)
+      .post("/api/tickets")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ type: 0, priority: 1, message: "itest audit log probe" });
+    expect(createRes.status).toBe(201);
+
+    const adminToken = await login(emails.admin);
+    const logsRes = await request(app)
+      .get(`/api/admin/logs?userEmail=${encodeURIComponent(emails.outsider)}&pageSize=200`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(logsRes.status).toBe(200);
+    expect(
+      logsRes.body.logs.some((l: { action: string }) => l.action === "POST /api/tickets -> 201"),
+    ).toBe(true);
+
+    await container.prisma.tickets.deleteMany({ where: { users_email: emails.outsider } });
+  });
+
+  it("does not write an audit log line for a GET request", async () => {
+    const token = await login(emails.outsider);
+    await request(app).get("/api/tickets/mine").set("Authorization", `Bearer ${token}`);
+
+    const adminToken = await login(emails.admin);
+    const logsRes = await request(app)
+      .get(`/api/admin/logs?userEmail=${encodeURIComponent(emails.outsider)}&pageSize=200`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(logsRes.body.logs.some((l: { action: string }) => l.action.startsWith("GET"))).toBe(false);
+  });
+});
+
 describe("signup + email confirmation", () => {
   it("creates an unconfirmed account and refuses login before confirmation", async () => {
     const signupRes = await request(app).post("/api/users").send({

@@ -15,16 +15,21 @@ export interface LogListFilter {
   pageSize: number;
 }
 
+export interface NewLogEntry {
+  userEmail: string;
+  ip: string;
+  action: string;
+}
+
 /**
- * Read-only — mirrors LogsController::index(). Nothing in runcodes-api
- * writes to this table yet: the legacy app calls Log::register() from
- * nearly every mutating controller action, and replicating that as a
- * cross-cutting concern (middleware/decorator across every service) is
- * real design work, not a copy-paste job — tracked in the docs roadmap
- * rather than bolted on here as an afterthought.
+ * Mirrors LogsController::index() for reads. Writes mirror
+ * Log::register(), but called from one place (http/middleware/auditLog.ts)
+ * instead of 60+ scattered call sites across controllers — see that
+ * file for the cross-cutting design.
  */
 export interface LogRepository {
   list(filter: LogListFilter): Promise<{ total: number; logs: LogRecord[] }>;
+  create(entry: NewLogEntry): Promise<void>;
 }
 
 export class PrismaLogRepository implements LogRepository {
@@ -48,5 +53,11 @@ export class PrismaLogRepository implements LogRepository {
       total,
       logs: rows.map((r) => ({ id: r.id, userEmail: r.user_email, datetime: r.datetime, ip: r.ip, action: r.action })),
     };
+  }
+
+  async create(entry: NewLogEntry): Promise<void> {
+    await this.prisma.logs.create({
+      data: { user_email: entry.userEmail, ip: entry.ip, action: entry.action },
+    });
   }
 }

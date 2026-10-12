@@ -54,6 +54,7 @@ export function buildApp(container: Container) {
   app.use(helmet());
   app.use(cors());
   app.use(express.json());
+  app.use(middleware.auditLog);
 
   app.use("/api/auth", createAuthRouter(services.auth));
   app.use("/api/users", createUsersRouter(services.user));

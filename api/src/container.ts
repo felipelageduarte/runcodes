@@ -52,6 +52,7 @@ import { LogService } from "./services/log.service.js";
 import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
+import { createAuditLog } from "./http/middleware/auditLog.js";
 
 /**
  * The composition root: the one place that knows concrete
@@ -213,6 +214,7 @@ export function buildContainer() {
 
   const middleware = {
     requireAuth: createRequireAuth(env.JWT_SECRET),
+    auditLog: createAuditLog(repositories.logs),
   };
 
   return {
