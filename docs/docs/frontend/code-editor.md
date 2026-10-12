@@ -18,8 +18,8 @@ sidebar_position: 4
 ## O que o editor faz e não faz
 
 **Faz:**
-- Edição de 1 arquivo por vez (ou múltiplos arquivos em abas, pros exercícios que aceitam múltiplos arquivos — `AllowedFile` já modela isso no backend).
-- Highlight de sintaxe pras linguagens que o catálogo `allowed_files` já suporta (Python, C, C++, Java, etc. — Monaco tem suporte nativo pra todas via `monaco-languages`).
+- Edição de 1 arquivo por vez. Múltiplos arquivos em abas (pros exercícios que aceitam mais de um tipo) **não foi implementado** — o catálogo `AllowedFile` modela isso no backend, mas não apareceu nenhum exercício real precisando disso ainda; revisitar se aparecer.
+- Highlight de sintaxe pras linguagens que o catálogo `allowed_files` já suporta (Python, C, C++, Java, etc. — Monaco tem suporte nativo pra todas).
 - Autocomplete de linguagem (baseado em gramática/tokens, não LSP real — sem autocomplete semântico cross-arquivo).
 - Detecção de mudanças não salvas (aviso antes de navegar pra fora com edição pendente).
 - Tema claro/escuro sincronizado com o tema do produto.
@@ -29,26 +29,28 @@ sidebar_position: 4
 - Terminal, debugger, extensões — isso é `code-server`, fora de escopo (documentado acima).
 - Edição colaborativa em tempo real — não há caso de uso hoje (submissão é individual).
 
-## Gap de backend: não existe endpoint pra ler o conteúdo de um commit
+## `GET /api/commits/:id/content` ✅
 
-`GET /api/exercises/:id/commits` (já existe) devolve só **metadado** da lista de submissões (status, score, data, `awsKey` opaco) — nunca os bytes do arquivo. Hoje não existe nenhum caminho, nem pro próprio aluno, de ler de volta o conteúdo que ele enviou (o backend só aceita upload, nunca expõe download do commit a quem o criou). Pré-carregar o Monaco com a última submissão — comportamento desejável, evita o aluno reescrever do zero a cada tentativa — depende de um endpoint novo:
-
-```
-GET /api/commits/:id/content   → bytes do arquivo (dono do commit, ou staff da oferta)
-```
-
-Mirror do que `S3StorageRepository.getCommitFile(awsKey)` já faz internamente pro `compiler-engine`/stats — só falta expor isso por HTTP com a checagem de autorização de `CommitService.getById()` (já existe) na frente. Até esse endpoint existir, o editor abre vazio a cada exercício — upload de arquivo continua sendo o único jeito de "recuperar" uma submissão anterior (baixando do disco local do aluno, não do servidor).
+Resolvido — `CommitService.getContent()` reusa a mesma checagem de autorização de `getById()` (dono do commit, ou staff da oferta), busca os bytes via `StorageRepository.getCommitFile(awsKey)` (o mesmo que o `compiler-engine`/stats já usam internamente) e recupera o nome original do arquivo a partir da chave (`{exerciseId}/{uuid}-{nomeOriginal}`). Devolve `{filename, content}` com o conteúdo já decodificado UTF-8 — todo `allowedFiles` que chega até o editor é uma linguagem de texto, não faz sentido devolver binário aqui.
 
 ## Fluxo de uso
 
-1. Aluno abre um exercício compilável (`type` no catálogo de tipos compiláveis) → editor abre com o arquivo vazio ou, depois do gap acima ser resolvido, o conteúdo da última submissão via `GET /api/commits/:id/content` — mostra a última tentativa, não força reescrever do zero.
-2. Edita no Monaco. Autosave em `localStorage` por exercício (rascunho local, nunca enviado ao servidor até o aluno confirmar) — perde o aluno recarregar a página sem ter submetido.
+1. Aluno abre um exercício compilável (`type` no catálogo de tipos compiláveis) e troca pra aba "Escrever código" → editor pré-carrega o conteúdo da última submissão via `GET /api/commits/:id/content` (se existir e não houver rascunho local já salvo — o rascunho local tem prioridade) — mostra a última tentativa, não força reescrever do zero.
+2. Edita no Monaco. Autosave em `localStorage` por exercício (rascunho local, nunca enviado ao servidor até o aluno confirmar) — sobrevive a reload da página sem ter submetido.
 3. Botão "Submeter" empacota o conteúdo do editor como um `File`/`Blob` e reusa exatamente o mesmo caminho de upload multipart que hoje aceita arquivo de disco — o backend nunca sabe se o conteúdo veio do editor ou de um upload de arquivo.
 4. Depois de submeter, o painel de resultado (polling em `GET /api/commits/:id`, já especificado em [architecture/overview.md](../architecture/overview.md#fluxo-de-uma-submissão-commit)) aparece ao lado (desktop) ou abaixo (mobile/tablet — mas como [design-system.md](./design-system.md#responsividade--mobile-e-tablet-são-requisito-não-também-funciona) descreve, criar uma submissão nova no editor em mobile é desencorajado por UX, não bloqueado tecnicamente).
 
 ## Upload de arquivo continua existindo
 
 O editor é uma alternativa ao upload de arquivo de disco, não uma substituição — aluno que já tem o arquivo pronto no computador (ou prefere escrever na IDE dele) continua podendo arrastar/selecionar o arquivo direto, sem nunca abrir o Monaco. Os dois caminhos convergem no mesmo componente de "conteúdo do commit" antes de chegar no upload.
+
+## Sem web worker dedicado
+
+O Monaco normalmente roda sua tokenização/análise num Web Worker separado. O bundler deste projeto (Rolldown, via Vite 8) não resolve o specifier do worker dentro de `node_modules` por nenhum dos dois jeitos documentados pro Vite clássico (`?worker`, `new URL(...) + import.meta.url`) — os dois quebram o build. `packages/editor/src/setup.ts` não configura `MonacoEnvironment.getWorker`, de propósito: sem worker, o Monaco cai pra tokenização na thread principal, e isso é **zero diferença funcional** aqui — nenhuma linguagem do catálogo (Python, C, C++, Java, Makefile) tem *language service* baseado em worker no Monaco (só json/css/html/typescript têm; as outras usam só o tokenizer Monarch, síncrono por natureza). Revisitar se o Rolldown resolver esse caso, ou se uma linguagem com language-service de worker (ex. TypeScript) entrar no catálogo.
+
+## Tamanho do bundle
+
+`import * as monaco from "monaco-editor"` traz o catálogo inteiro de ~80 linguagens que o Monaco empacota, não só as que o `allowed_files` usa — o chunk do editor fica pesado (~330KB gzip, carregado só quando o aluno troca pra aba "Escrever código", nunca no carregamento inicial da página). Dá pra importar só os `register.js` de cada linguagem específica (`monaco-editor/esm/vs/languages/definitions/<lang>/register.js`) em vez do barrel completo — não fizemos isso na Fase 2 pra não arriscar quebrar funcionalidade perseguindo tamanho de bundle sob prazo; fica anotado pra Fase 6 (roadmap: auditoria de performance/bundle size).
 
 ## Casos de teste com arquivo (`ExerciseCaseFile`)
 

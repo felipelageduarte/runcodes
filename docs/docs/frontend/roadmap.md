@@ -43,11 +43,15 @@ Cada fase é implementável e testável isoladamente — entrega valor real, nã
 
 **Não entregue nesta fase** (não fazia parte do escopo, não é pendência): "Perfil básico" ficou pra quando houver algo de fato pra configurar ali — hoje a única informação de perfil (nome) já aparece no cabeçalho do dashboard; não parecia certo entregar uma tela de perfil vazia só pra marcar item. A matriz de notas completa da turma continua staff-only (como já era) — a visão do aluno hoje é o status por exercício no dashboard/turma, não uma tela de "notas" dedicada; revisitar se um aluno precisar ver o histórico de notas num formato diferente desse.
 
-## Fase 2 — Editor de código (Monaco)
+## Fase 2 — Editor de código (Monaco) ✅
 
-**Escopo:** integração especificada em [code-editor.md](./code-editor.md) — editor como alternativa ao upload de arquivo na tela de submissão da Fase 1, com rascunho local, detecção de edição não salva, tema sincronizado. Inclui o gap de backend `GET /api/commits/:id/content` ([code-editor.md](./code-editor.md#gap-de-backend-não-existe-endpoint-pra-ler-o-conteúdo-de-um-commit)), sem o qual o editor não consegue pré-carregar a última submissão.
+**Escopo:** integração especificada em [code-editor.md](./code-editor.md) — editor como alternativa ao upload de arquivo na tela de submissão da Fase 1, com rascunho local, detecção de edição não salva, tema sincronizado. Inclui o gap de backend `GET /api/commits/:id/content` ([code-editor.md](./code-editor.md#get-apicommitsidcontent-)), sem o qual o editor não consegue pré-carregar a última submissão.
 
 **Critério de saída**: aluno escreve e submete código sem nunca precisar de um editor externo, pros exercícios de 1 arquivo.
+
+**Entregue**, verificado manualmente no browser (não só nos testes automatizados — Monaco não roda em jsdom, ver [testing.md](./testing.md)): pré-carregamento da última submissão, highlight de sintaxe, edição e reenvio funcionando contra o backend real. Duas descobertas reais no processo:
+- **Web worker do Monaco não entrou** — o bundler deste projeto (Rolldown, via Vite 8) não resolve o specifier do worker por nenhum dos dois jeitos documentados pro Vite clássico (`?worker`, `new URL()+import.meta.url`); os dois quebram o build. Sem worker, o Monaco cai pra tokenização na thread principal — na prática zero diferença funcional, porque nenhuma linguagem do catálogo (Python, C, C++, Java, Makefile) tem *language service* baseado em worker no Monaco (só json/css/html/typescript têm). Documentado em `packages/editor/src/setup.ts`; revisitar se o Rolldown resolver isso ou se uma linguagem com language-service de worker entrar no catálogo.
+- **Bug real em `Button asChild`**, achado só testando no browser de verdade: `{loading && <Spinner/>}` sempre ocupava uma posição nos children, e o Radix Slot exige exatamente 1 filho — todo botão `asChild` da aplicação (export pro Google Calendar, todo link "Ir pro login") quebrava com "Slot failed to slot onto its children". Corrigido, com teste de regressão. Reforça o motivo de [testing.md](./testing.md) ter um nível de verificação manual além do automatizado: esse bug não aparece em nenhum teste jsdom porque `asChild` com `loading=false` é exatamente o caminho que os testes existentes não cobriam.
 
 ## Fase 3 — Jornada do professor/assistente
 
