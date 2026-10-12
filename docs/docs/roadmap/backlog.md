@@ -11,10 +11,7 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 
 - ✅ **Cadastro de usuário** — `POST /api/users` (signup) + `POST /api/users/confirm`. Ver [users.md](../backend/users.md). Falta: reset de senha, reenvio de confirmação.
 - ✅ **Gestão de turma** — promover/rebaixar professor/assistente, banir. Ver [enrollments.md](../backend/enrollments.md#gestão-de-turma-staff). Falta: exportação de notas (CSV), infográficos/stats por turma.
-
-## Em andamento / próximo
-
-- **CRUD de exercícios e casos de teste** — hoje só leitura existe. Professor criar/editar exercício, casos de teste (input/output esperado), arquivos auxiliares de compilação, allow-list de extensões.
+- ✅ **CRUD de exercícios e casos de teste** — criar/editar/apagar exercício, casos de teste (input/output em S3, na chave exata que o `compiler-engine` lê). Ver [exercise-management.md](../backend/exercise-management.md). Falta: upload de arquivos auxiliares de compilação/exercício, exercícios "ghost" (compartilhar entre turmas), import de `public_exercises`.
 
 ## Backlog (sem data)
 

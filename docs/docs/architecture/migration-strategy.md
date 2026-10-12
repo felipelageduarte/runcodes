@@ -32,7 +32,7 @@ Mesmo padrão já usado no projeto (`server`, `database`, `compiler-engine`, `co
 4. ✅ Commits (submissão de código — o caminho crítico: sem isso a API não serve pra nada)
 5. ✅ Cadastro de usuário (signup, confirmação de email — reset de senha ainda falta)
 6. ✅ Gestão de turma (promover/rebaixar professor/assistente, banir aluno — notas/CSV ainda faltam)
-7. 🔜 CRUD de exercícios e casos de teste
+7. ✅ CRUD de exercícios e casos de teste (arquivos auxiliares/exercícios "ghost" ainda faltam)
 8. 🔜 Detecção de plágio (ver [roadmap](../roadmap/plagiarism-detection.md))
 9. Backlog: tickets, mensagens, alerts, emails transacionais, reset de senha, questions, admin de universidades
 
