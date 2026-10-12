@@ -7,6 +7,11 @@ const schema = z.object({
   JWT_SECRET: z.string().min(1),
   JWT_EXPIRES_IN: z.string().default("7d"),
   LEGACY_PASSWORD_SALT: z.string().min(1),
+  S3_ENDPOINT: z.string().min(1),
+  S3_REGION: z.string().default("sa-east-1"),
+  S3_ACCESS_KEY_ID: z.string().min(1),
+  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_BUCKET_PREFIX: z.string().default("runcodes"),
 });
 
 export const env = schema.parse(process.env);
