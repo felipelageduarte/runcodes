@@ -73,6 +73,7 @@ function makeRepos(exercise: ExerciseRecord | null) {
     findById: vi.fn(),
     listForUserOnExercise: vi.fn().mockResolvedValue([]),
     listLatestPerStudentForExercise: vi.fn().mockResolvedValue([]),
+    listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
   };
   const storage: StorageRepository = {
     putCommitFile: vi.fn().mockResolvedValue(undefined),

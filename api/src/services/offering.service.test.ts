@@ -5,7 +5,8 @@ import type { OfferingRepository, OfferingRecord } from "../repositories/offerin
 import type { CourseRepository, CourseRecord } from "../repositories/course.repository.js";
 import type { UniversityRepository } from "../repositories/university.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
-import type { ExerciseRepository } from "../repositories/exercise.repository.js";
+import type { ExerciseRepository, ExerciseRecord } from "../repositories/exercise.repository.js";
+import type { CommitRepository, CommitRecord } from "../repositories/commit.repository.js";
 import { UserType } from "../lib/constants.js";
 
 const OFFERING: OfferingRecord = {
@@ -65,7 +66,14 @@ function makeRepos() {
     softDelete: vi.fn(),
     setAllowedFiles: vi.fn(),
   };
-  return { offerings, courses, universities, enrollments, exercises };
+  const commits: CommitRepository = {
+    create: vi.fn(),
+    findById: vi.fn(),
+    listForUserOnExercise: vi.fn(),
+    listLatestPerStudentForExercise: vi.fn(),
+    listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
+  };
+  return { offerings, courses, universities, enrollments, exercises, commits };
 }
 
 function buildService(repos: ReturnType<typeof makeRepos>) {
@@ -75,6 +83,7 @@ function buildService(repos: ReturnType<typeof makeRepos>) {
     repos.universities,
     repos.enrollments,
     repos.exercises,
+    repos.commits,
   );
 }
 
@@ -122,6 +131,59 @@ describe("OfferingService.getDetail", () => {
     await service.getDetail(1, { email: "prof@x.com", type: 0 });
 
     expect(repos.exercises.listVisible).toHaveBeenCalledWith({ offeringId: 1, includeUnopened: true });
+  });
+
+  it("embeds the student's own latest commit per exercise, null when they never submitted", async () => {
+    const exercise1: ExerciseRecord = {
+      id: 1,
+      offeringId: 1,
+      title: "Ex1",
+      description: null,
+      deadline: new Date(),
+      type: 0,
+      openDate: new Date(),
+      showBeforeOpening: false,
+      removed: false,
+      ghost: false,
+      realId: null,
+      markdown: false,
+    };
+    const exercise2 = { ...exercise1, id: 2, title: "Ex2" };
+    const commit: CommitRecord = {
+      id: 5,
+      userEmail: "s@x.com",
+      exerciseId: 1,
+      commitTime: new Date(),
+      status: 5,
+      hash: "h",
+      corrects: 1,
+      score: "10",
+      compiled: true,
+      compiledMessage: null,
+      awsKey: "key",
+      ip: null,
+    };
+    const repos = makeRepos();
+    repos.enrollments.isEnrolled = vi.fn().mockResolvedValue(true);
+    repos.exercises.listVisible = vi.fn().mockResolvedValue([exercise1, exercise2]);
+    repos.commits.listLatestForUserAcrossExercises = vi.fn().mockResolvedValue([commit]);
+    const service = buildService(repos);
+
+    const result = await service.getDetail(1, { email: "s@x.com", type: 0 });
+
+    expect(repos.commits.listLatestForUserAcrossExercises).toHaveBeenCalledWith("s@x.com", [1, 2]);
+    expect(result.exercises[0].myLatestCommit).toEqual(commit);
+    expect(result.exercises[1].myLatestCommit).toBeNull();
+  });
+
+  it("skips the per-student commit lookup entirely for staff", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    await service.getDetail(1, { email: "prof@x.com", type: 0 });
+
+    expect(repos.commits.listLatestForUserAcrossExercises).not.toHaveBeenCalled();
   });
 });
 

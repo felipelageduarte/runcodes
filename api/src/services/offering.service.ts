@@ -3,6 +3,7 @@ import type { CourseRepository } from "../repositories/course.repository.js";
 import type { UniversityRepository } from "../repositories/university.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { ExerciseRepository } from "../repositories/exercise.repository.js";
+import type { CommitRepository } from "../repositories/commit.repository.js";
 import { UserType } from "../lib/constants.js";
 import { NotFoundError, ForbiddenError } from "../domain/errors.js";
 
@@ -18,6 +19,7 @@ export class OfferingService {
     private readonly universities: UniversityRepository,
     private readonly enrollments: EnrollmentRepository,
     private readonly exercises: ExerciseRepository,
+    private readonly commits: CommitRepository,
   ) {}
 
   private async enrich(offerings: OfferingRecord[]) {
@@ -78,6 +80,24 @@ export class OfferingService {
       this.exercises.listVisible({ offeringId: id, includeUnopened: isStaff }),
     ]);
 
-    return { ...enriched, exercises };
+    // Student's own latest commit per exercise — lets the exercise list
+    // show status (entregue/corrigindo/aprovado/nunca entregue) without
+    // one request per exercise. Not needed for staff (they see the full
+    // class via grades/stats), skipped there to save the query.
+    const latestCommitByExercise = isStaff
+      ? new Map()
+      : new Map(
+          (await this.commits.listLatestForUserAcrossExercises(requester.email, exercises.map((e) => e.id))).map(
+            (c) => [c.exerciseId, c],
+          ),
+        );
+
+    return {
+      ...enriched,
+      exercises: exercises.map((exercise) => ({
+        ...exercise,
+        myLatestCommit: latestCommitByExercise.get(exercise.id) ?? null,
+      })),
+    };
   }
 }

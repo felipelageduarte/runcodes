@@ -139,6 +139,7 @@ function makeRepos(
     findById: vi.fn(),
     listForUserOnExercise: vi.fn().mockResolvedValue([makeCommit()]),
     listLatestPerStudentForExercise: vi.fn().mockResolvedValue([makeCommit()]),
+    listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
   };
   const commitCaseResults: CommitCaseResultRepository = {
     listForCommit: vi.fn().mockResolvedValue([makeCaseResult({ exerciseCaseId: 1, status: 1 })]),

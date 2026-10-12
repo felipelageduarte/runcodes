@@ -103,6 +103,7 @@ function makeRepos(overrides: { offering?: OfferingRecord | null; isStaff?: bool
     findById: vi.fn(),
     listForUserOnExercise: vi.fn(),
     listLatestPerStudentForExercise: vi.fn().mockResolvedValue([makeCommit()]), // only alice submitted
+    listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
   };
   const courses: CourseRepository = {
     list: vi.fn(),

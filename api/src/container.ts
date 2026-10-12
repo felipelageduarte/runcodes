@@ -137,6 +137,7 @@ export function buildContainer() {
       repositories.universities,
       repositories.enrollments,
       repositories.exercises,
+      repositories.commits,
     ),
     exercise: new ExerciseService(repositories.exercises, repositories.enrollments),
     exerciseManagement: new ExerciseManagementService(

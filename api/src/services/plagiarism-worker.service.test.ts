@@ -51,6 +51,7 @@ function makeDeps(overrides: { run?: PlagiarismRunRecord | null; commits?: Commi
     listLatestPerStudentForExercise: vi
       .fn()
       .mockResolvedValue(overrides.commits ?? [makeCommit({ userEmail: "a@x.com" }), makeCommit({ userEmail: "b@x.com" })]),
+    listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
   };
   const storage: StorageRepository = {
     putCommitFile: vi.fn(),

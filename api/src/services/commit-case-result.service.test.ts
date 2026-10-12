@@ -59,6 +59,7 @@ function makeRepos(overrides: { commit?: CommitRecord | null; isStaff?: boolean 
     findById: vi.fn().mockResolvedValue("commit" in overrides ? overrides.commit : COMMIT),
     listForUserOnExercise: vi.fn(),
     listLatestPerStudentForExercise: vi.fn(),
+    listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
   };
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue(EXERCISE),

@@ -383,6 +383,16 @@ describe("submission pipeline", () => {
       .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(403);
   });
+
+  it("the offering detail embeds the student's own latest commit on this exercise", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .get(`/api/offerings/${offeringId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const exercise = res.body.exercises.find((e: { id: number }) => e.id === exerciseId);
+    expect(exercise.myLatestCommit.id).toBe(commitId);
+  });
 });
 
 describe("grades, stats, and exports", () => {
