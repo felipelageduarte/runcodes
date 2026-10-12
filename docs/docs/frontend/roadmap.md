@@ -25,7 +25,7 @@ Cada fase é implementável e testável isoladamente — entrega valor real, nã
 - `editor/` e `shared/` entraram como `packages/*` desde o início (não como `modules/*`), já com a correção de fronteira da revisão do SDD aplicada em código, não só em doc.
 - Resend/reset-password mostram erro real em 404 (conta não existe) em vez de uma tela de "enviado" genérica — o backend não esconde existência de conta nesses dois endpoints, então a UI também não finge esconder.
 
-## Fase 1 — Jornada do aluno (core)
+## Fase 1 — Jornada do aluno (core) ✅
 
 **Escopo:**
 - Dashboard do aluno: turmas matriculadas, exercícios pendentes/recentes, atalho pra entrar em turma por código.
@@ -36,6 +36,12 @@ Cada fase é implementável e testável isoladamente — entrega valor real, nã
 - Perfil básico.
 
 **Critério de saída**: aluno faz o ciclo completo — entra na turma, vê exercício, submete, vê resultado, vê nota — sem precisar do `server` legado.
+
+**Entregue.** Dois gaps reais de backend apareceram construindo isso e foram resolvidos antes da UI, não contornados no cliente:
+- `GET /api/exercises/:id` não expunha os tipos de arquivo aceitos pelo exercício (só o catálogo admin completo) — sem isso, nem a UI nem a validação client-side de upload tinham como saber o que é aceito. Agora embute `allowedFiles`.
+- `GET /api/offerings/:id` não trazia o status do aluno por exercício — sem isso a lista de exercícios precisaria de 1 request por exercício só pra saber "já entreguei isso?". Agora embute `myLatestCommit` por exercício (null se nunca submeteu), calculado numa única query, pulado inteiramente pra staff.
+
+**Não entregue nesta fase** (não fazia parte do escopo, não é pendência): "Perfil básico" ficou pra quando houver algo de fato pra configurar ali — hoje a única informação de perfil (nome) já aparece no cabeçalho do dashboard; não parecia certo entregar uma tela de perfil vazia só pra marcar item. A matriz de notas completa da turma continua staff-only (como já era) — a visão do aluno hoje é o status por exercício no dashboard/turma, não uma tela de "notas" dedicada; revisitar se um aluno precisar ver o histórico de notas num formato diferente desse.
 
 ## Fase 2 — Editor de código (Monaco)
 
