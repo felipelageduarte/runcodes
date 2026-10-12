@@ -16,7 +16,7 @@ Os módulos menores — administração, notas e o entorno de suporte (tickets, 
 | `GET /api/allowed-files` | Qualquer autenticado | Catálogo de linguagens/tipos de arquivo aceitos em exercícios |
 | `POST/PUT /api/allowed-files` | Admin | Gerenciar o catálogo |
 | `GET/PUT /api/admin/users` | Admin | Listar (com filtros) e editar conta de qualquer usuário — resposta nunca inclui o hash de senha |
-| `GET /api/admin/logs` | Admin | Leitura do log de auditoria — **nada escreve nessa tabela ainda**, ver [backlog](../roadmap/backlog.md) |
+| `GET /api/admin/logs` | Admin | Leitura do log de auditoria |
 
 ## Notas, stats e exports
 
@@ -35,6 +35,14 @@ Todos staff/admin-only (mesmo nível de acesso dos painéis de professor no lega
 Todos reaproveitam `CommitRepository.listLatestPerStudentForExercise` — a mesma query de "último commit por aluno" que o worker de plágio usa.
 
 O zip é a única diferença estrutural do legado: o `getAllScoresZipped()` monta o arquivo em disco local, re-sobe pro S3, e redireciona o navegador pra uma URL pré-assinada — só pra contornar o fato de rodar atrás de um load balancer sem disco compartilhado. Aqui, `ExerciseExportService` busca cada arquivo de commit do S3 e monta o zip (via `archiver`) direto na resposta HTTP, sem round-trip extra.
+
+## Log de auditoria (escrita)
+
+`http/middleware/auditLog.ts`, montado globalmente em `app.ts`. Mirrors `Log::register()` — que o legado chama manualmente de ~60 pontos nos controllers — mas de um único lugar: toda requisição mutante (`POST`/`PUT`/`PATCH`/`DELETE`) autenticada gera uma linha de log depois da resposta ser enviada, independente do resultado (uma ação negada também é relevante pra auditoria).
+
+Essa é a diferença de design chave vs. o legado: um service não tem contexto HTTP, então replicar `Log::register()` chamada-por-chamada significaria espalhar a preocupação de logging em cada método de cada service — o tipo de acoplamento ad-hoc que essa migração está evitando. Um middleware HTTP único resolve isso sem tocar em nenhum service, e cobre toda rota de mutação automaticamente, inclusive as que forem criadas depois.
+
+Trade-off, dito sem rodeios: a mensagem perde a prosa do legado (`"Enrolled in the offering #5"`) e vira `"POST /api/enrollments -> 201"` — mesmo who/what/when/result, menos narrativa.
 
 ## Tickets (suporte)
 
