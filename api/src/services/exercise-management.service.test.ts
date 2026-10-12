@@ -19,6 +19,7 @@ function makeExercise(overrides: Partial<ExerciseRecord> = {}): ExerciseRecord {
     removed: false,
     ghost: false,
     realId: null,
+    markdown: false,
     ...overrides,
   };
 }
@@ -181,5 +182,65 @@ describe("ExerciseManagementService.deleteExercise", () => {
     const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
 
     await expect(service.deleteExercise(1, STUDENT)).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe("ExerciseManagementService.shareToOffering", () => {
+  it("is forbidden for a non-staff requester of the target offering", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+
+    await expect(service.shareToOffering(1, 99, STUDENT)).rejects.toThrow(ForbiddenError);
+    expect(repos.exercises.create).not.toHaveBeenCalled();
+  });
+
+  it("throws NotFoundError for a missing/removed source exercise", async () => {
+    const repos = makeRepos(null);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+
+    await expect(service.shareToOffering(1, 99, STAFF)).rejects.toThrow(NotFoundError);
+  });
+
+  it("clones a non-ghost exercise into the target offering", async () => {
+    const source = makeExercise({ id: 1, title: "Original", type: 0 });
+    const repos = makeRepos(source);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+
+    await service.shareToOffering(1, 99, STAFF);
+
+    expect(repos.exercises.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        offeringId: 99,
+        title: "Original",
+        ghost: true,
+        realId: 1,
+        userEmail: STAFF.email,
+      }),
+    );
+  });
+
+  it("resolves a ghost source to its real exercise before cloning", async () => {
+    const ghostSource = makeExercise({ id: 5, ghost: true, realId: 1 });
+    const real = makeExercise({ id: 1, title: "Real one" });
+    const repos = makeRepos(ghostSource);
+    repos.exercises.findById = vi.fn().mockImplementation((id: number) =>
+      Promise.resolve(id === 5 ? ghostSource : real),
+    );
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+
+    await service.shareToOffering(5, 99, STAFF);
+
+    expect(repos.exercises.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Real one", realId: 1 }),
+    );
+  });
+
+  it("allows an admin even without staff enrollment in the target offering", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+
+    await expect(service.shareToOffering(1, 99, ADMIN)).resolves.toBeDefined();
   });
 });

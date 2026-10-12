@@ -23,6 +23,7 @@ import { createQuestionsRouter } from "./http/routes/questions.routes.js";
 import { createPublicExercisesRouter } from "./http/routes/public-exercises.routes.js";
 import { createGradesRouter } from "./http/routes/grades.routes.js";
 import { createLogsRouter } from "./http/routes/logs.routes.js";
+import { createExerciseAttachmentRouters } from "./http/routes/exercise-attachment.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -40,6 +41,12 @@ export function buildApp(container: Container) {
     services.plagiarism,
     middleware.requireAuth,
   );
+  const { byExercise: exerciseFilesByExercise, byId: exerciseFilesById } = createExerciseAttachmentRouters(
+    services.exerciseFile,
+    middleware.requireAuth,
+  );
+  const { byExercise: compilationFilesByExercise, byId: compilationFilesById } =
+    createExerciseAttachmentRouters(services.compilationFile, middleware.requireAuth);
 
   const app = express();
   app.use(helmet());
@@ -79,6 +86,10 @@ export function buildApp(container: Container) {
     createGradesRouter(services.grades, middleware.requireAuth),
   );
   app.use("/api/admin/logs", createLogsRouter(services.log, middleware.requireAuth));
+  app.use("/api/exercises/:exerciseId/files", exerciseFilesByExercise);
+  app.use("/api/exercise-files", exerciseFilesById);
+  app.use("/api/exercises/:exerciseId/compilation-files", compilationFilesByExercise);
+  app.use("/api/compilation-files", compilationFilesById);
 
   app.use(errorHandler);
 

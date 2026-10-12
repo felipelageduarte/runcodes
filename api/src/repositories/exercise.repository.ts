@@ -12,6 +12,7 @@ export interface ExerciseRecord {
   removed: boolean | null;
   ghost: boolean | null;
   realId: number | null;
+  markdown: boolean | null;
 }
 
 export interface ListExercisesFilter {
@@ -38,6 +39,9 @@ export interface NewExercise {
   showBeforeOpening: boolean;
   markdown: boolean;
   userEmail: string;
+  /** Set together, only when creating a ghost clone — mirrors Exercise::createGhostExercise(). */
+  ghost?: boolean;
+  realId?: number | null;
 }
 
 export interface ExercisePatch {
@@ -144,6 +148,8 @@ export class PrismaExerciseRepository implements ExerciseRepository {
         markdown: input.markdown,
         user_email: input.userEmail,
         removed: false,
+        ghost: input.ghost ?? false,
+        real_id: input.realId ?? null,
       },
     });
     return toRecord(row);
@@ -203,6 +209,7 @@ function toRecord(row: {
   removed: boolean | null;
   ghost: boolean | null;
   real_id: number | null;
+  markdown: boolean | null;
 }): ExerciseRecord {
   return {
     id: row.id,
@@ -216,5 +223,6 @@ function toRecord(row: {
     removed: row.removed,
     ghost: row.ghost,
     realId: row.real_id,
+    markdown: row.markdown,
   };
 }

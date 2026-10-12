@@ -20,6 +20,7 @@ const EXERCISE: ExerciseRecord = {
   removed: false,
   ghost: false,
   realId: null,
+  markdown: false,
 };
 
 const PUBLIC_ENTRY: PublicExerciseRecord = { id: 1, exerciseId: 1, level: 1, obs: null, keywords: "loops" };

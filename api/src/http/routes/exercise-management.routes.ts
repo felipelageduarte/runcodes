@@ -16,6 +16,8 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
+const shareSchema = z.object({ targetOfferingId: z.number().int() });
+
 export function createExerciseManagementRouters(
   managementService: ExerciseManagementService,
   requireAuth: RequestHandler,
@@ -56,6 +58,19 @@ export function createExerciseManagementRouters(
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
       await managementService.deleteExercise(id, req.user!);
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Mirrors Exercise::createGhostExercise() — share an exercise into another turma.
+  exercises.post("/:id/share", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
+      const { targetOfferingId } = shareSchema.parse(req.body);
+      const ghost = await managementService.shareToOffering(id, targetOfferingId, req.user!);
+      res.status(201).json(ghost);
     } catch (err) {
       next(err);
     }

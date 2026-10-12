@@ -35,6 +35,7 @@ const EXERCISE: ExerciseRecord = {
   removed: false,
   ghost: false,
   realId: null,
+  markdown: false,
 };
 
 const CASE_RESULT: CommitCaseResultRecord = {

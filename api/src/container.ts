@@ -21,6 +21,9 @@ import { PrismaAlertRepository } from "./repositories/alert.repository.js";
 import { PrismaQuestionRepository } from "./repositories/question.repository.js";
 import { PrismaPublicExerciseRepository } from "./repositories/public-exercise.repository.js";
 import { PrismaLogRepository } from "./repositories/log.repository.js";
+import { PrismaExerciseFileRepository } from "./repositories/exercise-file.repository.js";
+import { PrismaCompilationFileRepository } from "./repositories/compilation-file.repository.js";
+import { S3AttachmentStorageRepository } from "./repositories/attachment-storage.repository.js";
 
 import { AuthService } from "./services/auth.service.js";
 import { UserService } from "./services/user.service.js";
@@ -43,6 +46,7 @@ import { QuestionService } from "./services/question.service.js";
 import { PublicExerciseService } from "./services/public-exercise.service.js";
 import { GradesService } from "./services/grades.service.js";
 import { LogService } from "./services/log.service.js";
+import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 
@@ -84,6 +88,14 @@ export function buildContainer() {
     questions: new PrismaQuestionRepository(prisma),
     publicExercises: new PrismaPublicExerciseRepository(prisma),
     logs: new PrismaLogRepository(prisma),
+    exerciseFiles: new PrismaExerciseFileRepository(prisma),
+    compilationFiles: new PrismaCompilationFileRepository(prisma),
+    exerciseFileStorage: new S3AttachmentStorageRepository(s3, `${env.S3_BUCKET_PREFIX}-files`, "exercisefiles"),
+    compilationFileStorage: new S3AttachmentStorageRepository(
+      s3,
+      `${env.S3_BUCKET_PREFIX}-files`,
+      "compilationfiles",
+    ),
   };
 
   const plagiarismQueue = new BullMqPlagiarismJobQueue(env.REDIS_URL);
@@ -156,6 +168,18 @@ export function buildContainer() {
       repositories.commits,
     ),
     log: new LogService(repositories.logs),
+    exerciseFile: new ExerciseAttachmentService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.exerciseFiles,
+      repositories.exerciseFileStorage,
+    ),
+    compilationFile: new ExerciseAttachmentService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.compilationFiles,
+      repositories.compilationFileStorage,
+    ),
   };
 
   const middleware = {

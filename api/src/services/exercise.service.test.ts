@@ -18,6 +18,7 @@ function makeExercise(overrides: Partial<ExerciseRecord> = {}): ExerciseRecord {
     removed: false,
     ghost: false,
     realId: null,
+    markdown: false,
     ...overrides,
   };
 }

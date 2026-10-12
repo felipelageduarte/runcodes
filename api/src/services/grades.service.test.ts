@@ -31,6 +31,7 @@ const EXERCISE: ExerciseRecord = {
   removed: false,
   ghost: false,
   realId: null,
+  markdown: false,
 };
 
 function makeCommit(overrides: Partial<CommitRecord> = {}): CommitRecord {

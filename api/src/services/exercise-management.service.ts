@@ -79,7 +79,7 @@ export class ExerciseManagementService {
     return exercise;
   }
 
-  /** Mirrors ExercisesController::edit() (the Exercise fields themselves — file uploads stay out of scope). */
+  /** Mirrors ExercisesController::edit() (the Exercise fields themselves — file attachments are ExerciseAttachmentService's job). */
   async updateExercise(
     exerciseId: number,
     requester: Requester,
@@ -116,5 +116,43 @@ export class ExerciseManagementService {
 
     const ok = await this.exercises.softDelete(exercise.ghost && exercise.realId ? exercise.realId : exerciseId);
     if (!ok) throw new NotFoundError("Exercise not found");
+  }
+
+  /**
+   * Mirrors Exercise::createGhostExercise() — shares an exercise into
+   * another turma as a lightweight clone (ghost=true, real_id pointing
+   * back to the original). Cases, allowed file types, and attachments
+   * all stay on the real exercise; every other module that reads an
+   * exercise's cases/files already redirects through real_id for a
+   * ghost. Requires staff/admin of the *target* offering (where the
+   * clone lands), matching the legacy check exactly — not staff of the
+   * original exercise's own offering.
+   */
+  async shareToOffering(
+    exerciseId: number,
+    targetOfferingId: number,
+    requester: Requester,
+  ): Promise<ExerciseRecord> {
+    await this.requireStaffOrAdmin(targetOfferingId, requester);
+
+    const source = await this.exercises.findById(exerciseId);
+    if (!source || source.removed) throw new NotFoundError("Exercise not found");
+    const realId = source.ghost && source.realId ? source.realId : source.id;
+    const real = realId === source.id ? source : await this.exercises.findById(realId);
+    if (!real || real.removed) throw new NotFoundError("Exercise not found");
+
+    return this.exercises.create({
+      offeringId: targetOfferingId,
+      title: real.title,
+      description: real.description,
+      deadline: real.deadline,
+      openDate: real.openDate,
+      type: real.type,
+      showBeforeOpening: real.showBeforeOpening ?? false,
+      markdown: real.markdown ?? false,
+      userEmail: requester.email,
+      ghost: true,
+      realId: real.id,
+    });
   }
 }

@@ -43,6 +43,9 @@ let exerciseId: number;
 let commitId: number;
 let crudExerciseId: number;
 let crudCaseId: number;
+let secondOfferingId: number;
+let ghostExerciseId: number;
+let exerciseFileId: number;
 let plagiarismWorker: Worker<PlagiarismJobData>;
 
 async function login(email: string) {
@@ -91,6 +94,20 @@ beforeAll(async () => {
   });
   await prisma.enrollments.create({
     data: { offering_id: offeringId, user_email: emails.professor, role: 2 },
+  });
+
+  const secondOffering = await prisma.offerings.create({
+    data: {
+      course_id: courseId,
+      year: 2099,
+      term: 2,
+      classroom: "IT2",
+      end_date: new Date("2099-12-31"),
+    },
+  });
+  secondOfferingId = secondOffering.id;
+  await prisma.enrollments.create({
+    data: { offering_id: secondOfferingId, user_email: emails.professor, role: 2 },
   });
 
   const exercise = await prisma.exercises.create({
@@ -145,8 +162,17 @@ afterAll(async () => {
   if (crudExerciseId) {
     await prisma.exercises.deleteMany({ where: { id: crudExerciseId } }).catch(() => {});
   }
-  await prisma.enrollments.deleteMany({ where: { offering_id: offeringId } }).catch(() => {});
-  await prisma.offerings.deleteMany({ where: { id: offeringId } }).catch(() => {});
+  if (exerciseFileId) {
+    await container.repositories.exerciseFileStorage.delete(exerciseId, "material.txt").catch(() => {});
+  }
+  await container.repositories.compilationFileStorage.delete(exerciseId, "helper.py").catch(() => {});
+  await prisma.exercise_files.deleteMany({ where: { exercise_id: exerciseId } }).catch(() => {});
+  await prisma.compilation_files.deleteMany({ where: { exercise_id: exerciseId } }).catch(() => {});
+  if (ghostExerciseId) {
+    await prisma.exercises.deleteMany({ where: { id: ghostExerciseId } }).catch(() => {});
+  }
+  await prisma.enrollments.deleteMany({ where: { offering_id: { in: [offeringId, secondOfferingId] } } }).catch(() => {});
+  await prisma.offerings.deleteMany({ where: { id: { in: [offeringId, secondOfferingId] } } }).catch(() => {});
   await prisma.courses.deleteMany({ where: { id: courseId } }).catch(() => {});
   await prisma.user
     .deleteMany({ where: { email: { in: [...Object.values(emails), `second-${emails.signup}`] } } })
@@ -609,5 +635,89 @@ describe("plagiarism detection", () => {
       .set("Authorization", `Bearer ${profToken}`);
     expect(res.status).toBe(200);
     expect(res.body.map((r: { provider: string }) => r.provider).sort()).toEqual(["dolos", "jplag"]);
+  });
+});
+
+describe("exercise attachments (files and compilation files)", () => {
+  it("is forbidden for a plain student to upload", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .post(`/api/exercises/${exerciseId}/files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("reference material"), "material.txt");
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects a blocked extension", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/exercises/${exerciseId}/files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("<?php system($_GET['c']); ?>"), "shell.php");
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe("file_type_not_allowed");
+  });
+
+  it("lets staff upload an exercise file, round-tripping through real S3", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/exercises/${exerciseId}/files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("reference material"), "material.txt");
+    expect(res.status).toBe(201);
+    exerciseFileId = res.body.id;
+
+    const download = await request(app)
+      .get(`/api/exercise-files/${exerciseFileId}/download`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(download.status).toBe(200);
+    // application/octet-stream isn't auto-parsed as text by supertest —
+    // it lands as a raw Buffer in .body instead of .text. That's the API
+    // behaving correctly (deliberately generic content-type, same
+    // defense-in-depth as the legacy's blocked-extension download guard).
+    expect(Buffer.from(download.body).toString()).toBe("reference material");
+  });
+
+  it("uploads a compilation file at the exact S3 key compiler-engine reads", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/exercises/${exerciseId}/compilation-files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("def helper(): return 42"), "helper.py");
+    expect(res.status).toBe(201);
+
+    const content = await container.repositories.compilationFileStorage.get(exerciseId, "helper.py");
+    expect(Buffer.from(content).toString()).toBe("def helper(): return 42");
+  });
+
+  it("shares the exercise into another turma as a ghost, and the ghost's attachment list redirects to the real exercise's files", async () => {
+    const token = await login(emails.professor);
+    const shareRes = await request(app)
+      .post(`/api/exercises/${exerciseId}/share`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ targetOfferingId: secondOfferingId });
+    expect(shareRes.status).toBe(201);
+    expect(shareRes.body.ghost).toBe(true);
+    expect(shareRes.body.realId).toBe(exerciseId);
+    ghostExerciseId = shareRes.body.id;
+
+    const listRes = await request(app)
+      .get(`/api/exercises/${ghostExerciseId}/compilation-files`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.map((f: { path: string }) => f.path)).toContain("helper.py");
+  });
+
+  it("deletes the file, cleaning up S3 too", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .delete(`/api/exercise-files/${exerciseFileId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const listRes = await request(app)
+      .get(`/api/exercises/${exerciseId}/files`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(listRes.body.map((f: { id: number }) => f.id)).not.toContain(exerciseFileId);
   });
 });
