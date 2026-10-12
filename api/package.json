@@ -10,7 +10,8 @@
     "prisma:pull": "prisma db pull",
     "prisma:generate": "prisma generate",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
@@ -31,7 +32,9 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/multer": "^2.3.0",
     "@types/node": "^20.14.0",
+    "@types/supertest": "^7.2.1",
     "prisma": "^5.20.0",
+    "supertest": "^7.3.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
