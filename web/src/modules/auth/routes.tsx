@@ -21,8 +21,12 @@ const ResetPasswordPage = lazy(() =>
 export const authRoutes: RouteObject[] = [
   { path: "/entrar", element: <LoginPage /> },
   { path: "/cadastro", element: <SignupPage /> },
-  { path: "/confirmar-email", element: <ConfirmEmailPage /> },
+  // "/confirm" e "/reset-password", não nomes em português: são os paths
+  // que o runcodes-api já grava dentro do link do email de verdade
+  // (UserService.sendConfirmationEmail/requestPasswordReset) — a rota
+  // aqui tem que casar com o que já foi mandado, não o contrário.
+  { path: "/confirm", element: <ConfirmEmailPage /> },
   { path: "/reenviar-confirmacao", element: <ResendConfirmationPage /> },
   { path: "/esqueci-senha", element: <RequestPasswordResetPage /> },
-  { path: "/redefinir-senha", element: <ResetPasswordPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
 ];
