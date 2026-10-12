@@ -14,6 +14,7 @@ import { PrismaCommitRepository } from "./repositories/commit.repository.js";
 import { S3StorageRepository } from "./repositories/storage.repository.js";
 import { S3CaseStorageRepository } from "./repositories/case-storage.repository.js";
 import { PrismaPlagiarismRunRepository } from "./repositories/plagiarism-run.repository.js";
+import { PrismaCommitCaseResultRepository } from "./repositories/commit-case-result.repository.js";
 import { BullMqPlagiarismJobQueue } from "./repositories/plagiarism-job-queue.js";
 
 import { AuthService } from "./services/auth.service.js";
@@ -30,6 +31,7 @@ import { PlagiarismService } from "./services/plagiarism.service.js";
 import { UniversityService } from "./services/university.service.js";
 import { AllowedFileService } from "./services/allowed-file.service.js";
 import { AdminUserService } from "./services/admin-user.service.js";
+import { CommitCaseResultService } from "./services/commit-case-result.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 
@@ -62,6 +64,7 @@ export function buildContainer() {
     exerciseCases: new PrismaExerciseCaseRepository(prisma),
     allowedFiles: new PrismaAllowedFileRepository(prisma),
     commits: new PrismaCommitRepository(prisma),
+    commitCaseResults: new PrismaCommitCaseResultRepository(prisma),
     storage: new S3StorageRepository(s3, `${env.S3_BUCKET_PREFIX}-commits`),
     caseStorage: new S3CaseStorageRepository(s3, `${env.S3_BUCKET_PREFIX}-cases`),
     plagiarismRuns: new PrismaPlagiarismRunRepository(prisma),
@@ -119,6 +122,13 @@ export function buildContainer() {
     university: new UniversityService(repositories.universities),
     allowedFile: new AllowedFileService(repositories.allowedFiles),
     adminUser: new AdminUserService(repositories.users),
+    commitCaseResult: new CommitCaseResultService(
+      repositories.commits,
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.commitCaseResults,
+      repositories.caseStorage,
+    ),
   };
 
   const middleware = {

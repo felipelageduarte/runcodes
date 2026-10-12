@@ -20,7 +20,11 @@ import { createAdminUsersRouter } from "./http/routes/admin-users.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
-  const { exerciseCommits, commits } = createCommitsRouters(services.commit, middleware.requireAuth);
+  const { exerciseCommits, commits } = createCommitsRouters(
+    services.commit,
+    services.commitCaseResult,
+    middleware.requireAuth,
+  );
   const { offeringExercises, exercises: exerciseManagement } = createExerciseManagementRouters(
     services.exerciseManagement,
     middleware.requireAuth,
