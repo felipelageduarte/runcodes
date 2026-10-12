@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { UserRepository } from "../repositories/user.repository.js";
 import { hashLegacyPassword, isLegacyHash } from "../lib/legacyPassword.js";
-import { UnauthorizedError } from "../domain/errors.js";
+import { UnauthorizedError, ForbiddenError } from "../domain/errors.js";
 
 export interface AuthTokens {
   token: string;
@@ -25,6 +25,14 @@ export class AuthService {
       ? hashLegacyPassword(this.legacyPasswordSalt, password) === user.password
       : await bcrypt.compare(password, user.password);
     if (!valid) throw new UnauthorizedError("Invalid credentials", "invalid_credentials");
+
+    // Checked after the password (not via a query-level filter like the
+    // legacy CakePHP Auth scope) so a wrong password always reads as
+    // "invalid_credentials" — this distinct message only reaches someone
+    // who already proved they know the password.
+    if (!user.confirmed) {
+      throw new ForbiddenError("Account email not confirmed yet", "account_not_confirmed");
+    }
 
     // Transparent migration: once a legacy sha1 hash is verified, replace
     // it with bcrypt so every subsequent login skips the legacy path.

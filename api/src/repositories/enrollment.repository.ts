@@ -20,6 +20,8 @@ export interface EnrollmentRepository {
     offeringIds: number[],
   ): Promise<Map<number, { role: number; email: string; name: string }[]>>;
   create(offeringId: number, email: string, role: number): Promise<EnrollmentRecord>;
+  setRole(offeringId: number, email: string, role: number): Promise<EnrollmentRecord | null>;
+  ban(offeringId: number, email: string): Promise<EnrollmentRecord | null>;
 }
 
 export class PrismaEnrollmentRepository implements EnrollmentRepository {
@@ -98,6 +100,30 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       data: { offering_id: offeringId, user_email: email, role },
     });
     return toRecord(row);
+  }
+
+  async setRole(offeringId: number, email: string, role: number): Promise<EnrollmentRecord | null> {
+    try {
+      const row = await this.prisma.enrollments.update({
+        where: { offering_id_user_email: { offering_id: offeringId, user_email: email } },
+        data: { role },
+      });
+      return toRecord(row);
+    } catch {
+      return null; // no enrollment row to update — not found, not a server error
+    }
+  }
+
+  async ban(offeringId: number, email: string): Promise<EnrollmentRecord | null> {
+    try {
+      const row = await this.prisma.enrollments.update({
+        where: { offering_id_user_email: { offering_id: offeringId, user_email: email } },
+        data: { banned: true },
+      });
+      return toRecord(row);
+    } catch {
+      return null;
+    }
   }
 }
 

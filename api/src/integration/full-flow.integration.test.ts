@@ -23,6 +23,8 @@ const emails = {
   admin: `itest-admin-${RUN_ID}@example.com`,
   student: `itest-student-${RUN_ID}@example.com`,
   outsider: `itest-outsider-${RUN_ID}@example.com`,
+  signup: `itest-signup-${RUN_ID}@example.com`,
+  newStaff: `itest-newstaff-${RUN_ID}@example.com`,
 };
 
 let container: Container;
@@ -52,6 +54,7 @@ beforeAll(async () => {
       { email: emails.admin, name: "ITest Admin", password: passwordHash, type: 3, confirmed: true, universityId: 1 },
       { email: emails.student, name: "ITest Student", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
       { email: emails.outsider, name: "ITest Outsider", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
+      { email: emails.newStaff, name: "ITest New Staff", password: passwordHash, type: 0, confirmed: true, universityId: 1 },
     ],
   });
 
@@ -71,6 +74,10 @@ beforeAll(async () => {
     },
   });
   offeringId = offering.id;
+
+  await prisma.enrollments.create({
+    data: { offering_id: offeringId, user_email: emails.newStaff, role: 0 },
+  });
 
   const exercise = await prisma.exercises.create({
     data: {
@@ -104,7 +111,9 @@ afterAll(async () => {
   await prisma.enrollments.deleteMany({ where: { offering_id: offeringId } }).catch(() => {});
   await prisma.offerings.deleteMany({ where: { id: offeringId } }).catch(() => {});
   await prisma.courses.deleteMany({ where: { id: courseId } }).catch(() => {});
-  await prisma.user.deleteMany({ where: { email: { in: Object.values(emails) } } }).catch(() => {});
+  await prisma.user
+    .deleteMany({ where: { email: { in: [...Object.values(emails), `second-${emails.signup}`] } } })
+    .catch(() => {});
   await container.close();
 });
 
@@ -228,5 +237,116 @@ describe("submission pipeline", () => {
       .get(`/api/commits/${commitId}`)
       .set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(403);
+  });
+});
+
+describe("signup + email confirmation", () => {
+  it("creates an unconfirmed account and refuses login before confirmation", async () => {
+    const signupRes = await request(app).post("/api/users").send({
+      email: emails.signup,
+      name: "ITest Signup",
+      password: "a-strong-password",
+    });
+    expect(signupRes.status).toBe(201);
+    expect(signupRes.body.confirmationToken).toBeTruthy();
+
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email: emails.signup, password: "a-strong-password" });
+    expect(loginRes.status).toBe(403);
+    expect(loginRes.body.error).toBe("account_not_confirmed");
+  });
+
+  it("rejects a wrong confirmation token", async () => {
+    const res = await request(app)
+      .post("/api/users/confirm")
+      .send({ email: emails.signup, token: "not-the-right-token" });
+    expect(res.status).toBe(422);
+  });
+
+  it("confirms with the real token and allows login afterwards", async () => {
+    const signupRes = await request(app).post("/api/users").send({
+      email: `second-${emails.signup}`,
+      name: "ITest Signup 2",
+      password: "a-strong-password",
+    });
+    const token = signupRes.body.confirmationToken;
+
+    const confirmRes = await request(app)
+      .post("/api/users/confirm")
+      .send({ email: `second-${emails.signup}`, token });
+    expect(confirmRes.status).toBe(200);
+
+    const loginRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email: `second-${emails.signup}`, password: "a-strong-password" });
+    expect(loginRes.status).toBe(200);
+
+    await container.prisma.user.deleteMany({ where: { email: `second-${emails.signup}` } });
+  });
+
+  it("rejects a duplicate signup for an email already registered", async () => {
+    const res = await request(app).post("/api/users").send({
+      email: emails.signup,
+      name: "ITest Signup",
+      password: "a-strong-password",
+    });
+    expect(res.status).toBe(409);
+  });
+});
+
+describe("offering membership management", () => {
+  it("is forbidden for a plain student to promote someone", async () => {
+    const token = await login(emails.outsider);
+    const res = await request(app)
+      .put(`/api/offerings/${offeringId}/members/${emails.newStaff}/role`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ role: 2 });
+    expect(res.status).toBe(403);
+  });
+
+  it("lets an admin promote an enrolled student to professor", async () => {
+    const token = await login(emails.admin);
+    const res = await request(app)
+      .put(`/api/offerings/${offeringId}/members/${emails.newStaff}/role`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ role: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe(2);
+  });
+
+  it("the newly promoted professor can now manage the offering themselves", async () => {
+    const newProfToken = await login(emails.newStaff);
+    const res = await request(app)
+      .put(`/api/offerings/${offeringId}/members/${emails.newStaff}/role`)
+      .set("Authorization", `Bearer ${newProfToken}`)
+      .send({ role: 1 }); // demote self to assistant
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe(1);
+  });
+
+  it("is forbidden for staff (non-admin) to ban a member", async () => {
+    const token = await login(emails.newStaff); // assistant now, not admin
+    const res = await request(app)
+      .post(`/api/offerings/${offeringId}/members/${emails.outsider}/ban`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("404s banning someone with no enrollment in the offering", async () => {
+    const token = await login(emails.admin);
+    const res = await request(app)
+      .post(`/api/offerings/${offeringId}/members/${emails.outsider}/ban`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(404);
+  });
+
+  it("lets an admin ban an enrolled member", async () => {
+    const token = await login(emails.admin);
+    const res = await request(app)
+      .post(`/api/offerings/${offeringId}/members/${emails.newStaff}/ban`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.banned).toBe(true);
   });
 });

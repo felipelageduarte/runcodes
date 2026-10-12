@@ -10,6 +10,7 @@ import { createOfferingsRouter } from "./http/routes/offerings.routes.js";
 import { createExercisesRouter } from "./http/routes/exercises.routes.js";
 import { createEnrollmentsRouter } from "./http/routes/enrollments.routes.js";
 import { createCommitsRouters } from "./http/routes/commits.routes.js";
+import { createUsersRouter } from "./http/routes/users.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -21,9 +22,13 @@ export function buildApp(container: Container) {
   app.use(express.json());
 
   app.use("/api/auth", createAuthRouter(services.auth));
+  app.use("/api/users", createUsersRouter(services.user));
   app.use("/api", createHealthRouter(middleware.requireAuth));
   app.use("/api/courses", createCoursesRouter(services.course, middleware.requireAuth));
-  app.use("/api/offerings", createOfferingsRouter(services.offering, middleware.requireAuth));
+  app.use(
+    "/api/offerings",
+    createOfferingsRouter(services.offering, services.offeringMembership, middleware.requireAuth),
+  );
   app.use("/api/exercises", createExercisesRouter(services.exercise, middleware.requireAuth));
   app.use("/api/exercises/:exerciseId/commits", exerciseCommits);
   app.use("/api/enrollments", createEnrollmentsRouter(services.enrollment, middleware.requireAuth));

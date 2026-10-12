@@ -12,7 +12,9 @@ import { PrismaCommitRepository } from "./repositories/commit.repository.js";
 import { S3StorageRepository } from "./repositories/storage.repository.js";
 
 import { AuthService } from "./services/auth.service.js";
+import { UserService } from "./services/user.service.js";
 import { EnrollmentService } from "./services/enrollment.service.js";
+import { OfferingMembershipService } from "./services/offering-membership.service.js";
 import { CourseService } from "./services/course.service.js";
 import { OfferingService } from "./services/offering.service.js";
 import { ExerciseService } from "./services/exercise.service.js";
@@ -57,12 +59,14 @@ export function buildContainer() {
       env.JWT_EXPIRES_IN,
       env.LEGACY_PASSWORD_SALT,
     ),
+    user: new UserService(repositories.users),
     enrollment: new EnrollmentService(
       repositories.enrollments,
       repositories.offerings,
       repositories.courses,
       repositories.users,
     ),
+    offeringMembership: new OfferingMembershipService(repositories.enrollments, repositories.users),
     course: new CourseService(repositories.courses, repositories.users),
     offering: new OfferingService(
       repositories.offerings,
