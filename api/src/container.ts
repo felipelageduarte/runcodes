@@ -9,6 +9,7 @@ import { PrismaUniversityRepository } from "./repositories/university.repository
 import { PrismaOfferingRepository } from "./repositories/offering.repository.js";
 import { PrismaExerciseRepository } from "./repositories/exercise.repository.js";
 import { PrismaExerciseCaseRepository } from "./repositories/exercise-case.repository.js";
+import { PrismaExerciseCaseFileRepository } from "./repositories/exercise-case-file.repository.js";
 import { PrismaAllowedFileRepository } from "./repositories/allowed-file.repository.js";
 import { PrismaCommitRepository } from "./repositories/commit.repository.js";
 import { S3StorageRepository } from "./repositories/storage.repository.js";
@@ -35,6 +36,7 @@ import { OfferingService } from "./services/offering.service.js";
 import { ExerciseService } from "./services/exercise.service.js";
 import { ExerciseManagementService } from "./services/exercise-management.service.js";
 import { ExerciseCaseService } from "./services/exercise-case.service.js";
+import { ExerciseCaseFileService } from "./services/exercise-case-file.service.js";
 import { CommitService } from "./services/commit.service.js";
 import { PlagiarismService } from "./services/plagiarism.service.js";
 import { UniversityService } from "./services/university.service.js";
@@ -81,6 +83,7 @@ export function buildContainer() {
     offerings: new PrismaOfferingRepository(prisma),
     exercises: new PrismaExerciseRepository(prisma),
     exerciseCases: new PrismaExerciseCaseRepository(prisma),
+    exerciseCaseFiles: new PrismaExerciseCaseFileRepository(prisma),
     allowedFiles: new PrismaAllowedFileRepository(prisma),
     commits: new PrismaCommitRepository(prisma),
     commitCaseResults: new PrismaCommitCaseResultRepository(prisma),
@@ -145,6 +148,13 @@ export function buildContainer() {
       repositories.exercises,
       repositories.enrollments,
       repositories.exerciseCases,
+      repositories.caseStorage,
+    ),
+    exerciseCaseFile: new ExerciseCaseFileService(
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.exerciseCases,
+      repositories.exerciseCaseFiles,
       repositories.caseStorage,
     ),
     commit: new CommitService(

@@ -744,6 +744,105 @@ describe("exercise case management", () => {
   });
 });
 
+describe("exercise case files (file-based test case input)", () => {
+  let fileCaseId: number;
+  let caseFileId: number;
+
+  it("creates a fresh case to attach files to", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/exercises/${crudExerciseId}/cases`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ input: "", output: "ok", outputType: 1, cputime: 1 });
+    expect(res.status).toBe(201);
+    fileCaseId = res.body.id;
+  });
+
+  it("is forbidden for a plain student to upload a case file", async () => {
+    const token = await login(emails.student);
+    const res = await request(app)
+      .post(`/api/exercise-cases/${fileCaseId}/files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("1 2 3\n"), "input.txt");
+    expect(res.status).toBe(403);
+  });
+
+  it("lets staff upload a case file, round-tripping through the exact S3 key compiler-engine reads", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .post(`/api/exercise-cases/${fileCaseId}/files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("1 2 3\n"), "input.txt");
+    expect(res.status).toBe(201);
+    expect(res.body.path).toBe("input.txt");
+    caseFileId = res.body.id;
+
+    const content = await container.repositories.caseStorage.getFile(fileCaseId, "input.txt");
+    expect(Buffer.from(content).toString()).toBe("1 2 3\n");
+  });
+
+  it("is forbidden for a plain student to list or download case files", async () => {
+    const token = await login(emails.student);
+    const listRes = await request(app)
+      .get(`/api/exercise-cases/${fileCaseId}/files`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(listRes.status).toBe(403);
+
+    const downloadRes = await request(app)
+      .get(`/api/exercise-case-files/${caseFileId}/download`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(downloadRes.status).toBe(403);
+  });
+
+  it("lets staff list and download the case file", async () => {
+    const token = await login(emails.professor);
+    const listRes = await request(app)
+      .get(`/api/exercise-cases/${fileCaseId}/files`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.map((f: { id: number }) => f.id)).toContain(caseFileId);
+
+    const downloadRes = await request(app)
+      .get(`/api/exercise-case-files/${caseFileId}/download`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(downloadRes.status).toBe(200);
+    expect(Buffer.from(downloadRes.body).toString()).toBe("1 2 3\n");
+  });
+
+  it("deletes the case file, cleaning up S3 too", async () => {
+    const token = await login(emails.professor);
+    const res = await request(app)
+      .delete(`/api/exercise-case-files/${caseFileId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(204);
+
+    const listRes = await request(app)
+      .get(`/api/exercise-cases/${fileCaseId}/files`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(listRes.body.map((f: { id: number }) => f.id)).not.toContain(caseFileId);
+
+    await expect(container.repositories.caseStorage.getFile(fileCaseId, "input.txt")).rejects.toBeTruthy();
+  });
+
+  it("deleting the case cleans up any remaining case files in S3", async () => {
+    const token = await login(emails.professor);
+    const uploadRes = await request(app)
+      .post(`/api/exercise-cases/${fileCaseId}/files`)
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("leftover"), "leftover.txt");
+    expect(uploadRes.status).toBe(201);
+
+    const deleteRes = await request(app)
+      .delete(`/api/exercise-cases/${fileCaseId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(deleteRes.status).toBe(204);
+
+    await expect(
+      container.repositories.caseStorage.getFile(fileCaseId, "leftover.txt"),
+    ).rejects.toBeTruthy();
+  });
+});
+
 describe("plagiarism detection", () => {
   async function pollRun(runId: number, token: string) {
     let run = { status: "queued", result: null as unknown };

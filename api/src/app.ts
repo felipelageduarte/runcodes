@@ -10,6 +10,7 @@ import { createOfferingsRouter } from "./http/routes/offerings.routes.js";
 import { createExercisesRouter } from "./http/routes/exercises.routes.js";
 import { createExerciseManagementRouters } from "./http/routes/exercise-management.routes.js";
 import { createExerciseCaseRouters } from "./http/routes/exercise-case.routes.js";
+import { createExerciseCaseFileRouters } from "./http/routes/exercise-case-file.routes.js";
 import { createEnrollmentsRouter } from "./http/routes/enrollments.routes.js";
 import { createCommitsRouters } from "./http/routes/commits.routes.js";
 import { createUsersRouter } from "./http/routes/users.routes.js";
@@ -39,6 +40,10 @@ export function buildApp(container: Container) {
     middleware.requireAuth,
   );
   const { exerciseCases, cases } = createExerciseCaseRouters(services.exerciseCase, middleware.requireAuth);
+  const { byCase: caseFilesByCase, byId: caseFilesById } = createExerciseCaseFileRouters(
+    services.exerciseCaseFile,
+    middleware.requireAuth,
+  );
   const { exerciseRuns, runs: plagiarismRuns } = createPlagiarismRouters(
     services.plagiarism,
     middleware.requireAuth,
@@ -70,6 +75,8 @@ export function buildApp(container: Container) {
   app.use("/api/exercises/:exerciseId/commits", exerciseCommits);
   app.use("/api/exercises/:exerciseId/cases", exerciseCases);
   app.use("/api/exercise-cases", cases);
+  app.use("/api/exercise-cases/:exerciseCaseId/files", caseFilesByCase);
+  app.use("/api/exercise-case-files", caseFilesById);
   app.use("/api/exercises/:exerciseId/plagiarism-runs", exerciseRuns);
   app.use("/api/plagiarism-runs", plagiarismRuns);
   app.use("/api/enrollments", createEnrollmentsRouter(services.enrollment, middleware.requireAuth));

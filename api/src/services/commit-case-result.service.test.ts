@@ -91,6 +91,9 @@ function makeRepos(overrides: { commit?: CommitRecord | null; isStaff?: boolean 
     putOutput: vi.fn(),
     getInput: vi.fn().mockResolvedValue("expected input"),
     getOutput: vi.fn().mockResolvedValue("expected output"),
+    putFile: vi.fn(),
+    getFile: vi.fn(),
+    deleteFile: vi.fn(),
     deleteCase: vi.fn(),
   };
   return { commits, exercises, enrollments, results, caseStorage };

@@ -81,6 +81,9 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
     putOutput: vi.fn().mockResolvedValue(undefined),
     getInput: vi.fn(),
     getOutput: vi.fn(),
+    putFile: vi.fn(),
+    getFile: vi.fn(),
+    deleteFile: vi.fn(),
     deleteCase: vi.fn().mockResolvedValue(undefined),
   };
   return { exercises, enrollments, cases, storage };

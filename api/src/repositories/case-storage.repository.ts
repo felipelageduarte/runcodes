@@ -1,4 +1,11 @@
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, type S3Client } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
+  type S3Client,
+} from "@aws-sdk/client-s3";
 
 /**
  * Exercise case input/output live in the `cases` bucket under keys
@@ -12,6 +19,11 @@ export interface CaseStorageRepository {
   putOutput(caseId: number, content: string): Promise<void>;
   getInput(caseId: number): Promise<string>;
   getOutput(caseId: number): Promise<string>;
+  /** `{caseId}/files/{filename}` — same bucket, same hard contract:
+   * compiler-engine's fetch_test_case_files() reads this verbatim. */
+  putFile(caseId: number, filename: string, content: Buffer): Promise<void>;
+  getFile(caseId: number, filename: string): Promise<Uint8Array>;
+  deleteFile(caseId: number, filename: string): Promise<void>;
   deleteCase(caseId: number): Promise<void>;
 }
 
@@ -37,10 +49,43 @@ export class S3CaseStorageRepository implements CaseStorageRepository {
     return this.get(`${caseId}/out`);
   }
 
+  async putFile(caseId: number, filename: string, content: Buffer): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({ Bucket: this.casesBucket, Key: `${caseId}/files/${filename}`, Body: content }),
+    );
+  }
+
+  async getFile(caseId: number, filename: string): Promise<Uint8Array> {
+    const result = await this.client.send(
+      new GetObjectCommand({ Bucket: this.casesBucket, Key: `${caseId}/files/${filename}` }),
+    );
+    return result.Body!.transformToByteArray();
+  }
+
+  async deleteFile(caseId: number, filename: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.casesBucket, Key: `${caseId}/files/${filename}` }),
+    );
+  }
+
   async deleteCase(caseId: number): Promise<void> {
+    const filesPrefix = `${caseId}/files/`;
+    const listing = await this.client.send(
+      new ListObjectsV2Command({ Bucket: this.casesBucket, Prefix: filesPrefix }),
+    );
+    const fileKeys = (listing.Contents ?? []).map((obj) => obj.Key!);
+
     await Promise.all([
       this.client.send(new DeleteObjectCommand({ Bucket: this.casesBucket, Key: `${caseId}/in` })),
       this.client.send(new DeleteObjectCommand({ Bucket: this.casesBucket, Key: `${caseId}/out` })),
+      fileKeys.length > 0
+        ? this.client.send(
+            new DeleteObjectsCommand({
+              Bucket: this.casesBucket,
+              Delete: { Objects: fileKeys.map((Key) => ({ Key })) },
+            }),
+          )
+        : Promise.resolve(),
     ]);
   }
 
