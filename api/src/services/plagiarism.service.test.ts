@@ -58,6 +58,7 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   const runs: PlagiarismRunRepository = {
     create: vi.fn().mockResolvedValue(RUN_RECORD),

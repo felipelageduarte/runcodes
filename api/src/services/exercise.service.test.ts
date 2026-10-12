@@ -44,6 +44,7 @@ function makeRepos(exercise: ExerciseRecord | null) {
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   return { exercises, enrollments };
 }

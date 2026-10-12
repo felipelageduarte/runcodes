@@ -64,6 +64,7 @@ function makeRepos(exercise: ExerciseRecord | null) {
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   const commits: CommitRepository = {
     create: vi.fn().mockImplementation((input) => Promise.resolve(makeCommitRecord({ ...input, id: 1 }))),

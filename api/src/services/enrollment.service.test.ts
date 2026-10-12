@@ -38,6 +38,7 @@ function makeRepos(overrides: {
     ),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   const offerings: OfferingRepository = {
     list: vi.fn(),

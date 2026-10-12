@@ -51,6 +51,7 @@ function makeRepos() {
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   const exercises: ExerciseRepository = {
     findById: vi.fn(),

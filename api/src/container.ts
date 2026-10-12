@@ -20,6 +20,7 @@ import { PrismaTicketRepository } from "./repositories/ticket.repository.js";
 import { PrismaAlertRepository } from "./repositories/alert.repository.js";
 import { PrismaQuestionRepository } from "./repositories/question.repository.js";
 import { PrismaPublicExerciseRepository } from "./repositories/public-exercise.repository.js";
+import { PrismaLogRepository } from "./repositories/log.repository.js";
 
 import { AuthService } from "./services/auth.service.js";
 import { UserService } from "./services/user.service.js";
@@ -40,6 +41,8 @@ import { TicketService } from "./services/ticket.service.js";
 import { AlertService } from "./services/alert.service.js";
 import { QuestionService } from "./services/question.service.js";
 import { PublicExerciseService } from "./services/public-exercise.service.js";
+import { GradesService } from "./services/grades.service.js";
+import { LogService } from "./services/log.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 
@@ -80,6 +83,7 @@ export function buildContainer() {
     alerts: new PrismaAlertRepository(prisma),
     questions: new PrismaQuestionRepository(prisma),
     publicExercises: new PrismaPublicExerciseRepository(prisma),
+    logs: new PrismaLogRepository(prisma),
   };
 
   const plagiarismQueue = new BullMqPlagiarismJobQueue(env.REDIS_URL);
@@ -145,6 +149,13 @@ export function buildContainer() {
     alert: new AlertService(repositories.alerts),
     question: new QuestionService(repositories.questions),
     publicExercise: new PublicExerciseService(repositories.exercises, repositories.publicExercises),
+    grades: new GradesService(
+      repositories.offerings,
+      repositories.exercises,
+      repositories.enrollments,
+      repositories.commits,
+    ),
+    log: new LogService(repositories.logs),
   };
 
   const middleware = {

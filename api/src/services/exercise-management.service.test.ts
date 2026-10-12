@@ -45,6 +45,7 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   const allowedFiles: AllowedFileRepository = {
     list: vi.fn(),

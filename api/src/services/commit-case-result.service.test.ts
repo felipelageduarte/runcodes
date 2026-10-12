@@ -80,6 +80,7 @@ function makeRepos(overrides: { commit?: CommitRecord | null; isStaff?: boolean 
     create: vi.fn(),
     setRole: vi.fn(),
     ban: vi.fn(),
+    listStudentsForOffering: vi.fn(),
   };
   const results: CommitCaseResultRepository = {
     listForCommit: vi.fn().mockResolvedValue([CASE_RESULT]),

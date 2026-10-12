@@ -33,6 +33,7 @@ function makeRepos(overrides: { staff?: boolean } = {}) {
     create: vi.fn(),
     setRole: vi.fn().mockResolvedValue({ ...ENROLLMENT, role: EnrollmentRole.PROFESSOR }),
     ban: vi.fn().mockResolvedValue({ ...ENROLLMENT, banned: true }),
+    listStudentsForOffering: vi.fn(),
   };
   const users: UserRepository = {
     findByEmail: vi.fn().mockResolvedValue(TARGET_USER),
