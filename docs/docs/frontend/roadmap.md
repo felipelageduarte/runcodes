@@ -7,7 +7,7 @@ sidebar_position: 8
 
 Cada fase é implementável e testável isoladamente — entrega valor real, não é só "andaime pra próxima fase". Ordem pensada pelo caminho crítico do produto: sem auth e sem o aluno conseguir submeter código, nada mais importa; marketplace e admin só fazem sentido depois que o core dos dois papéis principais (aluno, professor) está de pé.
 
-## Fase 0 — Fundação
+## Fase 0 — Fundação ✅
 
 **Escopo:**
 - Estrutura de módulos (`app/`, `modules/*`, `packages/ui`, `packages/api-client`, `packages/auth`) conforme [overview.md](./overview.md).
@@ -18,6 +18,12 @@ Cada fase é implementável e testável isoladamente — entrega valor real, nã
 - Setup de testes (Vitest + RTL + MSW, Playwright básico, Storybook).
 
 **Critério de saída**: um usuário consegue se cadastrar, confirmar email, logar, deslogar, recuperar senha — tudo pela UI nova, zero dependência do `server` legado nessas telas.
+
+**Entregue.** Diferenças do que estava especificado, decididas durante a implementação:
+- O token httpOnly ([security.md](./security.md)) exigiu mudança no `runcodes-api`, não só no frontend: `POST /api/auth/login` agora também seta o cookie (mantendo o token no corpo, pra scripts/testes que ainda usam `Authorization`), mais `GET /api/auth/me` (rehydration de sessão no reload) e `POST /api/auth/logout` — nenhum dos três existia antes desta fase.
+- React Router é só roteamento/code-splitting (`lazy()` por rota) — TanStack Query é a única camada de dados, resolvendo a ambiguidade apontada na revisão do SDD.
+- `editor/` e `shared/` entraram como `packages/*` desde o início (não como `modules/*`), já com a correção de fronteira da revisão do SDD aplicada em código, não só em doc.
+- Resend/reset-password mostram erro real em 404 (conta não existe) em vez de uma tela de "enviado" genérica — o backend não esconde existência de conta nesses dois endpoints, então a UI também não finge esconder.
 
 ## Fase 1 — Jornada do aluno (core)
 

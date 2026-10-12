@@ -7,13 +7,11 @@ sidebar_position: 6
 
 A autorização de verdade sempre vive no `runcodes-api` (cada service checa papel/matrícula antes de agir — ver [backend overview](../backend/overview.md)). O que segue é especificamente sobre a superfície de ataque que o **cliente** introduz, que é diferente da que o backend já trata.
 
-## Armazenamento do token (JWT)
+## Armazenamento do token (JWT) ✅
 
-O scaffold atual guarda o JWT em `localStorage` (`src/lib/api.ts`). Isso funciona, mas é a opção mais exposta a XSS: qualquer script injetado no DOM (dependência comprometida, markdown de exercício mal sanitizado, etc.) lê `localStorage` livremente.
+**Feito na Fase 0.** `POST /api/auth/login` seta um cookie `httpOnly` + `Secure` (produção) + `SameSite=Lax`, além de devolver o token no corpo (mantido só pra scripts/testes que autenticam via `Authorization` — `runcodes-web` nunca lê isso). `GET /api/auth/me` faz a rehydration de sessão no reload (o cookie não é legível por JS, então o nome do usuário precisa de uma ida ao servidor) e `POST /api/auth/logout` limpa o cookie. CORS exige origem explícita + `credentials: true` (`APP_BASE_URL`) em vez do wildcard default, pré-condição pro browser aceitar/enviar o cookie.
 
-**Recomendação para a Fase 1**: mover para um cookie `httpOnly` + `Secure` + `SameSite=Strict`, setado pelo próprio `runcodes-api` na resposta de login — o JavaScript do cliente nunca toca o token, então um XSS não consegue roubá-lo (ainda pode fazer requests autenticados *como* o usuário enquanto a página está aberta, mas não consegue exfiltrar o token pra reusar depois). Isso exige mudança no backend (login passa a setar `Set-Cookie` em vez de devolver o token no corpo) e no CORS (`credentials: 'include'`) — **gap documentado aqui, a implementar junto com a Fase 1 do frontend**, não depois.
-
-Até essa mudança entrar, `localStorage` é aceitável como ponto de partida (é o que o CakePHP legado também expõe por outros vetores), mas não deve ser considerado o estado final.
+`SameSite=Lax`, não `Strict` como planejado originalmente: a classificação de "same-site" do browser ignora porta e subdomínio (só olha o domínio registrável) — `localhost:5173`↔`localhost:3000` em dev e `app.run.codes`↔`api.run.codes` em produção são o mesmo "site", então `Lax` já cobre o caso de uso sem a fricção extra de `Strict` (que bloqueia até navegação cross-site comum).
 
 ## XSS via conteúdo gerado por usuário
 
