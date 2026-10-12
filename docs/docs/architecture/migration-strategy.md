@@ -30,10 +30,10 @@ Mesmo padrão já usado no projeto (`server`, `database`, `compiler-engine`, `co
 2. ✅ Courses / Offerings / Exercises (leitura)
 3. ✅ Enrollments (entrar em turma por código)
 4. ✅ Commits (submissão de código — o caminho crítico: sem isso a API não serve pra nada)
-5. ✅ Cadastro de usuário (signup, confirmação de email — reset de senha ainda falta)
-6. ✅ Gestão de turma (promover/rebaixar professor/assistente, banir aluno — notas/CSV ainda faltam)
-7. ✅ CRUD de exercícios e casos de teste (arquivos auxiliares/exercícios "ghost" ainda faltam)
+5. ✅ Cadastro de usuário (signup, confirmação de email, reset de senha, envio real por SMTP)
+6. ✅ Gestão de turma (promover/rebaixar professor/assistente, banir aluno, notas, export CSV, stats/infográficos)
+7. ✅ CRUD de exercícios e casos de teste (texto e arquivo — `ExerciseCaseFile`), arquivos auxiliares, exercícios "ghost"
 8. ✅ Detecção de plágio — Dolos + JPlag (ver [roadmap](../roadmap/plagiarism-detection.md)); MOSS fora de escopo
-9. Backlog: tickets, mensagens, alerts, emails transacionais, reset de senha, questions, admin de universidades
+9. ✅ Tickets, alerts, questions, public-exercises, admin de universidades/usuários, log de auditoria (escrita)
 
-Status detalhado por módulo: [backend overview](../backend/overview.md).
+`runcodes-api` está **funcionalmente completo** — status detalhado por módulo em [backend overview](../backend/overview.md). A frente de trabalho atual é `runcodes-web`: ver [frontend overview](../frontend/overview.md) e o [roadmap de fases](../frontend/roadmap.md). Qualquer gap de API/schema descoberto durante a implementação do frontend (ex. os do [marketplace](../frontend/marketplace.md)) volta pra esta lista antes de ser implementado.

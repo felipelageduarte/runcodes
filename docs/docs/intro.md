@@ -31,5 +31,6 @@ Nenhum desses repos sozinho pode documentar "como o sistema funciona" — só a 
 
 - **[Arquitetura](./architecture/overview.md)** — como as peças se conectam, o fluxo de uma submissão de código ponta a ponta.
 - **[Estratégia de migração](./architecture/migration-strategy.md)** — por que Node.js/React, e como a migração do PHP legado está sendo feita (strangler pattern).
-- **[Backend (runcodes-api)](./backend/overview.md)** — arquitetura em camadas, módulos implementados, como testar.
+- **[Backend (runcodes-api)](./backend/overview.md)** — arquitetura em camadas, módulos implementados, como testar. Funcionalmente completo.
+- **[Frontend (runcodes-web)](./frontend/overview.md)** — SDD do frontend novo: arquitetura modular, design system, jornadas redesenhadas, editor de código, marketplace de exercícios, segurança, testes, roadmap de fases.
 - **[Roadmap](./roadmap/backlog.md)** — o que falta, incluindo o plano de detecção de plágio (MOSS/JPlag/Dolos).

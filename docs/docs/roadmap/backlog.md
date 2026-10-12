@@ -25,7 +25,7 @@ O `server` (CakePHP) tem ~20 controllers. Portar 1:1 não é o objetivo — o ob
 
 ## Backlog real (não implementado)
 
-Nada pendente no momento — ver [histórico de migração para o frontend](../architecture/migration-strategy.md) pro próximo passo (`runcodes-web`).
+Nada pendente no `runcodes-api` por conta própria. A próxima frente é `runcodes-web` — ver [roadmap do frontend](../frontend/roadmap.md). Isso vai gerar novos gaps de API/schema conforme a implementação avança; o único já identificado e especificado hoje é o suporte ao [marketplace de exercícios](../frontend/marketplace.md#gaps-de-backend-a-implementar-não-existem-hoje) (coluna `public_exercises.created_at`, endpoint de busca/filtro/ordenação, `MarketplaceStatsService` de dificuldade calculada).
 
 ## Fora de escopo deliberado
 
