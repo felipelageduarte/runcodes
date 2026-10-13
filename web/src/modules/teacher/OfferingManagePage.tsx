@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getOffering } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
-import { EmptyState, Skeleton, Tabs } from "@runcodes/ui";
+import { EmptyState, Skeleton, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { isOfferingStaff } from "@runcodes/shared";
 import { MembersTab } from "./components/MembersTab";
 import { ExercisesTab } from "./components/ExercisesTab";
@@ -69,9 +69,11 @@ export function OfferingManagePage() {
         ]}
       />
 
-      {tab === "exercicios" && <ExercisesTab offering={offering} />}
-      {tab === "membros" && <MembersTab offering={offering} currentUserType={user?.type ?? 0} />}
-      {tab === "notas" && <GradesTab offeringId={offering.id} />}
+      <div role="tabpanel" id={tabPanelId("offering-manage-tabs", tab)} aria-labelledby={tabButtonId("offering-manage-tabs", tab)}>
+        {tab === "exercicios" && <ExercisesTab offering={offering} />}
+        {tab === "membros" && <MembersTab offering={offering} currentUserType={user?.type ?? 0} />}
+        {tab === "notas" && <GradesTab offeringId={offering.id} />}
+      </div>
     </div>
   );
 }

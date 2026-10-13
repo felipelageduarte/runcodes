@@ -32,6 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               key={item.to}
               to={item.to}
               end={item.to === "/"}
+              aria-label={item.label}
               className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {({ isActive }) => (
@@ -43,7 +44,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                       transition={{ type: "spring", stiffness: 500, damping: 35 }}
                     />
                   )}
-                  <item.icon className={cn("relative z-10 size-5 shrink-0", isActive && "text-primary-700")} />
+                  <item.icon
+                    aria-hidden="true"
+                    className={cn("relative z-10 size-5 shrink-0", isActive && "text-primary-700")}
+                  />
                   <span className={cn("relative z-10 hidden lg:inline", isActive && "text-primary-700")}>
                     {item.label}
                   </span>
@@ -57,17 +61,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Modo claro" : "Modo escuro"}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {theme === "dark" ? <Sun className="size-5 shrink-0" /> : <Moon className="size-5 shrink-0" />}
+            {theme === "dark" ? (
+              <Sun aria-hidden="true" className="size-5 shrink-0" />
+            ) : (
+              <Moon aria-hidden="true" className="size-5 shrink-0" />
+            )}
             <span className="hidden lg:inline">{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
           </button>
           <button
             type="button"
             onClick={() => logout.mutate()}
+            aria-label="Sair"
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <LogOut className="size-5 shrink-0" />
+            <LogOut aria-hidden="true" className="size-5 shrink-0" />
             <span className="hidden lg:inline">Sair</span>
           </button>
         </div>

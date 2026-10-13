@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
-import { Tabs } from "@runcodes/ui";
+import { Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { MyTicketsTab } from "./components/MyTicketsTab";
 import { TicketQueueTab } from "./components/TicketQueueTab";
 import { AlertsTab } from "./components/AlertsTab";
@@ -26,10 +26,12 @@ export function SupportPage() {
 
       <Tabs layoutId="support-tabs" active={tab} onChange={(k) => setTab(k as TabKey)} tabs={tabs} />
 
-      {tab === "meus" && <MyTicketsTab />}
-      {tab === "fila" && isStaff && <TicketQueueTab />}
-      {tab === "avisos" && isStaff && <AlertsTab />}
-      {tab === "faq" && <FaqTab />}
+      <div role="tabpanel" id={tabPanelId("support-tabs", tab)} aria-labelledby={tabButtonId("support-tabs", tab)}>
+        {tab === "meus" && <MyTicketsTab />}
+        {tab === "fila" && isStaff && <TicketQueueTab />}
+        {tab === "avisos" && isStaff && <AlertsTab />}
+        {tab === "faq" && <FaqTab />}
+      </div>
     </div>
   );
 }

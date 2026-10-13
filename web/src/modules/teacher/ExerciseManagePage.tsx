@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getExercise, getOffering } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
-import { EmptyState, Skeleton, Tabs } from "@runcodes/ui";
+import { EmptyState, Skeleton, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { isOfferingStaff } from "@runcodes/shared";
 import { CasesTab } from "./components/CasesTab";
 import { StatsTab } from "./components/StatsTab";
@@ -82,10 +82,12 @@ export function ExerciseManagePage() {
         ]}
       />
 
-      {tab === "casos" && <CasesTab exerciseId={exercise.id} notCompilable={exercise.type === NOT_COMPILABLE_TYPE} />}
-      {tab === "anexos" && <AttachmentsTab exerciseId={exercise.id} />}
-      {tab === "stats" && <StatsTab exerciseId={exercise.id} />}
-      {tab === "plagio" && <PlagiarismTab exerciseId={exercise.id} />}
+      <div role="tabpanel" id={tabPanelId("exercise-manage-tabs", tab)} aria-labelledby={tabButtonId("exercise-manage-tabs", tab)}>
+        {tab === "casos" && <CasesTab exerciseId={exercise.id} notCompilable={exercise.type === NOT_COMPILABLE_TYPE} />}
+        {tab === "anexos" && <AttachmentsTab exerciseId={exercise.id} />}
+        {tab === "stats" && <StatsTab exerciseId={exercise.id} />}
+        {tab === "plagio" && <PlagiarismTab exerciseId={exercise.id} />}
+      </div>
     </div>
   );
 }

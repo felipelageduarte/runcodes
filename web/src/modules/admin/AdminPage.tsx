@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Tabs } from "@runcodes/ui";
+import { Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { UniversitiesTab } from "./components/UniversitiesTab";
 import { AllowedFilesTab } from "./components/AllowedFilesTab";
 import { AdminUsersTab } from "./components/AdminUsersTab";
@@ -26,10 +26,12 @@ export function AdminPage() {
         ]}
       />
 
-      {tab === "universidades" && <UniversitiesTab />}
-      {tab === "arquivos" && <AllowedFilesTab />}
-      {tab === "usuarios" && <AdminUsersTab />}
-      {tab === "logs" && <LogsTab />}
+      <div role="tabpanel" id={tabPanelId("admin-tabs", tab)} aria-labelledby={tabButtonId("admin-tabs", tab)}>
+        {tab === "universidades" && <UniversitiesTab />}
+        {tab === "arquivos" && <AllowedFilesTab />}
+        {tab === "usuarios" && <AdminUsersTab />}
+        {tab === "logs" && <LogsTab />}
+      </div>
     </div>
   );
 }
