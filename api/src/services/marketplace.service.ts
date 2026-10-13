@@ -24,6 +24,7 @@ export interface PublicExerciseSummary {
   exerciseId: number;
   title: string;
   description: string | null;
+  markdown: boolean;
   level: number | null;
   keywords: string | null;
   createdAt: Date;
@@ -164,6 +165,7 @@ export class MarketplaceService {
           exerciseId: exercise.id,
           title: exercise.title,
           description: exercise.description,
+          markdown: exercise.markdown ?? false,
           level: entry.level,
           keywords: entry.keywords,
           createdAt: entry.createdAt,
