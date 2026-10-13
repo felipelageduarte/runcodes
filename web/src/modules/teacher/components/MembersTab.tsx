@@ -138,6 +138,16 @@ export function MembersTab({ offering, currentUserType }: { offering: OfferingDe
                   >
                     Rebaixar a aluno
                   </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      loading={banMutation.isPending}
+                      onClick={() => banMutation.mutate(member.email)}
+                    >
+                      Banir
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}
