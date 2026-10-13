@@ -241,4 +241,13 @@ describe("ExerciseCaseService.listForExercise", () => {
     const result = await service.listForExercise(1, STUDENT);
     expect(result).toEqual([CASE_RECORD]);
   });
+
+  it("redirects a ghost exercise's case list to the real exercise id", async () => {
+    const repos = makeRepos(makeExercise({ ghost: true, realId: 42 }));
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await service.listForExercise(1, STAFF);
+
+    expect(repos.cases.listForExercise).toHaveBeenCalledWith(42);
+  });
 });

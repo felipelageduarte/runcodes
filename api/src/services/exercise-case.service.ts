@@ -72,7 +72,10 @@ export class ExerciseCaseService {
       throw new ForbiddenError();
     }
 
-    return this.cases.listForExercise(exerciseId);
+    // Cases live on the real exercise, same as attachments and
+    // casesCount — a ghost's own id never has case rows of its own.
+    const casesExerciseId = exercise.ghost && exercise.realId ? exercise.realId : exercise.id;
+    return this.cases.listForExercise(casesExerciseId);
   }
 
   /** Mirrors ExerciseCasesController::add(). */
