@@ -73,6 +73,8 @@ function makeRepos(overrides: { offering?: OfferingRecord | null; isStaff?: bool
   };
   const exercises: ExerciseRepository = {
     findById: vi.fn(),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn().mockResolvedValue([EXERCISE]),
     countCases: vi.fn(),

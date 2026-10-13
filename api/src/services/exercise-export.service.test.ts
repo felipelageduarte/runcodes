@@ -46,6 +46,8 @@ function makeRepos(
 ) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue("exercise" in overrides ? overrides.exercise : EXERCISE),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn(),
     countCases: vi.fn(),

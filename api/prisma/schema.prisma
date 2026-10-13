@@ -355,11 +355,12 @@ model offerings {
 }
 
 model public_exercises {
-  id          Int     @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   exercise_id Int
   level       Int?
   obs         String?
-  keywords    String? @db.VarChar(255)
+  keywords    String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.Timestamp(6)
 }
 
 model questions {

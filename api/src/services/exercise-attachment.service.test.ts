@@ -30,6 +30,8 @@ const ATTACHMENT: AttachmentRecord = { id: 1, exerciseId: 1, path: "helper.py" }
 function makeRepos(overrides: { exercise?: ExerciseRecord | null; isStaff?: boolean; isEnrolled?: boolean } = {}) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue("exercise" in overrides ? overrides.exercise : makeExercise()),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn(),
     countCases: vi.fn(),

@@ -57,6 +57,10 @@ export interface ExercisePatch {
 
 export interface ExerciseRepository {
   findById(id: number): Promise<ExerciseRecord | null>;
+  findByIds(ids: number[]): Promise<ExerciseRecord[]>;
+  /** Ghost clones pointing back at this real exercise — the marketplace's
+   * adoption count, and what a soft-delete cascades to. */
+  findGhosts(realId: number): Promise<ExerciseRecord[]>;
   list(filter: ListExercisesFilter): Promise<{ total: number; exercises: ExerciseRecord[] }>;
   listVisible(filter: VisibleExercisesFilter): Promise<ExerciseRecord[]>;
   countCases(exerciseId: number): Promise<number>;
@@ -77,6 +81,17 @@ export class PrismaExerciseRepository implements ExerciseRepository {
   async findById(id: number): Promise<ExerciseRecord | null> {
     const row = await this.prisma.exercises.findUnique({ where: { id } });
     return row ? toRecord(row) : null;
+  }
+
+  async findByIds(ids: number[]): Promise<ExerciseRecord[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.prisma.exercises.findMany({ where: { id: { in: ids } } });
+    return rows.map(toRecord);
+  }
+
+  async findGhosts(realId: number): Promise<ExerciseRecord[]> {
+    const rows = await this.prisma.exercises.findMany({ where: { real_id: realId, removed: false } });
+    return rows.map(toRecord);
   }
 
   async list(filter: ListExercisesFilter) {

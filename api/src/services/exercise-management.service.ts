@@ -5,6 +5,7 @@ import type {
 } from "../repositories/exercise.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { AllowedFileRepository } from "../repositories/allowed-file.repository.js";
+import type { PublicExerciseRepository } from "../repositories/public-exercise.repository.js";
 import { UserType } from "../lib/constants.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../domain/errors.js";
 import type { Requester } from "./offering.service.js";
@@ -35,6 +36,7 @@ export class ExerciseManagementService {
     private readonly exercises: ExerciseRepository,
     private readonly enrollments: EnrollmentRepository,
     private readonly allowedFiles: AllowedFileRepository,
+    private readonly publicExercises: PublicExerciseRepository,
   ) {}
 
   private async requireStaffOrAdmin(offeringId: number, requester: Requester): Promise<void> {
@@ -127,6 +129,16 @@ export class ExerciseManagementService {
    * ghost. Requires staff/admin of the *target* offering (where the
    * clone lands), matching the legacy check exactly — not staff of the
    * original exercise's own offering.
+   *
+   * Also requires the SOURCE to be legitimately shareable: either
+   * published to the marketplace (public_exercises), or the requester
+   * is already staff/admin of the source's own offering (no new access,
+   * just doing manually what they could already do). Without this, any
+   * staff of any turma could clone any exercise in the system knowing
+   * only its id — true before the marketplace existed, but the
+   * marketplace turns that into a real leak by publishing and
+   * advertising ids, making neighboring private ids trivial to guess
+   * and clone (docs/frontend/marketplace.md, gap #7).
    */
   async shareToOffering(
     exerciseId: number,
@@ -140,6 +152,15 @@ export class ExerciseManagementService {
     const realId = source.ghost && source.realId ? source.realId : source.id;
     const real = realId === source.id ? source : await this.exercises.findById(realId);
     if (!real || real.removed) throw new NotFoundError("Exercise not found");
+
+    const isAdmin = requester.type >= UserType.ADMIN;
+    if (!isAdmin) {
+      const [isPublic, isSourceStaff] = await Promise.all([
+        this.publicExercises.findByExerciseId(real.id).then((row) => row !== null),
+        this.enrollments.isStaff(requester.email, real.offeringId),
+      ]);
+      if (!isPublic && !isSourceStaff) throw new ForbiddenError();
+    }
 
     return this.exercises.create({
       offeringId: targetOfferingId,

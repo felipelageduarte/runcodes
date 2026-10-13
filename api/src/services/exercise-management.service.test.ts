@@ -4,6 +4,7 @@ import { NotFoundError, ForbiddenError, ValidationError } from "../domain/errors
 import type { ExerciseRepository, ExerciseRecord } from "../repositories/exercise.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { AllowedFileRepository } from "../repositories/allowed-file.repository.js";
+import type { PublicExerciseRepository } from "../repositories/public-exercise.repository.js";
 import { UserType } from "../lib/constants.js";
 
 function makeExercise(overrides: Partial<ExerciseRecord> = {}): ExerciseRecord {
@@ -27,6 +28,8 @@ function makeExercise(overrides: Partial<ExerciseRecord> = {}): ExerciseRecord {
 function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue(exercise),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn(),
     countCases: vi.fn(),
@@ -68,7 +71,13 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
       ),
     ),
   };
-  return { exercises, enrollments, allowedFiles };
+  const publicExercises: PublicExerciseRepository = {
+    findByExerciseId: vi.fn().mockResolvedValue(null),
+    create: vi.fn(),
+    list: vi.fn(),
+    listAll: vi.fn().mockResolvedValue([]),
+  };
+  return { exercises, enrollments, allowedFiles, publicExercises };
 }
 
 const STAFF = { email: "prof@x.com", type: 0 };
@@ -90,7 +99,7 @@ describe("ExerciseManagementService.createExercise", () => {
   it("is forbidden for a non-staff, non-admin requester", async () => {
     const repos = makeRepos();
     repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.createExercise(1, STUDENT, CREATE_INPUT)).rejects.toThrow(ForbiddenError);
     expect(repos.exercises.create).not.toHaveBeenCalled();
@@ -98,7 +107,7 @@ describe("ExerciseManagementService.createExercise", () => {
 
   it("allows staff and creates with the requester as author", async () => {
     const repos = makeRepos();
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await service.createExercise(1, STAFF, CREATE_INPUT);
 
@@ -110,7 +119,7 @@ describe("ExerciseManagementService.createExercise", () => {
   it("rejects an allowedFileId that doesn't exist", async () => {
     const repos = makeRepos();
     repos.allowedFiles.findByIds = vi.fn().mockResolvedValue([]); // none found
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(
       service.createExercise(1, STAFF, { ...CREATE_INPUT, allowedFileIds: [999] }),
@@ -119,7 +128,7 @@ describe("ExerciseManagementService.createExercise", () => {
 
   it("links the allowed file ids after creating", async () => {
     const repos = makeRepos();
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await service.createExercise(1, STAFF, { ...CREATE_INPUT, allowedFileIds: [1, 2] });
 
@@ -129,7 +138,7 @@ describe("ExerciseManagementService.createExercise", () => {
   it("allows an admin even without a staff enrollment", async () => {
     const repos = makeRepos();
     repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.createExercise(1, ADMIN, CREATE_INPUT)).resolves.toBeDefined();
   });
@@ -138,7 +147,7 @@ describe("ExerciseManagementService.createExercise", () => {
 describe("ExerciseManagementService.updateExercise", () => {
   it("throws NotFoundError for a missing/removed exercise", async () => {
     const repos = makeRepos(null);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.updateExercise(1, STAFF, { title: "x" })).rejects.toThrow(NotFoundError);
   });
@@ -146,14 +155,14 @@ describe("ExerciseManagementService.updateExercise", () => {
   it("is forbidden for a non-staff requester", async () => {
     const repos = makeRepos();
     repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.updateExercise(1, STUDENT, { title: "x" })).rejects.toThrow(ForbiddenError);
   });
 
   it("updates and returns the result", async () => {
     const repos = makeRepos();
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     const result = await service.updateExercise(1, STAFF, { title: "Updated" });
     expect(result.title).toBe("Updated");
@@ -163,14 +172,14 @@ describe("ExerciseManagementService.updateExercise", () => {
 describe("ExerciseManagementService.deleteExercise", () => {
   it("throws NotFoundError for an already-removed exercise", async () => {
     const repos = makeRepos(makeExercise({ removed: true }));
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.deleteExercise(1, STAFF)).rejects.toThrow(NotFoundError);
   });
 
   it("soft-deletes the real exercise id for a ghost clone", async () => {
     const repos = makeRepos(makeExercise({ ghost: true, realId: 77 }));
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await service.deleteExercise(1, STAFF);
 
@@ -180,7 +189,7 @@ describe("ExerciseManagementService.deleteExercise", () => {
   it("is forbidden for a plain student", async () => {
     const repos = makeRepos();
     repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.deleteExercise(1, STUDENT)).rejects.toThrow(ForbiddenError);
   });
@@ -190,7 +199,7 @@ describe("ExerciseManagementService.shareToOffering", () => {
   it("is forbidden for a non-staff requester of the target offering", async () => {
     const repos = makeRepos();
     repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.shareToOffering(1, 99, STUDENT)).rejects.toThrow(ForbiddenError);
     expect(repos.exercises.create).not.toHaveBeenCalled();
@@ -198,7 +207,7 @@ describe("ExerciseManagementService.shareToOffering", () => {
 
   it("throws NotFoundError for a missing/removed source exercise", async () => {
     const repos = makeRepos(null);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.shareToOffering(1, 99, STAFF)).rejects.toThrow(NotFoundError);
   });
@@ -206,7 +215,7 @@ describe("ExerciseManagementService.shareToOffering", () => {
   it("clones a non-ghost exercise into the target offering", async () => {
     const source = makeExercise({ id: 1, title: "Original", type: 0 });
     const repos = makeRepos(source);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await service.shareToOffering(1, 99, STAFF);
 
@@ -228,7 +237,7 @@ describe("ExerciseManagementService.shareToOffering", () => {
     repos.exercises.findById = vi.fn().mockImplementation((id: number) =>
       Promise.resolve(id === 5 ? ghostSource : real),
     );
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await service.shareToOffering(5, 99, STAFF);
 
@@ -240,8 +249,52 @@ describe("ExerciseManagementService.shareToOffering", () => {
   it("allows an admin even without staff enrollment in the target offering", async () => {
     const repos = makeRepos();
     repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
-    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles);
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
 
     await expect(service.shareToOffering(1, 99, ADMIN)).resolves.toBeDefined();
+  });
+
+  it("is forbidden when the source isn't public and requester isn't staff of the source offering", async () => {
+    const source = makeExercise({ id: 1, offeringId: 1 });
+    const repos = makeRepos(source);
+    repos.publicExercises.findByExerciseId = vi.fn().mockResolvedValue(null);
+    // Staff of the target (99) but not of the source (1) — a staff
+    // member of someone else's turma, exactly the gap being closed.
+    repos.enrollments.isStaff = vi.fn().mockImplementation((_email: string, offeringId: number) =>
+      Promise.resolve(offeringId === 99),
+    );
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
+
+    await expect(service.shareToOffering(1, 99, STAFF)).rejects.toThrow(ForbiddenError);
+    expect(repos.exercises.create).not.toHaveBeenCalled();
+  });
+
+  it("allows sharing a published exercise even without staff enrollment in the source offering", async () => {
+    const source = makeExercise({ id: 1, offeringId: 1 });
+    const repos = makeRepos(source);
+    repos.publicExercises.findByExerciseId = vi.fn().mockResolvedValue({
+      id: 1,
+      exerciseId: 1,
+      level: 1,
+      obs: null,
+      keywords: null,
+      createdAt: new Date(),
+    });
+    repos.enrollments.isStaff = vi.fn().mockImplementation((_email: string, offeringId: number) =>
+      Promise.resolve(offeringId === 99),
+    );
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
+
+    await expect(service.shareToOffering(1, 99, STAFF)).resolves.toBeDefined();
+  });
+
+  it("allows sharing when requester is staff of the source offering even if not published", async () => {
+    const source = makeExercise({ id: 1, offeringId: 1 });
+    const repos = makeRepos(source);
+    repos.publicExercises.findByExerciseId = vi.fn().mockResolvedValue(null);
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true); // staff everywhere, including offering 1
+    const service = new ExerciseManagementService(repos.exercises, repos.enrollments, repos.allowedFiles, repos.publicExercises);
+
+    await expect(service.shareToOffering(1, 99, STAFF)).resolves.toBeDefined();
   });
 });

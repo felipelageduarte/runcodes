@@ -48,6 +48,8 @@ const CASE_RECORD: ExerciseCaseRecord = {
 function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue(exercise),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn(),
     countCases: vi.fn(),

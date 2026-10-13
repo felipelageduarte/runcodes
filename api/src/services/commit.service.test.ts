@@ -46,6 +46,8 @@ function makeCommitRecord(overrides: Partial<CommitRecord> = {}): CommitRecord {
 function makeRepos(exercise: ExerciseRecord | null) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue(exercise),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn(),
     countCases: vi.fn(),

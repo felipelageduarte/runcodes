@@ -26,6 +26,8 @@ function makeExercise(overrides: Partial<ExerciseRecord> = {}): ExerciseRecord {
 function makeRepos(exercise: ExerciseRecord | null) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue(exercise),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn().mockResolvedValue({ total: 0, exercises: [] }),
     listVisible: vi.fn(),
     countCases: vi.fn().mockResolvedValue(3),

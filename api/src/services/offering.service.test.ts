@@ -56,6 +56,8 @@ function makeRepos() {
   };
   const exercises: ExerciseRepository = {
     findById: vi.fn(),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn().mockResolvedValue([]),
     countCases: vi.fn(),

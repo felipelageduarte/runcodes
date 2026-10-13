@@ -144,6 +144,7 @@ export function buildContainer() {
       repositories.exercises,
       repositories.enrollments,
       repositories.allowedFiles,
+      repositories.publicExercises,
     ),
     exerciseCase: new ExerciseCaseService(
       repositories.exercises,

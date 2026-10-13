@@ -23,11 +23,20 @@ const EXERCISE: ExerciseRecord = {
   markdown: false,
 };
 
-const PUBLIC_ENTRY: PublicExerciseRecord = { id: 1, exerciseId: 1, level: 1, obs: null, keywords: "loops" };
+const PUBLIC_ENTRY: PublicExerciseRecord = {
+  id: 1,
+  exerciseId: 1,
+  level: 1,
+  obs: null,
+  keywords: "loops",
+  createdAt: new Date("2026-01-01T00:00:00Z"),
+};
 
 function makeRepos(overrides: { exercise?: ExerciseRecord | null; existing?: PublicExerciseRecord | null } = {}) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue("exercise" in overrides ? overrides.exercise : EXERCISE),
+    findByIds: vi.fn().mockResolvedValue([]),
+    findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn(),
     listVisible: vi.fn(),
     countCases: vi.fn(),
@@ -42,6 +51,7 @@ function makeRepos(overrides: { exercise?: ExerciseRecord | null; existing?: Pub
     findByExerciseId: vi.fn().mockResolvedValue(overrides.existing ?? null),
     create: vi.fn().mockResolvedValue(PUBLIC_ENTRY),
     list: vi.fn().mockResolvedValue({ total: 1, entries: [PUBLIC_ENTRY] }),
+    listAll: vi.fn().mockResolvedValue([PUBLIC_ENTRY]),
   };
   return { exercises, publicExercises };
 }
