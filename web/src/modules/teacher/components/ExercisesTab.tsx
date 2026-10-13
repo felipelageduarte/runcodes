@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteExercise, type OfferingDetail } from "@runcodes/api-client";
+import { deleteExercise, type ExerciseListItem, type OfferingDetail } from "@runcodes/api-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,14 +24,14 @@ const typeLabels: Record<number, string> = { 0: "Compilável", 1: "Não compilá
 
 export function ExercisesTab({ offering }: { offering: OfferingDetail }) {
   const queryClient = useQueryClient();
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<ExerciseListItem | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteExercise(id),
     onSuccess: () => {
       toast.success("Exercício removido");
       queryClient.invalidateQueries({ queryKey: ["offering", offering.id] });
-      setConfirmDeleteId(null);
+      setConfirmDelete(null);
     },
     onError: () => toast.error("Não foi possível remover o exercício"),
   });
@@ -63,24 +63,20 @@ export function ExercisesTab({ offering }: { offering: OfferingDetail }) {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button asChild variant="ghost" size="sm">
-                      <Link to={`/exercicios/${exercise.realId ?? exercise.id}/gerenciar`}>Casos/stats</Link>
+                      <Link to={`/exercicios/${exercise.id}/gerenciar`}>Casos/stats</Link>
                     </Button>
-                    {!exercise.ghost && (
-                      <>
-                        <Button asChild variant="ghost" size="sm">
-                          <Link to={`/exercicios/${exercise.id}/editar`}>Editar</Link>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link to={`/exercicios/${exercise.id}/editar`}>Editar</Link>
+                    </Button>
+                    <ShareExerciseDialog
+                      exercise={exercise}
+                      trigger={
+                        <Button variant="ghost" size="sm">
+                          Compartilhar
                         </Button>
-                        <ShareExerciseDialog
-                          exercise={exercise}
-                          trigger={
-                            <Button variant="ghost" size="sm">
-                              Compartilhar
-                            </Button>
-                          }
-                        />
-                      </>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(exercise.id)}>
+                      }
+                    />
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(exercise)}>
                       Remover
                     </Button>
                   </div>
@@ -91,13 +87,15 @@ export function ExercisesTab({ offering }: { offering: OfferingDetail }) {
         </ul>
       )}
 
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
-        <AlertDialogContent open={confirmDeleteId !== null}>
+      <AlertDialog open={confirmDelete !== null} onOpenChange={(open) => !open && setConfirmDelete(null)}>
+        <AlertDialogContent open={confirmDelete !== null}>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover exercício?</AlertDialogTitle>
             <AlertDialogDescription>
-              Os alunos perdem acesso a esse exercício e suas submissões anteriores. Essa ação não pode ser
-              desfeita pela interface.
+              {confirmDelete?.ghost
+                ? "Esse exercício foi compartilhado de outra turma. Removê-lo apaga o exercício original e todas as cópias compartilhadas em outras turmas — não só nesta."
+                : "Os alunos perdem acesso a esse exercício e suas submissões anteriores. Se esse exercício foi compartilhado com outras turmas, as cópias (ghost) também somem."}{" "}
+              Essa ação não pode ser desfeita pela interface.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -105,7 +103,7 @@ export function ExercisesTab({ offering }: { offering: OfferingDetail }) {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                if (confirmDeleteId) deleteMutation.mutate(confirmDeleteId);
+                if (confirmDelete) deleteMutation.mutate(confirmDelete.id);
               }}
             >
               Remover
