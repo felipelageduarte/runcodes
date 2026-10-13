@@ -11,72 +11,96 @@
  * prefers-color-scheme on first load — see packages/shared/src/theme.ts).
  */
 :root {
-  --background: oklch(0.99 0.002 258);
-  --foreground: oklch(0.17 0.014 258);
+  /* Fundo com leve matiz azulado (não branco-papel puro) e bordas com
+     mais presença — a v1 era clean a ponto de parecer inacabada em modo
+     claro, sem nada ancorando os cards visualmente. */
+  --background: oklch(0.97 0.005 230);
+  --foreground: oklch(0.17 0.014 230);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.014 258);
-  --border: oklch(0.91 0.006 258);
-  --input: oklch(0.88 0.008 258);
-  --muted: oklch(0.96 0.004 258);
-  --muted-foreground: oklch(0.48 0.012 258);
-  --ring: oklch(0.55 0.18 258);
+  --card-foreground: oklch(0.17 0.014 230);
+  --border: oklch(0.87 0.012 230);
+  --input: oklch(0.82 0.014 230);
+  --muted: oklch(0.94 0.008 230);
+  --muted-foreground: oklch(0.46 0.014 230);
+  --ring: oklch(0.55 0.18 222);
 
-  /* Primary — um azul só, escala gerada (só os degraus que a UI usa) */
-  --primary-50: oklch(0.97 0.02 258);
-  --primary-100: oklch(0.93 0.04 258);
-  --primary-300: oklch(0.8 0.1 258);
-  --primary-500: oklch(0.6 0.19 258);
-  --primary-600: oklch(0.51 0.2 258);
-  --primary-700: oklch(0.43 0.19 258);
+  /* Primary — azul-ciano, puxado pro tom histórico do run.codes
+     (#31a5d9 na sidebar do legado) em vez de um azul-violeta genérico. */
+  --primary-50: oklch(0.96 0.03 222);
+  --primary-100: oklch(0.91 0.06 222);
+  --primary-300: oklch(0.78 0.12 222);
+  --primary-500: oklch(0.6 0.17 222);
+  --primary-600: oklch(0.5 0.17 222);
+  --primary-700: oklch(0.41 0.16 222);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* Semantic status — consistente em todo o produto, nunca decoração */
-  --success: oklch(0.6 0.17 145);
-  --success-foreground: oklch(0.99 0 0);
-  --danger: oklch(0.58 0.22 25);
-  --danger-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.75 0.17 75);
-  --warning-foreground: oklch(0.2 0 0);
-  --info: oklch(0.6 0.12 230);
-  --info-foreground: oklch(0.99 0 0);
+  /* Sidebar — âncora de marca, cor própria (não acompanha o
+     background), mesmo espírito do sidebar colorido do run.codes
+     original — âncora visual que o layout anterior não tinha. */
+  --sidebar: oklch(0.32 0.1 222);
+  --sidebar-foreground: oklch(0.95 0.01 222);
+  --sidebar-muted: oklch(0.8 0.04 222);
+  --sidebar-active: oklch(0.42 0.12 222);
+  --sidebar-border: oklch(0.4 0.1 222);
 
-  /* Sombras — suaves, em camada dupla (ambiente + contato), estilo
-     Linear/Vercel, nunca skeuomórfico */
-  --shadow-color: 258 20% 10%;
-  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.06);
-  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.06), 0 8px 16px -4px hsl(var(--shadow-color) / 0.08);
-  --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.08), 0 16px 32px -8px hsl(var(--shadow-color) / 0.14);
+  /* Semantic status — mais saturado, usado com mais liberdade (fundos
+     de card/badge, não só texto) */
+  --success: oklch(0.62 0.17 150);
+  --success-foreground: oklch(0.99 0 0);
+  --danger: oklch(0.6 0.22 25);
+  --danger-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.74 0.17 70);
+  --warning-foreground: oklch(0.2 0 0);
+  --info: oklch(0.62 0.14 230);
+  --info-foreground: oklch(0.99 0 0);
+  --accent-purple: oklch(0.56 0.21 300);
+  --accent-purple-foreground: oklch(0.99 0 0);
+
+  /* Sombras — mais presença que a v1 (que praticamente não aparecia em
+     modo claro) */
+  --shadow-color: 222 30% 20%;
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.08), 0 1px 1px hsl(var(--shadow-color) / 0.06);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.08), 0 8px 20px -4px hsl(var(--shadow-color) / 0.14);
+  --shadow-lg: 0 4px 10px hsl(var(--shadow-color) / 0.12), 0 20px 40px -8px hsl(var(--shadow-color) / 0.22);
 }
 
 .dark {
-  --background: oklch(0.16 0.012 258);
-  --foreground: oklch(0.94 0.004 258);
-  --card: oklch(0.2 0.012 258);
-  --card-foreground: oklch(0.94 0.004 258);
-  --border: oklch(0.3 0.012 258);
-  --input: oklch(0.33 0.014 258);
-  --muted: oklch(0.24 0.012 258);
-  --muted-foreground: oklch(0.65 0.012 258);
-  --ring: oklch(0.65 0.18 258);
+  --background: oklch(0.15 0.014 230);
+  --foreground: oklch(0.94 0.004 230);
+  --card: oklch(0.19 0.014 230);
+  --card-foreground: oklch(0.94 0.004 230);
+  --border: oklch(0.3 0.014 230);
+  --input: oklch(0.33 0.016 230);
+  --muted: oklch(0.23 0.014 230);
+  --muted-foreground: oklch(0.65 0.012 230);
+  --ring: oklch(0.68 0.17 222);
 
-  --primary-50: oklch(0.22 0.04 258);
-  --primary-100: oklch(0.27 0.06 258);
-  --primary-300: oklch(0.45 0.14 258);
-  --primary-500: oklch(0.65 0.19 258);
-  --primary-600: oklch(0.7 0.18 258);
-  --primary-700: oklch(0.78 0.16 258);
+  --primary-50: oklch(0.24 0.05 222);
+  --primary-100: oklch(0.29 0.07 222);
+  --primary-300: oklch(0.46 0.13 222);
+  --primary-500: oklch(0.65 0.17 222);
+  --primary-600: oklch(0.7 0.16 222);
+  --primary-700: oklch(0.78 0.14 222);
   --primary-foreground: oklch(0.12 0 0);
 
-  --success: oklch(0.65 0.17 145);
+  --sidebar: oklch(0.13 0.02 230);
+  --sidebar-foreground: oklch(0.9 0.01 230);
+  --sidebar-muted: oklch(0.6 0.03 230);
+  --sidebar-active: oklch(0.24 0.06 222);
+  --sidebar-border: oklch(0.22 0.02 230);
+
+  --success: oklch(0.65 0.17 150);
   --success-foreground: oklch(0.1 0 0);
   --danger: oklch(0.68 0.2 25);
   --danger-foreground: oklch(0.1 0 0);
-  --warning: oklch(0.78 0.16 75);
+  --warning: oklch(0.78 0.16 70);
   --warning-foreground: oklch(0.1 0 0);
   --info: oklch(0.68 0.12 230);
   --info-foreground: oklch(0.1 0 0);
+  --accent-purple: oklch(0.68 0.19 300);
+  --accent-purple-foreground: oklch(0.1 0 0);
 
-  --shadow-color: 258 50% 2%;
+  --shadow-color: 230 60% 2%;
   --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.3);
   --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.3), 0 8px 16px -4px hsl(var(--shadow-color) / 0.4);
   --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.4), 0 16px 32px -8px hsl(var(--shadow-color) / 0.5);
@@ -110,6 +134,14 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-purple-foreground: var(--accent-purple-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-border: var(--sidebar-border);
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;

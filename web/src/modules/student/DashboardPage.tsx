@@ -1,9 +1,19 @@
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { CalendarPlus, GraduationCap, Inbox, Settings } from "lucide-react";
+import { CalendarPlus, CheckCircle2, GraduationCap, Inbox, ListTodo, School, Settings } from "lucide-react";
 import { useSession } from "@runcodes/auth";
-import { Badge, Button, Card, CardContent, EmptyState, Skeleton, StaggerItem, StaggerList } from "@runcodes/ui";
-import { formatRelativeDeadline, isOfferingStaff } from "@runcodes/shared";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  Skeleton,
+  StaggerItem,
+  StaggerList,
+  StatCard,
+} from "@runcodes/ui";
+import { formatRelativeDeadline, isApprovedScore, isOfferingStaff } from "@runcodes/shared";
 import { useExerciseQueue } from "./hooks/useExerciseQueue";
 import { ExerciseStatusBadge } from "./components/ExerciseStatusBadge";
 import { EnrollDialog } from "./components/EnrollDialog";
@@ -26,8 +36,11 @@ export function DashboardPage() {
     ? [...offerings.open, ...offerings.closed].filter((o) => isOfferingStaff(o, user?.email))
     : [];
 
+  const approvedCount = queue.filter((e) => isApprovedScore(e.myLatestCommit?.score ?? null)).length;
+  const totalTurmas = (offerings?.open.length ?? 0) + (offerings?.closed.length ?? 0);
+
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-4xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Olá, {user?.name}</h1>
         <EnrollDialog
@@ -39,6 +52,22 @@ export function DashboardPage() {
           }
         />
       </div>
+
+      {!isLoading && !isError && offerings && offerings.open.length > 0 && (
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard icon={<School className="size-5" />} label="Turmas" value={totalTurmas} color="primary" />
+          <StatCard icon={<ListTodo className="size-5" />} label="Pendentes" value={queue.length} color="warning" />
+          <StatCard icon={<CheckCircle2 className="size-5" />} label="Aprovados" value={approvedCount} color="success" />
+          {teachingOfferings.length > 0 && (
+            <StatCard
+              icon={<Settings className="size-5" />}
+              label="Turmas lecionadas"
+              value={teachingOfferings.length}
+              color="purple"
+            />
+          )}
+        </div>
+      )}
 
       <h2 className="mb-3 text-sm font-medium text-muted-foreground">Exercícios</h2>
 
@@ -89,18 +118,25 @@ export function DashboardPage() {
       {teachingOfferings.length > 0 && (
         <>
           <h2 className="mb-3 mt-8 text-sm font-medium text-muted-foreground">Turmas que você leciona</h2>
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2">
             {teachingOfferings.map((offering) => (
               <li key={offering.id}>
-                <Link
-                  to={`/turmas/${offering.id}/gerenciar`}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-muted"
-                >
-                  <span className="flex items-center gap-2">
-                    <Settings className="size-4 text-muted-foreground" />
-                    {offering.course?.title ?? `Turma #${offering.id}`}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Gerenciar</span>
+                <Link to={`/turmas/${offering.id}/gerenciar`}>
+                  <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: "easeOut" }}>
+                    <Card className="hover:border-primary-300 hover:shadow-popover">
+                      <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+                          <Settings className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-foreground">
+                            {offering.course?.title ?? `Turma #${offering.id}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Gerenciar turma</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 </Link>
               </li>
             ))}

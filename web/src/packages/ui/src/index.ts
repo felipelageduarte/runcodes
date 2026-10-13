@@ -13,3 +13,4 @@ export * from "./Dialog";
 export * from "./AlertDialog";
 export * from "./StaggerList";
 export * from "./Tabs";
+export * from "./StatCard";
