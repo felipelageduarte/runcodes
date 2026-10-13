@@ -9,8 +9,9 @@ import { isOfferingStaff } from "./lib/offeringRole";
 import { CasesTab } from "./components/CasesTab";
 import { StatsTab } from "./components/StatsTab";
 import { PlagiarismTab } from "./components/PlagiarismTab";
+import { AttachmentsTab } from "./components/AttachmentsTab";
 
-type TabKey = "casos" | "stats" | "plagio";
+type TabKey = "casos" | "anexos" | "stats" | "plagio";
 
 const NOT_COMPILABLE_TYPE = 1;
 
@@ -75,12 +76,14 @@ export function ExerciseManagePage() {
         onChange={(k) => setTab(k as TabKey)}
         tabs={[
           { key: "casos", label: "Casos de teste" },
+          { key: "anexos", label: "Anexos" },
           { key: "stats", label: "Estatísticas" },
           { key: "plagio", label: "Plágio" },
         ]}
       />
 
       {tab === "casos" && <CasesTab exerciseId={exercise.id} notCompilable={exercise.type === NOT_COMPILABLE_TYPE} />}
+      {tab === "anexos" && <AttachmentsTab exerciseId={exercise.id} />}
       {tab === "stats" && <StatsTab exerciseId={exercise.id} />}
       {tab === "plagio" && <PlagiarismTab exerciseId={exercise.id} />}
     </div>

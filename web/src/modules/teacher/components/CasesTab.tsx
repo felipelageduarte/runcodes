@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteExerciseCase, listExerciseCases } from "@runcodes/api-client";
 import { Badge, Button, EmptyState, Skeleton, toast } from "@runcodes/ui";
 import { CaseFormDialog } from "./CaseFormDialog";
+import { CaseFilesDialog } from "./CaseFilesDialog";
 
 const outputTypeLabels: Record<number, string> = { 1: "Texto exato", 2: "Números", 3: "Binário" };
 
@@ -55,6 +56,14 @@ export function CasesTab({ exerciseId, notCompilable }: { exerciseId: number; no
                 <span className="text-muted-foreground">· cputime {caseItem.cputime}s</span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                <CaseFilesDialog
+                  caseId={caseItem.id}
+                  trigger={
+                    <Button variant="ghost" size="sm">
+                      Arquivos
+                    </Button>
+                  }
+                />
                 <CaseFormDialog
                   exerciseId={exerciseId}
                   existing={caseItem}
