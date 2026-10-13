@@ -12,7 +12,7 @@ const ExerciseManagePage = lazy(() =>
 );
 
 // Autorização real é checada dentro de cada página (membership é por
-// turma, não pelo `type` global da conta — ver lib/offeringRole.ts),
+// turma, não pelo `type` global da conta — ver @runcodes/shared/offeringRole.ts),
 // então não tem RequireRole aqui.
 export const teacherRoutes: RouteObject[] = [
   { path: "/turmas/:id/gerenciar", element: <OfferingManagePage /> },

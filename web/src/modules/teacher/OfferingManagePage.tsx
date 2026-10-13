@@ -5,7 +5,7 @@ import { getOffering } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
 import { EmptyState, Skeleton, Tabs } from "@runcodes/ui";
-import { isOfferingStaff } from "./lib/offeringRole";
+import { isOfferingStaff } from "@runcodes/shared";
 import { MembersTab } from "./components/MembersTab";
 import { ExercisesTab } from "./components/ExercisesTab";
 import { GradesTab } from "./components/GradesTab";

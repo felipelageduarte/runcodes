@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listMyOfferings, listOfferings, shareExercise, type ExerciseListItem } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
-import { UserType } from "@runcodes/shared";
+import { UserType, isOfferingStaff } from "@runcodes/shared";
 import {
   Button,
   Dialog,
@@ -15,7 +15,6 @@ import {
   EmptyState,
   toast,
 } from "@runcodes/ui";
-import { isOfferingStaff } from "../lib/offeringRole";
 
 /** Compartilhamento "ghost" — clona o exercício pra outra turma onde o
  * usuário é staff. Mirrors Exercise::createGhostExercise() do legado. */

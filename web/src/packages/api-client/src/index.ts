@@ -9,3 +9,5 @@ export * from "./compilation-files";
 export * from "./exercise-cases";
 export * from "./plagiarism";
 export * from "./allowed-files";
+export * from "./marketplace";
+export * from "./universities";

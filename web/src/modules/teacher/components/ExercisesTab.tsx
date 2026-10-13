@@ -19,6 +19,7 @@ import {
   toast,
 } from "@runcodes/ui";
 import { ShareExerciseDialog } from "./ShareExerciseDialog";
+import { PublishDialog } from "./PublishDialog";
 
 const typeLabels: Record<number, string> = { 0: "Compilável", 1: "Não compilável", 2: "Compilável (makefile)" };
 
@@ -76,6 +77,16 @@ export function ExercisesTab({ offering }: { offering: OfferingDetail }) {
                         </Button>
                       }
                     />
+                    {!exercise.ghost && (
+                      <PublishDialog
+                        exerciseId={exercise.id}
+                        trigger={
+                          <Button variant="ghost" size="sm">
+                            Publicar
+                          </Button>
+                        }
+                      />
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(exercise)}>
                       Remover
                     </Button>

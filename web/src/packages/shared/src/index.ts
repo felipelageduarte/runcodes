@@ -5,3 +5,4 @@ export * from "./commitStatus";
 export * from "./exerciseType";
 export * from "./deadline";
 export * from "./MarkdownContent";
+export * from "./offeringRole";
