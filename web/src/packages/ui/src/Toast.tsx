@@ -10,7 +10,7 @@ export function Toaster() {
       position="bottom-right"
       toastOptions={{
         classNames: {
-          toast: "rounded-xl border border-border bg-card text-card-foreground shadow-lg",
+          toast: "rounded-xl border border-border bg-card text-card-foreground shadow-popover",
           title: "text-sm font-medium",
           description: "text-sm text-muted-foreground",
         },

@@ -3,32 +3,34 @@
 
 /*
  * Design tokens — docs/frontend/design-system.md.
- * Light values on :root, dark overrides on .dark (class-based, toggled
- * by packages/shared's theme logic + synced with prefers-color-scheme on
- * first load — see packages/shared/src/theme.ts).
+ * Direção visual: dev tool polido (Linear/Vercel/GitHub como referência)
+ * — cinzas com leve matiz azulado (mesmo hue do primary, croma baixo, pra
+ * coesão em vez de cinza neutro genérico), sombras suaves em camadas,
+ * cor usada com intenção. Light values on :root, dark overrides on .dark
+ * (class-based, toggled by packages/shared's theme logic + synced with
+ * prefers-color-scheme on first load — see packages/shared/src/theme.ts).
  */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.99 0.002 258);
+  --foreground: oklch(0.17 0.014 258);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.45 0 0);
+  --card-foreground: oklch(0.17 0.014 258);
+  --border: oklch(0.91 0.006 258);
+  --input: oklch(0.88 0.008 258);
+  --muted: oklch(0.96 0.004 258);
+  --muted-foreground: oklch(0.48 0.012 258);
   --ring: oklch(0.55 0.18 258);
 
-  /* Primary — one blue, generated scale (just the steps the UI actually uses) */
+  /* Primary — um azul só, escala gerada (só os degraus que a UI usa) */
   --primary-50: oklch(0.97 0.02 258);
   --primary-100: oklch(0.93 0.04 258);
   --primary-300: oklch(0.8 0.1 258);
-  --primary-500: oklch(0.6 0.18 258);
-  --primary-600: oklch(0.52 0.19 258);
-  --primary-700: oklch(0.45 0.18 258);
+  --primary-500: oklch(0.6 0.19 258);
+  --primary-600: oklch(0.51 0.2 258);
+  --primary-700: oklch(0.43 0.19 258);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* Semantic status — used consistently across the whole product, never
-     repurposed for decoration (see design-system.md) */
+  /* Semantic status — consistente em todo o produto, nunca decoração */
   --success: oklch(0.6 0.17 145);
   --success-foreground: oklch(0.99 0 0);
   --danger: oklch(0.58 0.22 25);
@@ -37,26 +39,33 @@
   --warning-foreground: oklch(0.2 0 0);
   --info: oklch(0.6 0.12 230);
   --info-foreground: oklch(0.99 0 0);
+
+  /* Sombras — suaves, em camada dupla (ambiente + contato), estilo
+     Linear/Vercel, nunca skeuomórfico */
+  --shadow-color: 258 20% 10%;
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.06);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.06), 0 8px 16px -4px hsl(var(--shadow-color) / 0.08);
+  --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.08), 0 16px 32px -8px hsl(var(--shadow-color) / 0.14);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.96 0 0);
-  --card: oklch(0.18 0 0);
-  --card-foreground: oklch(0.96 0 0);
-  --border: oklch(0.3 0 0);
-  --input: oklch(0.3 0 0);
-  --muted: oklch(0.23 0 0);
-  --muted-foreground: oklch(0.65 0 0);
+  --background: oklch(0.16 0.012 258);
+  --foreground: oklch(0.94 0.004 258);
+  --card: oklch(0.2 0.012 258);
+  --card-foreground: oklch(0.94 0.004 258);
+  --border: oklch(0.3 0.012 258);
+  --input: oklch(0.33 0.014 258);
+  --muted: oklch(0.24 0.012 258);
+  --muted-foreground: oklch(0.65 0.012 258);
   --ring: oklch(0.65 0.18 258);
 
-  --primary-50: oklch(0.2 0.03 258);
-  --primary-100: oklch(0.25 0.05 258);
-  --primary-300: oklch(0.45 0.12 258);
-  --primary-500: oklch(0.65 0.18 258);
+  --primary-50: oklch(0.22 0.04 258);
+  --primary-100: oklch(0.27 0.06 258);
+  --primary-300: oklch(0.45 0.14 258);
+  --primary-500: oklch(0.65 0.19 258);
   --primary-600: oklch(0.7 0.18 258);
   --primary-700: oklch(0.78 0.16 258);
-  --primary-foreground: oklch(0.1 0 0);
+  --primary-foreground: oklch(0.12 0 0);
 
   --success: oklch(0.65 0.17 145);
   --success-foreground: oklch(0.1 0 0);
@@ -66,6 +75,11 @@
   --warning-foreground: oklch(0.1 0 0);
   --info: oklch(0.68 0.12 230);
   --info-foreground: oklch(0.1 0 0);
+
+  --shadow-color: 258 50% 2%;
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.3);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.3), 0 8px 16px -4px hsl(var(--shadow-color) / 0.4);
+  --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.4), 0 16px 32px -8px hsl(var(--shadow-color) / 0.5);
 }
 
 @theme inline {
@@ -99,6 +113,11 @@
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --shadow-xs: var(--shadow-sm);
+  --shadow-card: var(--shadow-sm);
+  --shadow-popover: var(--shadow-md);
+  --shadow-dialog: var(--shadow-lg);
 }
 
 @layer base {
@@ -107,5 +126,13 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
   }
 }

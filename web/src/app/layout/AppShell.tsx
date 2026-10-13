@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { motion } from "motion/react";
 import { LogOut, Moon, Sun } from "lucide-react";
 import { useSession, useLogout } from "@runcodes/auth";
 import { useTheme } from "@runcodes/shared";
@@ -28,15 +29,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
-                  isActive && "bg-primary-50 text-primary-700",
-                )
-              }
+              end={item.to === "/"}
+              className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              <item.icon className="size-5 shrink-0" />
-              <span className="hidden lg:inline">{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-active-pill"
+                      className="absolute inset-0 rounded-md bg-primary-50"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <item.icon className={cn("relative z-10 size-5 shrink-0", isActive && "text-primary-700")} />
+                  <span className={cn("relative z-10 hidden lg:inline", isActive && "text-primary-700")}>
+                    {item.label}
+                  </span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -44,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={toggleTheme}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {theme === "dark" ? <Sun className="size-5 shrink-0" /> : <Moon className="size-5 shrink-0" />}
             <span className="hidden lg:inline">{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
@@ -52,7 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => logout.mutate()}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <LogOut className="size-5 shrink-0" />
             <span className="hidden lg:inline">Sair</span>
@@ -64,14 +74,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
 
         {/* Mobile bottom nav */}
-        <nav className="fixed inset-x-0 bottom-0 flex border-t border-border bg-card md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 flex border-t border-border bg-card/95 backdrop-blur md:hidden">
           {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === "/"}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-muted-foreground",
+                  "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-muted-foreground transition-colors",
                   isActive && "text-primary-700",
                 )
               }

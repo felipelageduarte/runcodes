@@ -3,6 +3,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
+import { motion } from "motion/react";
 import { cn } from "./lib/cn";
 
 export const buttonVariants = cva(
@@ -27,8 +28,20 @@ export const buttonVariants = cva(
   },
 );
 
+// motion.button's drag-gesture props (onDrag/onDragStart/onDragEnd) have a
+// different signature than the native DOM drag-event handlers of the same
+// name — nobody actually drags a Button, drop the native ones so the two
+// don't collide when we spread onto motion.button below.
+type NativeEventsThatCollideWithMotion =
+  | "onDrag"
+  | "onDragStart"
+  | "onDragEnd"
+  | "onAnimationStart"
+  | "onAnimationEnd"
+  | "onAnimationIteration";
+
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, NativeEventsThatCollideWithMotion>,
     VariantProps<typeof buttonVariants> {
   /** Render as a different element (e.g. a router `<Link>`) while keeping the button's visuals. */
   asChild?: boolean;
@@ -51,16 +64,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       );
     }
     return (
-      <button
+      <motion.button
         ref={ref}
         className={cn(buttonVariants({ variant, size }), className)}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
+        whileTap={disabled || loading ? undefined : { scale: 0.97 }}
+        transition={{ duration: 0.1 }}
         {...props}
       >
         {loading && <Loader2 className="size-4 animate-spin" aria-hidden />}
         {children}
-      </button>
+      </motion.button>
     );
   },
 );

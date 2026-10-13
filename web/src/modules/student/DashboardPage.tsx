@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
+import { motion } from "motion/react";
 import { CalendarPlus, GraduationCap, Inbox } from "lucide-react";
 import { useSession } from "@runcodes/auth";
-import { Badge, Button, Card, CardContent, EmptyState, Skeleton } from "@runcodes/ui";
+import { Badge, Button, Card, CardContent, EmptyState, Skeleton, StaggerItem, StaggerList } from "@runcodes/ui";
 import { formatRelativeDeadline } from "@runcodes/shared";
 import { useExerciseQueue } from "./hooks/useExerciseQueue";
 import { ExerciseStatusBadge } from "./components/ExerciseStatusBadge";
@@ -46,41 +47,39 @@ export function DashboardPage() {
           icon={<Inbox className="size-8" />}
           title="Você ainda não entrou em nenhuma turma"
           description="Peça o código de matrícula pro seu professor."
-          action={
-            <EnrollDialog
-              trigger={<Button size="sm">Entrar em turma</Button>}
-            />
-          }
+          action={<EnrollDialog trigger={<Button size="sm">Entrar em turma</Button>} />}
         />
       ) : queue.length === 0 ? (
         <EmptyState title="Nenhum exercício disponível nas suas turmas abertas" />
       ) : (
-        <ul className="space-y-2">
+        <StaggerList className="space-y-2">
           {queue.map((exercise) => (
-            <li key={exercise.id}>
+            <StaggerItem key={exercise.id}>
               <Link to={`/exercicios/${exercise.id}`}>
-                <Card className="transition-colors hover:border-primary-300">
-                  <CardContent className="flex items-center justify-between gap-4 p-4">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">{exercise.title}</p>
-                      <p className="truncate text-sm text-muted-foreground">{exercise.offeringTitle}</p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <ExerciseStatusBadge commit={exercise.myLatestCommit} />
-                      <span className="text-xs text-muted-foreground">
-                        {exercise.isOpen ? (
-                          formatRelativeDeadline(exercise.deadline)
-                        ) : (
-                          <Badge variant="neutral">Ainda não abriu</Badge>
-                        )}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
+                <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: "easeOut" }}>
+                  <Card className="hover:border-primary-300 hover:shadow-popover">
+                    <CardContent className="flex items-center justify-between gap-4 p-4">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-foreground">{exercise.title}</p>
+                        <p className="truncate text-sm text-muted-foreground">{exercise.offeringTitle}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <ExerciseStatusBadge commit={exercise.myLatestCommit} />
+                        <span className="text-xs text-muted-foreground">
+                          {exercise.isOpen ? (
+                            formatRelativeDeadline(exercise.deadline)
+                          ) : (
+                            <Badge variant="neutral">Ainda não abriu</Badge>
+                          )}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               </Link>
-            </li>
+            </StaggerItem>
           ))}
-        </ul>
+        </StaggerList>
       )}
 
       {offerings && offerings.closed.length > 0 && (

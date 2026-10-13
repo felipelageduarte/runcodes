@@ -57,7 +57,7 @@ export function EnrollDialog({ trigger }: { trigger: React.ReactNode }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent open={open}>
         <DialogHeader>
           <DialogTitle>Entrar em turma</DialogTitle>
           <DialogDescription>Peça o código de matrícula pro seu professor.</DialogDescription>

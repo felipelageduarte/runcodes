@@ -11,3 +11,4 @@ export * from "./Table";
 export * from "./Toast";
 export * from "./Dialog";
 export * from "./AlertDialog";
+export * from "./StaggerList";

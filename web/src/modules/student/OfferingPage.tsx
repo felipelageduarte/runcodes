@@ -1,7 +1,8 @@
 import { Link, useParams } from "react-router-dom";
+import { motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { getOffering } from "@runcodes/api-client";
-import { Badge, Card, CardContent, EmptyState, Skeleton } from "@runcodes/ui";
+import { Badge, Card, CardContent, EmptyState, Skeleton, StaggerItem, StaggerList } from "@runcodes/ui";
 import { formatRelativeDeadline } from "@runcodes/shared";
 import { ExerciseStatusBadge } from "./components/ExerciseStatusBadge";
 
@@ -47,23 +48,25 @@ export function OfferingPage() {
       {offering.exercises.length === 0 ? (
         <EmptyState title="Nenhum exercício disponível nesta turma ainda" />
       ) : (
-        <ul className="space-y-2">
+        <StaggerList className="space-y-2">
           {offering.exercises.map((exercise) => (
-            <li key={exercise.id}>
+            <StaggerItem key={exercise.id}>
               <Link to={`/exercicios/${exercise.id}`}>
-                <Card className="transition-colors hover:border-primary-300">
-                  <CardContent className="flex items-center justify-between gap-4 p-4">
-                    <p className="truncate font-medium text-foreground">{exercise.title}</p>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <ExerciseStatusBadge commit={exercise.myLatestCommit} />
-                      <Badge variant="neutral">{formatRelativeDeadline(exercise.deadline)}</Badge>
-                    </div>
-                  </CardContent>
-                </Card>
+                <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: "easeOut" }}>
+                  <Card className="hover:border-primary-300 hover:shadow-popover">
+                    <CardContent className="flex items-center justify-between gap-4 p-4">
+                      <p className="truncate font-medium text-foreground">{exercise.title}</p>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <ExerciseStatusBadge commit={exercise.myLatestCommit} />
+                        <Badge variant="neutral">{formatRelativeDeadline(exercise.deadline)}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               </Link>
-            </li>
+            </StaggerItem>
           ))}
-        </ul>
+        </StaggerList>
       )}
     </div>
   );
