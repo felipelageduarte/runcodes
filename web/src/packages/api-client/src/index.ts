@@ -11,3 +11,8 @@ export * from "./plagiarism";
 export * from "./allowed-files";
 export * from "./marketplace";
 export * from "./universities";
+export * from "./admin-users";
+export * from "./logs";
+export * from "./tickets";
+export * from "./alerts";
+export * from "./questions";

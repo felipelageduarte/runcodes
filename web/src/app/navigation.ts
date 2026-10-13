@@ -1,4 +1,4 @@
-import { LayoutDashboard, Store, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Store, ShieldCheck, LifeBuoy } from "lucide-react";
 import { UserType } from "@runcodes/shared";
 
 export interface NavItem {
@@ -15,6 +15,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard },
   { to: "/marketplace", label: "Marketplace", icon: Store, minType: UserType.PROFESSOR },
+  { to: "/suporte", label: "Suporte", icon: LifeBuoy },
   { to: "/admin", label: "Admin", icon: ShieldCheck, minType: UserType.ADMIN },
 ];
 

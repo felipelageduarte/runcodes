@@ -7,6 +7,7 @@ import { authRoutes } from "../modules/auth/routes";
 import { studentRoutes } from "../modules/student/routes";
 import { teacherRoutes } from "../modules/teacher/routes";
 import { marketplaceRoutes } from "../modules/marketplace/routes";
+import { supportRoutes } from "../modules/support/routes";
 import { adminRoutes } from "../modules/admin/routes";
 
 function ProtectedLayout() {
@@ -40,6 +41,6 @@ export const router = createBrowserRouter([
   { element: <AuthPageLayout />, children: authRoutes },
   {
     element: <ProtectedLayout />,
-    children: [...studentRoutes, ...teacherRoutes, ...marketplaceRoutes, ...adminRoutes],
+    children: [...studentRoutes, ...teacherRoutes, ...marketplaceRoutes, ...supportRoutes, ...adminRoutes],
   },
 ]);
