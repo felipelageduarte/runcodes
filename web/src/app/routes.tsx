@@ -5,6 +5,7 @@ import { AppShell } from "./layout/AppShell";
 import { RouteTransition } from "./RouteTransition";
 import { authRoutes } from "../modules/auth/routes";
 import { studentRoutes } from "../modules/student/routes";
+import { teacherRoutes } from "../modules/teacher/routes";
 import { marketplaceRoutes } from "../modules/marketplace/routes";
 import { adminRoutes } from "../modules/admin/routes";
 
@@ -39,6 +40,6 @@ export const router = createBrowserRouter([
   { element: <AuthPageLayout />, children: authRoutes },
   {
     element: <ProtectedLayout />,
-    children: [...studentRoutes, ...marketplaceRoutes, ...adminRoutes],
+    children: [...studentRoutes, ...teacherRoutes, ...marketplaceRoutes, ...adminRoutes],
   },
 ]);

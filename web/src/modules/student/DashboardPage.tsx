@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { CalendarPlus, GraduationCap, Inbox } from "lucide-react";
+import { CalendarPlus, GraduationCap, Inbox, Settings } from "lucide-react";
 import { useSession } from "@runcodes/auth";
 import { Badge, Button, Card, CardContent, EmptyState, Skeleton, StaggerItem, StaggerList } from "@runcodes/ui";
 import { formatRelativeDeadline } from "@runcodes/shared";
+import { isOfferingStaff } from "../teacher/lib/offeringRole";
 import { useExerciseQueue } from "./hooks/useExerciseQueue";
 import { ExerciseStatusBadge } from "./components/ExerciseStatusBadge";
 import { EnrollDialog } from "./components/EnrollDialog";
@@ -21,6 +22,10 @@ function QueueSkeleton() {
 export function DashboardPage() {
   const { user } = useSession();
   const { offerings, queue, isLoading, isError } = useExerciseQueue();
+
+  const teachingOfferings = offerings
+    ? [...offerings.open, ...offerings.closed].filter((o) => isOfferingStaff(o, user?.email))
+    : [];
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -80,6 +85,28 @@ export function DashboardPage() {
             </StaggerItem>
           ))}
         </StaggerList>
+      )}
+
+      {teachingOfferings.length > 0 && (
+        <>
+          <h2 className="mb-3 mt-8 text-sm font-medium text-muted-foreground">Turmas que você leciona</h2>
+          <ul className="space-y-2">
+            {teachingOfferings.map((offering) => (
+              <li key={offering.id}>
+                <Link
+                  to={`/turmas/${offering.id}/gerenciar`}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-muted"
+                >
+                  <span className="flex items-center gap-2">
+                    <Settings className="size-4 text-muted-foreground" />
+                    {offering.course?.title ?? `Turma #${offering.id}`}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Gerenciar</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {offerings && offerings.closed.length > 0 && (

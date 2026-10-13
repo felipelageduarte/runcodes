@@ -5,3 +5,6 @@ export * from "./exercises";
 export * from "./enrollments";
 export * from "./commits";
 export * from "./exercise-files";
+export * from "./exercise-cases";
+export * from "./plagiarism";
+export * from "./allowed-files";
