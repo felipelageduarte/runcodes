@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listMyOfferings, shareExercise, type ExerciseListItem } from "@runcodes/api-client";
+import { listMyOfferings, listOfferings, shareExercise, type ExerciseListItem } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
+import { UserType } from "@runcodes/shared";
 import {
   Button,
   Dialog,
@@ -30,15 +31,27 @@ export function ShareExerciseDialog({
   const { user } = useSession();
   const queryClient = useQueryClient();
 
-  const offeringsQuery = useQuery({
+  const isAdmin = (user?.type ?? -1) >= UserType.ADMIN;
+
+  // Admin global pode compartilhar pra qualquer turma (requireStaffOrAdmin
+  // do backend libera por tipo de conta, não por matrícula) — pra essa
+  // conta o catálogo geral é o destino certo, não só "minhas turmas".
+  const myOfferingsQuery = useQuery({
     queryKey: ["offerings", "mine"],
     queryFn: listMyOfferings,
-    enabled: open,
+    enabled: open && !isAdmin,
+  });
+  const allOfferingsQuery = useQuery({
+    queryKey: ["offerings", "all"],
+    queryFn: () => listOfferings({ closed: false }),
+    enabled: open && isAdmin,
   });
 
-  const targets = [...(offeringsQuery.data?.open ?? []), ...(offeringsQuery.data?.closed ?? [])].filter(
-    (o) => o.id !== exercise.offeringId && isOfferingStaff(o, user?.email),
-  );
+  const targets = isAdmin
+    ? (allOfferingsQuery.data?.offerings ?? []).filter((o) => o.id !== exercise.offeringId)
+    : [...(myOfferingsQuery.data?.open ?? []), ...(myOfferingsQuery.data?.closed ?? [])].filter(
+        (o) => o.id !== exercise.offeringId && isOfferingStaff(o, user?.email),
+      );
 
   const mutation = useMutation({
     mutationFn: () => shareExercise(exercise.id, targetId!),
@@ -63,7 +76,9 @@ export function ShareExerciseDialog({
           </DialogDescription>
         </DialogHeader>
         {targets.length === 0 ? (
-          <EmptyState title="Você não é staff de nenhuma outra turma" />
+          <EmptyState
+            title={isAdmin ? "Nenhuma outra turma aberta encontrada" : "Você não é staff de nenhuma outra turma"}
+          />
         ) : (
           <select
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"

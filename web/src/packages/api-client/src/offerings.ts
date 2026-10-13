@@ -52,6 +52,19 @@ export function getOffering(id: number): Promise<OfferingDetail> {
   return apiFetch(`/offerings/${id}`);
 }
 
+/** Catálogo geral de turmas (não só as do usuário) — aberto a qualquer
+ * autenticado, mas só faz sentido pra quem pode agir sobre turmas que
+ * não é staff (ex: admin escolhendo destino de compartilhamento). */
+export function listOfferings(params: { closed?: boolean; pageSize?: number } = {}): Promise<{
+  total: number;
+  offerings: OfferingSummary[];
+}> {
+  const qs = new URLSearchParams();
+  if (params.closed) qs.set("closed", "true");
+  qs.set("pageSize", String(params.pageSize ?? 100));
+  return apiFetch(`/offerings?${qs.toString()}`);
+}
+
 /** `role` segue EnrollmentRole: 0 aluno, 1 assistente, 2 professor —
  * exige staff(assistente+) ou admin da turma. */
 export function setMemberRole(offeringId: number, email: string, role: number): Promise<EnrollmentRecord> {
