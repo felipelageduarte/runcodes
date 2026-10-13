@@ -6,6 +6,8 @@ import { useSession, useLogout } from "@runcodes/auth";
 import { useTheme } from "@runcodes/shared";
 import { cn } from "@runcodes/ui";
 import { visibleNavItems } from "../navigation";
+import { ViewAsBar } from "./ViewAsBar";
+import { ViewAsMenu } from "./ViewAsMenu";
 
 /** Casca com nav responsiva: sidebar (desktop/tablet) + bottom nav
  * (mobile) — ver docs/frontend/design-system.md#responsividade. Três
@@ -51,6 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="flex flex-col gap-1">
+          <ViewAsMenu />
           <button
             type="button"
             onClick={toggleTheme}
@@ -71,6 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col">
+        <ViewAsBar />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
 
         {/* Mobile bottom nav */}

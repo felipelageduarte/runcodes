@@ -4,6 +4,9 @@ export interface SessionUser {
   email: string;
   name: string;
   type: number;
+  /** Não-nulo enquanto "vendo como" um papel rebaixado — mesma conta,
+   * token diferente (ver runcodes-api auth.service.ts viewAs/stopViewAs). */
+  viewAs: { active: true; realType: number } | null;
 }
 
 export interface LoginResponse {
@@ -24,6 +27,16 @@ export function logout(): Promise<void> {
 
 export function me(): Promise<SessionUser> {
   return apiFetch<SessionUser>("/auth/me");
+}
+
+/** Nunca eleva — o backend rejeita type >= seu papel real (ver
+ * docs/frontend/journeys.md#view-as-impersonação). */
+export function startViewAs(type: number): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>("/auth/view-as", { method: "POST", body: JSON.stringify({ type }) });
+}
+
+export function stopViewAs(): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>("/auth/view-as/stop", { method: "POST" });
 }
 
 export interface SignupInput {
