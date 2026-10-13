@@ -24,6 +24,7 @@ import { createTicketsRouter } from "./http/routes/tickets.routes.js";
 import { createAlertsRouter } from "./http/routes/alerts.routes.js";
 import { createQuestionsRouter } from "./http/routes/questions.routes.js";
 import { createPublicExercisesRouter } from "./http/routes/public-exercises.routes.js";
+import { createMarketplaceRouter } from "./http/routes/marketplace.routes.js";
 import { createGradesRouter } from "./http/routes/grades.routes.js";
 import { createLogsRouter } from "./http/routes/logs.routes.js";
 import { createExerciseAttachmentRouters } from "./http/routes/exercise-attachment.routes.js";
@@ -98,6 +99,7 @@ export function buildApp(container: Container) {
     "/api/public-exercises",
     createPublicExercisesRouter(services.publicExercise, middleware.requireAuth),
   );
+  app.use("/api/marketplace", createMarketplaceRouter(services.marketplace, middleware.requireAuth));
   app.use(
     "/api/offerings/:offeringId/grades",
     createGradesRouter(services.grades, middleware.requireAuth),

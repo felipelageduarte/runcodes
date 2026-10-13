@@ -52,6 +52,8 @@ import { StatsService } from "./services/stats.service.js";
 import { ExerciseExportService } from "./services/exercise-export.service.js";
 import { LogService } from "./services/log.service.js";
 import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
+import { MarketplaceStatsService } from "./services/marketplace-stats.service.js";
+import { MarketplaceService } from "./services/marketplace.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 import { createAuditLog } from "./http/middleware/auditLog.js";
@@ -106,6 +108,8 @@ export function buildContainer() {
   };
 
   const plagiarismQueue = new BullMqPlagiarismJobQueue(env.REDIS_URL);
+
+  const marketplaceStats = new MarketplaceStatsService(repositories.exercises, repositories.commits);
 
   const emailSender = new SmtpEmailSender(env.SMTP_FROM, {
     host: env.SMTP_HOST,
@@ -221,6 +225,14 @@ export function buildContainer() {
       repositories.enrollments,
       repositories.compilationFiles,
       repositories.compilationFileStorage,
+    ),
+    marketplace: new MarketplaceService(
+      repositories.publicExercises,
+      repositories.exercises,
+      repositories.offerings,
+      repositories.courses,
+      repositories.universities,
+      marketplaceStats,
     ),
   };
 
