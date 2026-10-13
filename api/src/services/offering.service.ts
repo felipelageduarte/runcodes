@@ -10,6 +10,11 @@ import { NotFoundError, ForbiddenError } from "../domain/errors.js";
 export interface Requester {
   email: string;
   type: number;
+  /** Present only while impersonating a lower role via "view as" — the
+   * account's real type, kept around as the ceiling a new view-as switch
+   * can never cross and for the UI's permanent indicator (see
+   * auth.service.ts's viewAs/stopViewAs). */
+  realType?: number;
 }
 
 export class OfferingService {

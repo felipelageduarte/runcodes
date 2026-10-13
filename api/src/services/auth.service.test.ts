@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { AuthService } from "./auth.service.js";
 import { UnauthorizedError, ForbiddenError } from "../domain/errors.js";
 import { hashLegacyPassword } from "../lib/legacyPassword.js";
@@ -113,17 +114,101 @@ describe("AuthService.me", () => {
     const users = makeUsersRepo(null);
     const auth = new AuthService(users, "secret", "1h", SALT);
 
-    await expect(auth.me("gone@example.com")).resolves.toBeNull();
+    await expect(auth.me({ email: "gone@example.com", type: 0 })).resolves.toBeNull();
   });
 
-  it("returns email/name/type without the password hash", async () => {
+  it("returns email/name/type without the password hash, viewAs null for an ordinary session", async () => {
     const users = makeUsersRepo(makeUser({ email: "a@example.com", name: "A", type: 2 }));
     const auth = new AuthService(users, "secret", "1h", SALT);
 
-    await expect(auth.me("a@example.com")).resolves.toEqual({
+    await expect(auth.me({ email: "a@example.com", type: 2 })).resolves.toEqual({
       email: "a@example.com",
       name: "A",
       type: 2,
+      viewAs: null,
+    });
+  });
+
+  it("reflects the downgraded type and active viewAs when the requester carries a realType", async () => {
+    const users = makeUsersRepo(makeUser({ email: "a@example.com", name: "A", type: 3 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.me({ email: "a@example.com", type: 0, realType: 3 })).resolves.toEqual({
+      email: "a@example.com",
+      name: "A",
+      type: 0,
+      viewAs: { active: true, realType: 3 },
+    });
+  });
+});
+
+describe("AuthService.viewAs", () => {
+  it("issues a token with the downgraded type and the real type as a separate claim", async () => {
+    const users = makeUsersRepo(makeUser({ email: "admin@x.com", type: 3 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    const result = await auth.viewAs({ email: "admin@x.com", type: 3 }, 0);
+
+    expect(result.user).toMatchObject({ type: 0, viewAs: { active: true, realType: 3 } });
+    const decoded = jwt.verify(result.token, "secret") as { sub: string; type: number; realType?: number };
+    expect(decoded).toMatchObject({ sub: "admin@x.com", type: 0, realType: 3 });
+  });
+
+  it("rejects a target type equal to the real type (no-op elevation attempt)", async () => {
+    const users = makeUsersRepo(makeUser({ email: "admin@x.com", type: 3 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.viewAs({ email: "admin@x.com", type: 3 }, 3)).rejects.toMatchObject({
+      code: "cannot_elevate",
+    });
+  });
+
+  it("rejects a target type above the real type", async () => {
+    const users = makeUsersRepo(makeUser({ email: "prof@x.com", type: 2 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.viewAs({ email: "prof@x.com", type: 2 }, 3)).rejects.toMatchObject({
+      code: "cannot_elevate",
+    });
+  });
+
+  it("caps at the REAL type even when already viewing as something lower (no ratcheting back up through a chain)", async () => {
+    const users = makeUsersRepo(makeUser({ email: "admin@x.com", type: 3 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    // Already downgraded to type 0 (student), real type 3 (admin) carried
+    // in the token. Asking for type 2 must be allowed (still < realType 3)
+    // even though 2 > current type 0 — the ceiling is the REAL type, not
+    // whatever the current downgraded type happens to be.
+    const result = await auth.viewAs({ email: "admin@x.com", type: 0, realType: 3 }, 2);
+    expect(result.user).toMatchObject({ type: 2, viewAs: { active: true, realType: 3 } });
+
+    // But asking for 3 (the real type itself) or anything above is still forbidden.
+    await expect(
+      auth.viewAs({ email: "admin@x.com", type: 0, realType: 3 }, 3),
+    ).rejects.toMatchObject({ code: "cannot_elevate" });
+  });
+});
+
+describe("AuthService.stopViewAs", () => {
+  it("returns an ordinary token at the real type, with no realType claim", async () => {
+    const users = makeUsersRepo(makeUser({ email: "admin@x.com", type: 3 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    const result = await auth.stopViewAs({ email: "admin@x.com", type: 0, realType: 3 });
+
+    expect(result.user).toEqual({ email: "admin@x.com", name: expect.any(String), type: 3, viewAs: null });
+    const decoded = jwt.verify(result.token, "secret") as { sub: string; type: number; realType?: number };
+    expect(decoded.realType).toBeUndefined();
+    expect(decoded.type).toBe(3);
+  });
+
+  it("throws when not currently viewing as anyone", async () => {
+    const users = makeUsersRepo(makeUser({ email: "a@example.com", type: 0 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.stopViewAs({ email: "a@example.com", type: 0 })).rejects.toMatchObject({
+      code: "not_viewing_as",
     });
   });
 });

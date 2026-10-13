@@ -11,6 +11,8 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+const viewAsSchema = z.object({ type: z.number().int().min(0).max(4) });
+
 const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function cookieOptions() {
@@ -50,9 +52,41 @@ export function createAuthRouter(authService: AuthService, requireAuth: RequestH
 
   router.get("/me", requireAuth, async (req: AuthedRequest, res, next) => {
     try {
-      const me = await authService.me(req.user!.email);
+      const me = await authService.me(req.user!);
       if (!me) return res.status(401).json({ error: "invalid_token" });
       res.json(me);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // "View as" — same account, UI sees a downgraded role. Never elevates
+  // (enforced in AuthService.viewAs against the account's real type, not
+  // whatever the current token already claims). Every call here is a
+  // mutating POST behind requireAuth, so the cross-cutting auditLog
+  // middleware already writes one audit line per switch for free.
+  router.post("/view-as", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const { type } = viewAsSchema.parse(req.body);
+      const result = await authService.viewAs(req.user!, type);
+      res.cookie(SESSION_COOKIE_NAME, result.token, {
+        ...cookieOptions(),
+        maxAge: SESSION_COOKIE_MAX_AGE_MS,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/view-as/stop", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const result = await authService.stopViewAs(req.user!);
+      res.cookie(SESSION_COOKIE_NAME, result.token, {
+        ...cookieOptions(),
+        maxAge: SESSION_COOKIE_MAX_AGE_MS,
+      });
+      res.json(result);
     } catch (err) {
       next(err);
     }

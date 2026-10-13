@@ -23,8 +23,8 @@ export function createRequireAuth(jwtSecret: string) {
     if (!token) return res.status(401).json({ error: "missing_token" });
 
     try {
-      const payload = jwt.verify(token, jwtSecret) as { sub: string; type: number };
-      req.user = { email: payload.sub, type: payload.type };
+      const payload = jwt.verify(token, jwtSecret) as { sub: string; type: number; realType?: number };
+      req.user = { email: payload.sub, type: payload.type, realType: payload.realType };
       next();
     } catch {
       res.status(401).json({ error: "invalid_token" });
