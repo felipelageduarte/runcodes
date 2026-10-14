@@ -23,6 +23,7 @@ import { createAdminUsersRouter } from "./http/routes/admin-users.routes.js";
 import { createTicketsRouter } from "./http/routes/tickets.routes.js";
 import { createAlertsRouter } from "./http/routes/alerts.routes.js";
 import { createQuestionsRouter } from "./http/routes/questions.routes.js";
+import { createMessagesRouter } from "./http/routes/messages.routes.js";
 import { createPublicExercisesRouter } from "./http/routes/public-exercises.routes.js";
 import { createMarketplaceRouter } from "./http/routes/marketplace.routes.js";
 import { createGradesRouter } from "./http/routes/grades.routes.js";
@@ -30,7 +31,11 @@ import { createLogsRouter } from "./http/routes/logs.routes.js";
 import { createPipelineRouter } from "./http/routes/pipeline.routes.js";
 import { createDbAdminRouter } from "./http/routes/db-admin.routes.js";
 import { createExerciseAttachmentRouters } from "./http/routes/exercise-attachment.routes.js";
-import { createExerciseStatsRouter, createOfferingStatsRouter } from "./http/routes/stats.routes.js";
+import {
+  createExerciseStatsRouter,
+  createOfferingStatsRouter,
+  createAdminStatsRouter,
+} from "./http/routes/stats.routes.js";
 import { createExerciseExportRouter } from "./http/routes/exercise-export.routes.js";
 
 export function buildApp(container: Container) {
@@ -72,7 +77,7 @@ export function buildApp(container: Container) {
   app.use(middleware.auditLog);
 
   app.use("/api/auth", createAuthRouter(services.auth, middleware.requireAuth));
-  app.use("/api/users", createUsersRouter(services.user));
+  app.use("/api/users", createUsersRouter(services.user, middleware.requireAuth));
   app.use("/api", createHealthRouter(middleware.requireAuth));
   app.use("/api/courses", createCoursesRouter(services.course, middleware.requireAuth));
   app.use(
@@ -94,9 +99,11 @@ export function buildApp(container: Container) {
   app.use("/api/universities", createUniversitiesRouter(services.university, middleware.requireAuth));
   app.use("/api/allowed-files", createAllowedFilesRouter(services.allowedFile, middleware.requireAuth));
   app.use("/api/admin/users", createAdminUsersRouter(services.adminUser, middleware.requireAuth));
+  app.use("/api/admin/stats", createAdminStatsRouter(services.stats, middleware.requireAuth));
   app.use("/api/tickets", createTicketsRouter(services.ticket, middleware.requireAuth));
   app.use("/api/alerts", createAlertsRouter(services.alert, middleware.requireAuth));
   app.use("/api/questions", createQuestionsRouter(services.question, middleware.requireAuth));
+  app.use("/api/messages", createMessagesRouter(services.message, middleware.requireAuth));
   app.use(
     "/api/public-exercises",
     createPublicExercisesRouter(services.publicExercise, middleware.requireAuth),

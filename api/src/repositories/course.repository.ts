@@ -15,10 +15,18 @@ export interface ListCoursesFilter {
   pageSize: number;
 }
 
+export interface NewCourse {
+  code: string;
+  title: string;
+  universityId: number;
+}
+
 export interface CourseRepository {
   list(filter: ListCoursesFilter): Promise<{ total: number; courses: CourseRecord[] }>;
   findById(id: number): Promise<CourseRecord | null>;
   searchByUniversity(universityId: number, search?: string): Promise<CourseRecord[]>;
+  existsByCode(universityId: number, code: string): Promise<boolean>;
+  create(data: NewCourse): Promise<CourseRecord>;
 }
 
 export class PrismaCourseRepository implements CourseRepository {
@@ -64,6 +72,20 @@ export class PrismaCourseRepository implements CourseRepository {
       orderBy: { title: "asc" },
     });
     return rows.map(toRecord);
+  }
+
+  async existsByCode(universityId: number, code: string): Promise<boolean> {
+    const count = await this.prisma.courses.count({
+      where: { university_id: universityId, code: { equals: code, mode: "insensitive" } },
+    });
+    return count > 0;
+  }
+
+  async create(data: NewCourse): Promise<CourseRecord> {
+    const row = await this.prisma.courses.create({
+      data: { code: data.code, title: data.title, university_id: data.universityId },
+    });
+    return toRecord(row);
   }
 }
 

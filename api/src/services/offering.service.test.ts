@@ -7,6 +7,8 @@ import type { UniversityRepository } from "../repositories/university.repository
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { ExerciseRepository, ExerciseRecord } from "../repositories/exercise.repository.js";
 import type { CommitRepository, CommitRecord } from "../repositories/commit.repository.js";
+import type { UserRepository, UserRecord } from "../repositories/user.repository.js";
+import type { EmailSender } from "../repositories/email-sender.js";
 import { UserType } from "../lib/constants.js";
 
 const OFFERING: OfferingRecord = {
@@ -27,7 +29,9 @@ function makeRepos() {
     list: vi.fn().mockResolvedValue({ total: 1, offerings: [OFFERING] }),
     findById: vi.fn().mockResolvedValue(OFFERING),
     findByIds: vi.fn().mockResolvedValue([OFFERING]),
-    findByEnrollmentCode: vi.fn(),
+    findByEnrollmentCode: vi.fn().mockResolvedValue(null),
+    create: vi.fn().mockResolvedValue(OFFERING),
+    update: vi.fn().mockResolvedValue(OFFERING),
   };
   const courses: CourseRepository = {
     list: vi.fn(),
@@ -53,6 +57,8 @@ function makeRepos() {
     setRole: vi.fn(),
     ban: vi.fn(),
     listStudentsForOffering: vi.fn(),
+    delete: vi.fn(),
+    listMemberEmails: vi.fn().mockResolvedValue(["a@x.com", "b@x.com"]),
   };
   const exercises: ExerciseRepository = {
     findById: vi.fn(),
@@ -75,7 +81,31 @@ function makeRepos() {
     listLatestPerStudentForExercise: vi.fn(),
     listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
   };
-  return { offerings, courses, universities, enrollments, exercises, commits };
+  const PROFESSOR_USER: UserRecord = {
+    email: "prof@x.com",
+    name: "Prof",
+    password: "",
+    type: UserType.PROFESSOR,
+    universityId: 1,
+    confirmed: true,
+    identifier: null,
+  };
+  const users: UserRepository = {
+    findByEmail: vi.fn().mockResolvedValue(PROFESSOR_USER),
+    updatePassword: vi.fn(),
+    existsByEmail: vi.fn(),
+    create: vi.fn(),
+    findConfirmationState: vi.fn(),
+    confirm: vi.fn(),
+    setConfirmationToken: vi.fn(),
+    setResetToken: vi.fn(),
+    findResetState: vi.fn(),
+    resetPassword: vi.fn(),
+    listForAdmin: vi.fn(),
+    updateByAdmin: vi.fn(),
+  };
+  const emailSender: EmailSender = { send: vi.fn().mockResolvedValue(undefined) };
+  return { offerings, courses, universities, enrollments, exercises, commits, users, emailSender };
 }
 
 function buildService(repos: ReturnType<typeof makeRepos>) {
@@ -86,6 +116,8 @@ function buildService(repos: ReturnType<typeof makeRepos>) {
     repos.enrollments,
     repos.exercises,
     repos.commits,
+    repos.users,
+    repos.emailSender,
   );
 }
 
@@ -210,5 +242,157 @@ describe("OfferingService.listMine", () => {
 
     expect(result.open.map((o) => o.id)).toEqual([1]);
     expect(result.closed.map((o) => o.id)).toEqual([2]);
+  });
+});
+
+describe("OfferingService.create", () => {
+  const INPUT = { courseId: 10, classroom: "A", endDate: new Date("2099-01-01") };
+
+  it("rejects a requester below professor", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    await expect(service.create({ email: "s@x.com", type: UserType.STUDENT }, INPUT)).rejects.toThrow(
+      ForbiddenError,
+    );
+    expect(repos.offerings.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the course belongs to a different university than the requester", async () => {
+    const repos = makeRepos();
+    repos.users.findByEmail = vi.fn().mockResolvedValue({
+      email: "prof@x.com",
+      name: "Prof",
+      password: "",
+      type: UserType.PROFESSOR,
+      universityId: 2,
+      confirmed: true,
+      identifier: null,
+    });
+    const service = buildService(repos);
+
+    await expect(
+      service.create({ email: "prof@x.com", type: UserType.PROFESSOR }, INPUT),
+    ).rejects.toThrow(ForbiddenError);
+    expect(repos.offerings.create).not.toHaveBeenCalled();
+  });
+
+  it("creates the offering, enrolls the requester as professor, and emails the code", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    const result = await service.create({ email: "prof@x.com", type: UserType.PROFESSOR }, INPUT);
+
+    expect(result).toEqual(OFFERING);
+    expect(repos.offerings.create).toHaveBeenCalledWith(
+      expect.objectContaining({ courseId: 10, classroom: "A", endDate: INPUT.endDate }),
+    );
+    expect(repos.enrollments.create).toHaveBeenCalledWith(OFFERING.id, "prof@x.com", 2);
+    expect(repos.emailSender.send).toHaveBeenCalledWith(expect.objectContaining({ to: "prof@x.com" }));
+  });
+
+  it("retries code generation until it finds one not already in use", async () => {
+    const repos = makeRepos();
+    repos.offerings.findByEnrollmentCode = vi
+      .fn()
+      .mockResolvedValueOnce(OFFERING)
+      .mockResolvedValueOnce(null);
+    const service = buildService(repos);
+
+    await service.create({ email: "prof@x.com", type: UserType.PROFESSOR }, INPUT);
+
+    expect(repos.offerings.findByEnrollmentCode).toHaveBeenCalledTimes(2);
+  });
+
+  it("doesn't fail the whole operation when the confirmation email fails to send", async () => {
+    const repos = makeRepos();
+    repos.emailSender.send = vi.fn().mockRejectedValue(new Error("smtp down"));
+    const service = buildService(repos);
+
+    await expect(service.create({ email: "prof@x.com", type: UserType.PROFESSOR }, INPUT)).resolves.toEqual(
+      OFFERING,
+    );
+  });
+});
+
+describe("OfferingService.update", () => {
+  it("throws NotFoundError for a missing offering", async () => {
+    const repos = makeRepos();
+    repos.offerings.findById = vi.fn().mockResolvedValue(null);
+    const service = buildService(repos);
+
+    await expect(
+      service.update(1, { email: "prof@x.com", type: UserType.PROFESSOR }, { classroom: "B" }),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("rejects a non-staff, non-admin requester", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    await expect(
+      service.update(1, { email: "s@x.com", type: UserType.STUDENT }, { classroom: "B" }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(repos.offerings.update).not.toHaveBeenCalled();
+  });
+
+  it("allows staff of this offering to update it", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    await service.update(1, { email: "prof@x.com", type: UserType.PROFESSOR }, { classroom: "B" });
+
+    expect(repos.offerings.update).toHaveBeenCalledWith(1, { classroom: "B" });
+  });
+
+  it("allows an admin regardless of staff membership", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    await service.update(1, { email: "admin@x.com", type: UserType.ADMIN }, { classroom: "B" });
+
+    expect(repos.enrollments.isStaff).not.toHaveBeenCalled();
+    expect(repos.offerings.update).toHaveBeenCalledWith(1, { classroom: "B" });
+  });
+});
+
+describe("OfferingService.emailMembers", () => {
+  it("throws NotFoundError for a missing offering", async () => {
+    const repos = makeRepos();
+    repos.offerings.findById = vi.fn().mockResolvedValue(null);
+    const service = buildService(repos);
+
+    await expect(
+      service.emailMembers(1, { email: "prof@x.com", type: UserType.PROFESSOR }, { subject: "Oi", message: "Msg" }),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it("rejects a non-staff, non-admin requester", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    await expect(
+      service.emailMembers(1, { email: "s@x.com", type: UserType.STUDENT }, { subject: "Oi", message: "Msg" }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(repos.emailSender.send).not.toHaveBeenCalled();
+  });
+
+  it("emails every non-banned member and returns the recipient count", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    const result = await service.emailMembers(
+      1,
+      { email: "prof@x.com", type: UserType.PROFESSOR },
+      { subject: "Prova remarcada", message: "Nova data: sexta" },
+    );
+
+    expect(result).toEqual({ count: 2 });
+    expect(repos.emailSender.send).toHaveBeenCalledTimes(2);
+    expect(repos.emailSender.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "a@x.com", subject: expect.stringContaining("Prova remarcada") }),
+    );
   });
 });

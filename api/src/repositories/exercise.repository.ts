@@ -55,8 +55,20 @@ export interface ExercisePatch {
   markdown?: boolean;
 }
 
+/** Contexto da turma dona do exercício — só o que a tela de exercício
+ * precisa pra se situar (breadcrumb, cabeçalho), não a OfferingSummary
+ * inteira. */
+export interface ExerciseOfferingContext {
+  id: number;
+  classroom: string | null;
+  year: number;
+  term: number;
+  course: { id: number; code: string; title: string } | null;
+}
+
 export interface ExerciseRepository {
   findById(id: number): Promise<ExerciseRecord | null>;
+  findOfferingContext(offeringId: number): Promise<ExerciseOfferingContext | null>;
   findByIds(ids: number[]): Promise<ExerciseRecord[]>;
   /** Ghost clones pointing back at this real exercise — the marketplace's
    * adoption count, and what a soft-delete cascades to. */
@@ -87,6 +99,23 @@ export class PrismaExerciseRepository implements ExerciseRepository {
     if (ids.length === 0) return [];
     const rows = await this.prisma.exercises.findMany({ where: { id: { in: ids } } });
     return rows.map(toRecord);
+  }
+
+  async findOfferingContext(offeringId: number): Promise<ExerciseOfferingContext | null> {
+    const row = await this.prisma.offerings.findUnique({
+      where: { id: offeringId },
+      include: { courses: true },
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      classroom: row.classroom,
+      year: row.year,
+      term: row.term,
+      course: row.courses
+        ? { id: row.courses.id, code: row.courses.code, title: row.courses.title }
+        : null,
+    };
   }
 
   async findGhosts(realId: number): Promise<ExerciseRecord[]> {

@@ -48,8 +48,21 @@ export interface ExerciseCaseRepository {
   findById(id: number): Promise<ExerciseCaseRecord | null>;
   listForExercise(exerciseId: number): Promise<ExerciseCaseRecord[]>;
   create(input: NewExerciseCase): Promise<ExerciseCaseRecord>;
+  createMany(inputs: NewExerciseCase[]): Promise<ExerciseCaseRecord[]>;
   update(id: number, patch: ExerciseCasePatch): Promise<ExerciseCaseRecord | null>;
+  /** Visibility-only bulk update — all three flags share one call since
+   * the UI toggles them together ("mostrar tudo"/"ocultar tudo"), not
+   * per-field. */
+  updateVisibilityForExercise(
+    exerciseId: number,
+    patch: { showInput?: boolean; showExpectedOutput?: boolean; showUserOutput?: boolean },
+  ): Promise<number>;
   delete(id: number): Promise<boolean>;
+  deleteAllForExercise(exerciseId: number): Promise<number>;
+  /** Most recent `last_update` across every case of the exercise — null
+   * when it has no cases. Used to flag commits submitted before the
+   * grading rules last changed ("unsafe commits"). */
+  maxLastUpdate(exerciseId: number): Promise<Date | null>;
 }
 
 export class PrismaExerciseCaseRepository implements ExerciseCaseRepository {
@@ -87,6 +100,47 @@ export class PrismaExerciseCaseRepository implements ExerciseCaseRepository {
       },
     });
     return toRecord(row);
+  }
+
+  async createMany(inputs: NewExerciseCase[]): Promise<ExerciseCaseRecord[]> {
+    // No createManyAndReturn in this Prisma version's Postgres connector for
+    // our target — loop + create keeps it to one round-trip-per-row but
+    // guarantees every row comes back with its id, which the batch caller
+    // needs to then upload each case's input/output to S3.
+    const created: ExerciseCaseRecord[] = [];
+    for (const input of inputs) {
+      created.push(await this.create(input));
+    }
+    return created;
+  }
+
+  async updateVisibilityForExercise(
+    exerciseId: number,
+    patch: { showInput?: boolean; showExpectedOutput?: boolean; showUserOutput?: boolean },
+  ): Promise<number> {
+    const result = await this.prisma.exercise_cases.updateMany({
+      where: { exercise_id: exerciseId },
+      data: {
+        ...(patch.showInput !== undefined ? { show_input: patch.showInput } : {}),
+        ...(patch.showExpectedOutput !== undefined ? { show_expected_output: patch.showExpectedOutput } : {}),
+        ...(patch.showUserOutput !== undefined ? { show_user_output: patch.showUserOutput } : {}),
+        last_update: new Date(),
+      },
+    });
+    return result.count;
+  }
+
+  async deleteAllForExercise(exerciseId: number): Promise<number> {
+    const result = await this.prisma.exercise_cases.deleteMany({ where: { exercise_id: exerciseId } });
+    return result.count;
+  }
+
+  async maxLastUpdate(exerciseId: number): Promise<Date | null> {
+    const row = await this.prisma.exercise_cases.aggregate({
+      where: { exercise_id: exerciseId },
+      _max: { last_update: true },
+    });
+    return row._max.last_update ?? null;
   }
 
   async update(id: number, patch: ExerciseCasePatch): Promise<ExerciseCaseRecord | null> {

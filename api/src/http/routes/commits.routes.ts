@@ -1,8 +1,14 @@
 import { Router, type RequestHandler } from "express";
+import { z } from "zod";
 import type { CommitService } from "../../services/commit.service.js";
 import type { CommitCaseResultService } from "../../services/commit-case-result.service.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
 import { upload } from "../middleware/upload.js";
+
+const editScoreSchema = z.object({
+  score: z.coerce.number().min(0).max(10),
+  status: z.number().int().min(0).max(9),
+});
 
 // Mounted twice by the composition root: nested under
 // /api/exercises/:exerciseId/commits for submission + history, and at
@@ -42,6 +48,17 @@ export function createCommitsRouters(
     }
   });
 
+  // Staff of the turma (or admin) — mirrors CommitsController::recompileAll().
+  exerciseCommits.post("/recompile-all", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const exerciseId = Number(req.params.exerciseId);
+      if (!Number.isInteger(exerciseId)) return res.status(400).json({ error: "invalid_id" });
+      res.json(await commitService.recompileAll(exerciseId, req.user!));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   const commits = Router();
 
   commits.get("/:id", requireAuth, async (req: AuthedRequest, res, next) => {
@@ -63,6 +80,29 @@ export function createCommitsRouters(
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
       const { filename, content } = await commitService.getContent(id, req.user!);
       res.json({ filename, content: Buffer.from(content).toString("utf-8") });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Staff of the turma (or admin) — mirrors CommitsController::editScore().
+  commits.put("/:id/score", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
+      const { score, status } = editScoreSchema.parse(req.body);
+      res.json(await commitService.editScore(id, req.user!, { score: String(score), status }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Staff of the turma (or admin) — mirrors CommitsController::recompile().
+  commits.post("/:id/recompile", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
+      res.json(await commitService.recompile(id, req.user!));
     } catch (err) {
       next(err);
     }

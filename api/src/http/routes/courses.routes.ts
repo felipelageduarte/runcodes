@@ -15,6 +15,12 @@ const listQuerySchema = z.object({
 
 const searchQuerySchema = z.object({ q: z.string().optional() });
 
+const createSchema = z.object({
+  code: z.string().min(1).max(16),
+  title: z.string().min(1).max(255),
+  universityId: z.number().int(),
+});
+
 export function createCoursesRouter(courseService: CourseService, requireAuth: RequestHandler) {
   const router = Router();
 
@@ -23,6 +29,17 @@ export function createCoursesRouter(courseService: CourseService, requireAuth: R
     try {
       const q = listQuerySchema.parse(req.query);
       res.json(await courseService.list(q));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin-only — mirrors CoursesController::add() (single-course form, not the batch textarea).
+  router.post("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+    try {
+      const input = createSchema.parse(req.body);
+      const course = await courseService.create(input);
+      res.status(201).json(course);
     } catch (err) {
       next(err);
     }

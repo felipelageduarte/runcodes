@@ -5,7 +5,7 @@ export function createHealthRouter(requireAuth: RequestHandler) {
   const router = Router();
 
   router.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", now: new Date().toISOString() });
   });
 
   router.get("/me", requireAuth, (req: AuthedRequest, res) => {

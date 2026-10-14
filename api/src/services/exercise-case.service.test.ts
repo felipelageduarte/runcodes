@@ -76,14 +76,18 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
     findById: vi.fn().mockResolvedValue(CASE_RECORD),
     listForExercise: vi.fn().mockResolvedValue([CASE_RECORD]),
     create: vi.fn().mockResolvedValue(CASE_RECORD),
+    createMany: vi.fn().mockResolvedValue([CASE_RECORD]),
     update: vi.fn().mockResolvedValue({ ...CASE_RECORD, cputime: 5 }),
+    updateVisibilityForExercise: vi.fn().mockResolvedValue(0),
     delete: vi.fn().mockResolvedValue(true),
+    deleteAllForExercise: vi.fn().mockResolvedValue(0),
+    maxLastUpdate: vi.fn().mockResolvedValue(null),
   };
   const storage: CaseStorageRepository = {
     putInput: vi.fn().mockResolvedValue(undefined),
     putOutput: vi.fn().mockResolvedValue(undefined),
-    getInput: vi.fn(),
-    getOutput: vi.fn(),
+    getInput: vi.fn().mockResolvedValue("1 2"),
+    getOutput: vi.fn().mockResolvedValue("3"),
     putFile: vi.fn(),
     getFile: vi.fn(),
     deleteFile: vi.fn(),
@@ -94,6 +98,12 @@ function makeRepos(exercise: ExerciseRecord | null = makeExercise()) {
 
 const STAFF = { email: "prof@x.com", type: 0 };
 const STUDENT = { email: "student@x.com", type: 0 };
+
+async function drain(archive: NodeJS.ReadableStream): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of archive) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks);
+}
 
 const CREATE_INPUT = {
   input: "1 2",
@@ -249,6 +259,169 @@ describe("ExerciseCaseService.listForExercise", () => {
     const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
 
     await service.listForExercise(1, STAFF);
+
+    expect(repos.cases.listForExercise).toHaveBeenCalledWith(42);
+  });
+});
+
+describe("ExerciseCaseService.createBatch", () => {
+  it("is forbidden for a non-staff requester", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.createBatch(1, STUDENT, [CREATE_INPUT, CREATE_INPUT])).rejects.toThrow(ForbiddenError);
+  });
+
+  it("rejects a non-compilable exercise", async () => {
+    const repos = makeRepos(makeExercise({ type: 1 }));
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.createBatch(1, STAFF, [CREATE_INPUT])).rejects.toMatchObject({
+      code: "cases_not_supported_for_exercise_type",
+    });
+  });
+
+  it("creates every case in the batch against the resolved exercise id", async () => {
+    const repos = makeRepos(makeExercise({ ghost: true, realId: 42 }));
+    repos.cases.create = vi.fn().mockImplementation((input) =>
+      Promise.resolve({ ...CASE_RECORD, id: Math.random(), exerciseId: input.exerciseId }),
+    );
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    const result = await service.createBatch(1, STAFF, [CREATE_INPUT, { ...CREATE_INPUT, cputime: 2 }]);
+
+    expect(result).toHaveLength(2);
+    expect(result.every((c) => c.exerciseId === 42)).toBe(true);
+    expect(repos.storage.putInput).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops at the first failure, leaving earlier cases created", async () => {
+    const repos = makeRepos();
+    let calls = 0;
+    repos.cases.create = vi.fn().mockImplementation(() => {
+      calls += 1;
+      return Promise.resolve({ ...CASE_RECORD, id: calls });
+    });
+    repos.storage.putInput = vi.fn().mockImplementation(() => {
+      if (calls === 2) return Promise.reject(new Error("s3 down"));
+      return Promise.resolve(undefined);
+    });
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.createBatch(1, STAFF, [CREATE_INPUT, CREATE_INPUT, CREATE_INPUT])).rejects.toThrow(
+      "s3 down",
+    );
+    expect(repos.cases.delete).toHaveBeenCalledWith(2);
+  });
+});
+
+describe("ExerciseCaseService.setVisibilityForAll", () => {
+  it("is forbidden for a non-staff requester", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.setVisibilityForAll(1, STUDENT, { showInput: true })).rejects.toThrow(ForbiddenError);
+  });
+
+  it("applies the patch to every case of the resolved exercise id and returns the count", async () => {
+    const repos = makeRepos(makeExercise({ ghost: true, realId: 42 }));
+    repos.cases.updateVisibilityForExercise = vi.fn().mockResolvedValue(3);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    const result = await service.setVisibilityForAll(1, STAFF, { showInput: true, showUserOutput: false });
+
+    expect(repos.cases.updateVisibilityForExercise).toHaveBeenCalledWith(42, {
+      showInput: true,
+      showUserOutput: false,
+    });
+    expect(result).toEqual({ count: 3 });
+  });
+});
+
+describe("ExerciseCaseService.removeAllCases", () => {
+  it("is forbidden for a non-staff requester", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.removeAllCases(1, STUDENT)).rejects.toThrow(ForbiddenError);
+  });
+
+  it("deletes every case row and best-effort cleans up their S3 objects", async () => {
+    const repos = makeRepos();
+    repos.cases.listForExercise = vi.fn().mockResolvedValue([CASE_RECORD, { ...CASE_RECORD, id: 11 }]);
+    repos.cases.deleteAllForExercise = vi.fn().mockResolvedValue(2);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    const result = await service.removeAllCases(1, STAFF);
+
+    expect(repos.cases.deleteAllForExercise).toHaveBeenCalledWith(1);
+    expect(repos.storage.deleteCase).toHaveBeenCalledWith(10);
+    expect(repos.storage.deleteCase).toHaveBeenCalledWith(11);
+    expect(result).toEqual({ count: 2 });
+  });
+});
+
+describe("ExerciseCaseService.buildCasesZip", () => {
+  it("throws NotFoundError for a missing exercise", async () => {
+    const repos = makeRepos(null);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.buildCasesZip(1, STAFF)).rejects.toThrow(NotFoundError);
+  });
+
+  it("is forbidden for a requester who is neither staff nor enrolled", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    repos.enrollments.isEnrolled = vi.fn().mockResolvedValue(false);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    await expect(service.buildCasesZip(1, STUDENT)).rejects.toThrow(ForbiddenError);
+  });
+
+  it("includes every case's input/output for staff, regardless of visibility flags", async () => {
+    const repos = makeRepos();
+    repos.cases.listForExercise = vi
+      .fn()
+      .mockResolvedValue([CASE_RECORD, { ...CASE_RECORD, id: 11, showInput: false, showExpectedOutput: false }]);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    const { filename, archive } = await service.buildCasesZip(1, STAFF);
+    const buffer = await drain(archive);
+
+    expect(filename).toContain("Casos de Teste");
+    expect(buffer.subarray(0, 2).toString()).toBe("PK");
+    expect(repos.storage.getInput).toHaveBeenCalledWith(10);
+    expect(repos.storage.getInput).toHaveBeenCalledWith(11);
+    expect(repos.storage.getOutput).toHaveBeenCalledTimes(2);
+  });
+
+  it("only includes a case's input/output for a student when the visibility flag allows it", async () => {
+    const repos = makeRepos();
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(false);
+    repos.enrollments.isEnrolled = vi.fn().mockResolvedValue(true);
+    repos.cases.listForExercise = vi.fn().mockResolvedValue([
+      { ...CASE_RECORD, id: 10, showInput: true, showExpectedOutput: false },
+      { ...CASE_RECORD, id: 11, showInput: false, showExpectedOutput: false },
+    ]);
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    const { archive } = await service.buildCasesZip(1, STUDENT);
+    await drain(archive);
+
+    expect(repos.storage.getInput).toHaveBeenCalledTimes(1);
+    expect(repos.storage.getInput).toHaveBeenCalledWith(10);
+    expect(repos.storage.getOutput).not.toHaveBeenCalled();
+  });
+
+  it("redirects a ghost exercise's zip to the real exercise's cases", async () => {
+    const repos = makeRepos(makeExercise({ ghost: true, realId: 42 }));
+    const service = new ExerciseCaseService(repos.exercises, repos.enrollments, repos.cases, repos.storage);
+
+    const { archive } = await service.buildCasesZip(1, STAFF);
+    await drain(archive);
 
     expect(repos.cases.listForExercise).toHaveBeenCalledWith(42);
   });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { CourseService } from "./course.service.js";
-import { NotFoundError } from "../domain/errors.js";
+import { NotFoundError, ConflictError } from "../domain/errors.js";
 import type { CourseRepository, CourseRecord } from "../repositories/course.repository.js";
 import type { UserRepository } from "../repositories/user.repository.js";
 
@@ -11,6 +11,8 @@ function makeRepos() {
     list: vi.fn().mockResolvedValue({ total: 1, courses: [COURSE] }),
     findById: vi.fn(),
     searchByUniversity: vi.fn().mockResolvedValue([COURSE]),
+    existsByCode: vi.fn().mockResolvedValue(false),
+    create: vi.fn().mockResolvedValue(COURSE),
   };
   const users: UserRepository = {
     findByEmail: vi.fn(),
@@ -90,5 +92,25 @@ describe("CourseService.searchForUser", () => {
     await service.searchForUser("p@x.com", "algo");
 
     expect(repos.courses.searchByUniversity).toHaveBeenCalledWith(7, "algo");
+  });
+});
+
+describe("CourseService.create", () => {
+  it("creates the course when the code isn't taken at that university", async () => {
+    const repos = makeRepos();
+    const service = new CourseService(repos.courses, repos.users);
+
+    await service.create({ code: "X", title: "X", universityId: 1 });
+
+    expect(repos.courses.create).toHaveBeenCalledWith({ code: "X", title: "X", universityId: 1 });
+  });
+
+  it("throws ConflictError when the code is already taken at that university", async () => {
+    const repos = makeRepos();
+    repos.courses.existsByCode = vi.fn().mockResolvedValue(true);
+    const service = new CourseService(repos.courses, repos.users);
+
+    await expect(service.create({ code: "X", title: "X", universityId: 1 })).rejects.toThrow(ConflictError);
+    expect(repos.courses.create).not.toHaveBeenCalled();
   });
 });

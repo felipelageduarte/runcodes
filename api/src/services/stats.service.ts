@@ -9,9 +9,36 @@ import { UserType } from "../lib/constants.js";
 import { NotFoundError, ForbiddenError } from "../domain/errors.js";
 import type { Requester } from "./offering.service.js";
 
+export interface PlatformActivity {
+  today: number;
+  yesterday: number;
+  last7Days: number;
+  /** Mais antigo primeiro, 28 dias incluindo hoje. */
+  dailyTrend: { date: string; total: number }[];
+}
+
 export interface ExerciseCaseStats {
   caseLabels: string[];
   correctPercentage: number[];
+}
+
+export interface ExerciseCasesTableRow {
+  email: string;
+  name: string;
+  /** One entry per case, same order as `caseLabels` — null when the
+   * student has no commit with a result for that case yet (never
+   * submitted, or submitted before this case existed). */
+  results: (boolean | null)[];
+}
+
+export interface ExerciseCasesTable {
+  caseLabels: string[];
+  rows: ExerciseCasesTableRow[];
+  /** True when at least one student's latest commit predates the most
+   * recent change to the exercise's cases — see
+   * docs/roadmap/gap-audit-2026-10.md item 14 ("unsafe commits"), not a
+   * legacy behavior. */
+  hasUnsafeCommits: boolean;
 }
 
 export interface OfferingExerciseStats {
@@ -84,6 +111,46 @@ export class StatsService {
         const corrects = correctCounts.get(c.id) ?? 0;
         return total > 0 ? (corrects / total) * 100 : 0;
       }),
+    };
+  }
+
+  /** Student × caso matrix — "who passed which case", not just the
+   * aggregate `getExerciseCaseStats` gives. Mirrors `casesTable` from the
+   * legacy's `viewProfessor`, not ported before the paridade audit (see
+   * docs/roadmap/gap-audit-2026-10.md item 12). */
+  async getExerciseCasesTable(exerciseId: number, requester: Requester): Promise<ExerciseCasesTable> {
+    const exercise = await this.exercises.findById(exerciseId);
+    if (!exercise || exercise.removed) throw new NotFoundError("Exercise not found");
+    await this.requireStaff(exercise.offeringId, requester);
+
+    const casesExerciseId = exercise.ghost && exercise.realId ? exercise.realId : exercise.id;
+    const [cases, maxLastUpdate, latestCommits] = await Promise.all([
+      this.exerciseCases.listForExercise(casesExerciseId),
+      this.exerciseCases.maxLastUpdate(casesExerciseId),
+      this.commits.listLatestPerStudentForExercise(exerciseId),
+    ]);
+    const caseIndexById = new Map(cases.map((c, i) => [c.id, i]));
+
+    let hasUnsafeCommits = false;
+    const rows: ExerciseCasesTableRow[] = [];
+    for (const commit of latestCommits) {
+      if (maxLastUpdate !== null && commit.commitTime < maxLastUpdate) hasUnsafeCommits = true;
+
+      const results = new Array<boolean | null>(cases.length).fill(null);
+      const caseResults = await this.commitCaseResults.listForCommit(commit.id);
+      for (const result of caseResults) {
+        const index = caseIndexById.get(result.exerciseCaseId);
+        if (index !== undefined) results[index] = Boolean(result.status);
+      }
+
+      const user = await this.users.findByEmail(commit.userEmail);
+      rows.push({ email: commit.userEmail, name: user?.name ?? commit.userEmail, results });
+    }
+
+    return {
+      caseLabels: cases.map((_, i) => `Case ${i + 1}`),
+      rows,
+      hasUnsafeCommits,
     };
   }
 
@@ -172,6 +239,49 @@ export class StatsService {
       studentCount: students.length,
       gradesAbove5Percent: total > 0 ? (above5 / total) * 100 : 0,
       gradesAverage: total > 0 ? allScores.reduce((a, b) => a + b, 0) / total : 0,
+    };
+  }
+
+  /** Mirrors StatsController::commitsInfographic()/commitsChart() —
+   * volume de submissões da plataforma inteira, não por turma/exercício
+   * como o resto deste serviço. Achado na auditoria de paridade de
+   * out/2026 (item 20): os stats novos nunca tiveram uma visão global,
+   * só por turma. Admin-only. */
+  async getPlatformActivity(requester: Requester): Promise<PlatformActivity> {
+    if (requester.type < UserType.ADMIN) throw new ForbiddenError();
+
+    const DAYS = 28;
+    const startOfToday = new Date(new Date().toDateString());
+    const startOfWindow = new Date(startOfToday);
+    startOfWindow.setDate(startOfWindow.getDate() - (DAYS - 1));
+
+    const commits = await this.commits.listSince(startOfWindow);
+
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    const counts = new Map<string, number>();
+    for (const c of commits) {
+      const key = dayKey(c.commitTime);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const dailyTrend: PlatformActivity["dailyTrend"] = [];
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const d = new Date(startOfToday);
+      d.setDate(d.getDate() - i);
+      const key = dayKey(d);
+      dailyTrend.push({ date: key, total: counts.get(key) ?? 0 });
+    }
+
+    const yesterday = new Date(startOfToday);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenDaysAgo = new Date(startOfToday);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+    return {
+      today: commits.filter((c) => c.commitTime >= startOfToday).length,
+      yesterday: commits.filter((c) => c.commitTime >= yesterday && c.commitTime < startOfToday).length,
+      last7Days: commits.filter((c) => c.commitTime >= sevenDaysAgo).length,
+      dailyTrend,
     };
   }
 }

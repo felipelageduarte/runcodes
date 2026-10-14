@@ -11,6 +11,12 @@ export interface CommitRecord {
   score: string | null;
   compiled: boolean | null;
   compiledMessage: string | null;
+  /** Unix signal name (e.g. "SIGSEGV") when the engine killed the
+   * process — null/empty when the commit didn't end that way. See
+   * docs/roadmap/gap-audit-2026-10.md item 23: never exposed before
+   * Fase 11, the frontend only showed the raw status, not why a crash
+   * happened. */
+  compiledSignal: string | null;
   awsKey: string | null;
   ip: string | null;
 }
@@ -24,10 +30,28 @@ export interface NewCommit {
   ip: string | null;
 }
 
+export interface CommitScorePatch {
+  score: string;
+  status: number;
+}
+
 export interface CommitRepository {
   create(input: NewCommit): Promise<CommitRecord>;
   findById(id: number): Promise<CommitRecord | null>;
   listForUserOnExercise(exerciseId: number, userEmail: string): Promise<CommitRecord[]>;
+  /** Mirrors CommitsController::editScore() — professor overrides nota/status. */
+  updateScore(id: number, patch: CommitScorePatch): Promise<CommitRecord | null>;
+  /** Mirrors the reset CommitsController::recompile()/recompileAll() do
+   * before re-queuing: status back to IN_QUEUE, compiled fields cleared —
+   * the compiler-engine overwrites everything else once it reprocesses. */
+  resetToQueue(id: number): Promise<CommitRecord | null>;
+  resetManyToQueue(ids: number[]): Promise<void>;
+  /** Minimal columns, platform-wide (no offering/exercise filter) — backs
+   * the admin's global activity panel (docs/roadmap/gap-audit-2026-10.md
+   * item 20). Aggregation happens in JS, same "fine at this scale"
+   * trade-off the marketplace stats already made — see
+   * marketplace-stats.service.ts. */
+  listSince(date: Date): Promise<{ commitTime: Date; status: number }[]>;
   /** Each enrolled student's most recent commit on the exercise (one row
    * per student) — the dataset a plagiarism comparison runs against. */
   listLatestPerStudentForExercise(exerciseId: number): Promise<CommitRecord[]>;
@@ -77,6 +101,46 @@ export class PrismaCommitRepository implements CommitRepository {
     return rows.map(toRecord);
   }
 
+  async updateScore(id: number, patch: CommitScorePatch): Promise<CommitRecord | null> {
+    try {
+      const row = await this.prisma.commits.update({
+        where: { id },
+        data: { score: patch.score, status: patch.status },
+      });
+      return toRecord(row);
+    } catch {
+      return null;
+    }
+  }
+
+  async resetToQueue(id: number): Promise<CommitRecord | null> {
+    try {
+      const row = await this.prisma.commits.update({
+        where: { id },
+        data: { status: 0, compiled_message: "", compiled: false, corrects: 0, score: "0" },
+      });
+      return toRecord(row);
+    } catch {
+      return null;
+    }
+  }
+
+  async resetManyToQueue(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.prisma.commits.updateMany({
+      where: { id: { in: ids } },
+      data: { status: 0, compiled_message: "", compiled: false, corrects: 0, score: "0" },
+    });
+  }
+
+  async listSince(date: Date): Promise<{ commitTime: Date; status: number }[]> {
+    const rows = await this.prisma.commits.findMany({
+      where: { commit_time: { gte: date } },
+      select: { commit_time: true, status: true },
+    });
+    return rows.map((r) => ({ commitTime: r.commit_time, status: r.status }));
+  }
+
   async listLatestForUserAcrossExercises(
     userEmail: string,
     exerciseIds: number[],
@@ -102,6 +166,7 @@ function toRecord(row: {
   score: unknown;
   compiled: boolean | null;
   compiled_message: string | null;
+  compiled_signal: string | null;
   aws_key: string | null;
   ip: string | null;
 }): CommitRecord {
@@ -116,6 +181,7 @@ function toRecord(row: {
     score: row.score === null || row.score === undefined ? null : String(row.score),
     compiled: row.compiled,
     compiledMessage: row.compiled_message,
+    compiledSignal: row.compiled_signal || null,
     awsKey: row.aws_key,
     ip: row.ip,
   };

@@ -77,8 +77,12 @@ function makeRepos(
     findById: vi.fn().mockResolvedValue("exerciseCase" in overrides ? overrides.exerciseCase : EXERCISE_CASE),
     listForExercise: vi.fn(),
     create: vi.fn(),
+    createMany: vi.fn(),
     update: vi.fn(),
+    updateVisibilityForExercise: vi.fn(),
     delete: vi.fn(),
+    deleteAllForExercise: vi.fn(),
+    maxLastUpdate: vi.fn(),
   };
   const caseFiles: ExerciseCaseFileRepository = {
     listForCase: vi.fn().mockResolvedValue([CASE_FILE]),

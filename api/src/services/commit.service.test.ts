@@ -6,6 +6,8 @@ import type { ExerciseRepository, ExerciseRecord } from "../repositories/exercis
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { CommitRepository, CommitRecord } from "../repositories/commit.repository.js";
 import type { StorageRepository } from "../repositories/storage.repository.js";
+import type { CommitCaseResultRepository } from "../repositories/commit-case-result.repository.js";
+import type { ExerciseCaseRepository } from "../repositories/exercise-case.repository.js";
 
 function makeExercise(overrides: Partial<ExerciseRecord> = {}): ExerciseRecord {
   return {
@@ -37,6 +39,7 @@ function makeCommitRecord(overrides: Partial<CommitRecord> = {}): CommitRecord {
     score: "0",
     compiled: null,
     compiledMessage: null,
+    compiledSignal: null,
     awsKey: "key",
     ip: null,
     ...overrides,
@@ -76,16 +79,43 @@ function makeRepos(exercise: ExerciseRecord | null) {
     listForUserOnExercise: vi.fn().mockResolvedValue([]),
     listLatestPerStudentForExercise: vi.fn().mockResolvedValue([]),
     listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
+    updateScore: vi.fn().mockImplementation((id, patch) => Promise.resolve(makeCommitRecord({ id, ...patch }))),
+    resetToQueue: vi.fn().mockImplementation((id) =>
+      Promise.resolve(makeCommitRecord({ id, status: CommitStatus.IN_QUEUE, compiledMessage: "", compiled: false, corrects: 0, score: "0" })),
+    ),
+    resetManyToQueue: vi.fn().mockResolvedValue(undefined),
   };
   const storage: StorageRepository = {
     putCommitFile: vi.fn().mockResolvedValue(undefined),
     getCommitFile: vi.fn(),
   };
-  return { exercises, enrollments, commits, storage };
+  const caseResults: CommitCaseResultRepository = {
+    listForCommit: vi.fn().mockResolvedValue([]),
+    deleteForCommits: vi.fn().mockResolvedValue(undefined),
+  };
+  const exerciseCases: ExerciseCaseRepository = {
+    findById: vi.fn(),
+    listForExercise: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    createMany: vi.fn(),
+    update: vi.fn(),
+    updateVisibilityForExercise: vi.fn(),
+    delete: vi.fn(),
+    deleteAllForExercise: vi.fn(),
+    maxLastUpdate: vi.fn().mockResolvedValue(null),
+  };
+  return { exercises, enrollments, commits, storage, caseResults, exerciseCases };
 }
 
 function buildService(repos: ReturnType<typeof makeRepos>) {
-  return new CommitService(repos.exercises, repos.enrollments, repos.commits, repos.storage);
+  return new CommitService(
+    repos.exercises,
+    repos.enrollments,
+    repos.commits,
+    repos.storage,
+    repos.caseResults,
+    repos.exerciseCases,
+  );
 }
 
 const STUDENT = { email: "s@x.com", type: 0 };
@@ -321,5 +351,151 @@ describe("CommitService.getContent", () => {
     const service = buildService(repos);
 
     await expect(service.getContent(1, { email: "prof@x.com", type: 0 })).resolves.toBeDefined();
+  });
+});
+
+const PROFESSOR = { email: "prof@x.com", type: 0 };
+
+describe("CommitService.editScore", () => {
+  it("throws NotFoundError for a missing commit", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(null);
+    const service = buildService(repos);
+
+    await expect(service.editScore(1, PROFESSOR, { score: "8", status: 5 })).rejects.toThrow(NotFoundError);
+  });
+
+  it("rejects a non-staff, non-admin requester (including the commit's own owner)", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord());
+    const service = buildService(repos);
+
+    await expect(service.editScore(1, STUDENT, { score: "8", status: 5 })).rejects.toThrow(ForbiddenError);
+    expect(repos.commits.updateScore).not.toHaveBeenCalled();
+  });
+
+  it("lets staff of the owning offering overwrite score/status", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord());
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    await service.editScore(1, PROFESSOR, { score: "8", status: 5 });
+
+    expect(repos.commits.updateScore).toHaveBeenCalledWith(1, { score: "8", status: 5 });
+  });
+});
+
+describe("CommitService.recompile", () => {
+  it("rejects a non-compilable exercise", async () => {
+    const repos = makeRepos(makeExercise({ type: 1 }));
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord());
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    const promise = service.recompile(1, PROFESSOR);
+    await expect(promise).rejects.toThrow(ValidationError);
+    await expect(promise).rejects.toMatchObject({ code: "exercise_not_compilable" });
+  });
+
+  it("rejects a non-admin while the commit is still being processed", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord({ status: CommitStatus.COMPILING }));
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    const promise = service.recompile(1, PROFESSOR);
+    await expect(promise).rejects.toThrow(ValidationError);
+    await expect(promise).rejects.toMatchObject({ code: "commit_in_progress" });
+  });
+
+  it("lets an admin recompile even a commit still in progress", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord({ status: CommitStatus.COMPILING }));
+    const service = buildService(repos);
+
+    await service.recompile(1, { email: "admin@x.com", type: 3 });
+
+    expect(repos.caseResults.deleteForCommits).toHaveBeenCalledWith([1]);
+    expect(repos.commits.resetToQueue).toHaveBeenCalledWith(1);
+  });
+
+  it("deletes stale case results and resets the commit to IN_QUEUE for a completed commit", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.commits.findById = vi.fn().mockResolvedValue(makeCommitRecord({ status: CommitStatus.COMPLETED }));
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    const result = await service.recompile(1, PROFESSOR);
+
+    expect(result.status).toBe(CommitStatus.IN_QUEUE);
+  });
+});
+
+describe("CommitService.recompileAll", () => {
+  it("rejects a non-compilable exercise", async () => {
+    const repos = makeRepos(makeExercise({ type: 1 }));
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    const service = buildService(repos);
+
+    await expect(service.recompileAll(1, PROFESSOR)).rejects.toMatchObject({ code: "exercise_not_compilable" });
+  });
+
+  it("rejects non-admin when any latest-per-student commit is still processing", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    repos.commits.listLatestPerStudentForExercise = vi
+      .fn()
+      .mockResolvedValue([makeCommitRecord({ id: 1, status: CommitStatus.COMPLETED }), makeCommitRecord({ id: 2, status: CommitStatus.COMPILING })]);
+    const service = buildService(repos);
+
+    await expect(service.recompileAll(1, PROFESSOR)).rejects.toMatchObject({ code: "commits_in_progress" });
+  });
+
+  it("resets every latest-per-student commit to IN_QUEUE and returns the count", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.enrollments.isStaff = vi.fn().mockResolvedValue(true);
+    repos.commits.listLatestPerStudentForExercise = vi
+      .fn()
+      .mockResolvedValue([
+        makeCommitRecord({ id: 1, status: CommitStatus.COMPLETED }),
+        makeCommitRecord({ id: 2, status: CommitStatus.COMPLETED }),
+      ]);
+    const service = buildService(repos);
+
+    const result = await service.recompileAll(1, PROFESSOR);
+
+    expect(result).toEqual({ count: 2 });
+    expect(repos.caseResults.deleteForCommits).toHaveBeenCalledWith([1, 2]);
+    expect(repos.commits.resetManyToQueue).toHaveBeenCalledWith([1, 2]);
+  });
+});
+
+describe("CommitService.isUnsafe", () => {
+  it("is false when the exercise has no cases yet", async () => {
+    const repos = makeRepos(makeExercise());
+    const service = buildService(repos);
+
+    await expect(service.isUnsafe({ exerciseId: 1, commitTime: new Date() })).resolves.toBe(false);
+  });
+
+  it("is true when the commit predates the most recent case update", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.exerciseCases.maxLastUpdate = vi.fn().mockResolvedValue(new Date("2026-01-02"));
+    const service = buildService(repos);
+
+    await expect(
+      service.isUnsafe({ exerciseId: 1, commitTime: new Date("2026-01-01") }),
+    ).resolves.toBe(true);
+  });
+
+  it("is false when the commit is newer than the last case update", async () => {
+    const repos = makeRepos(makeExercise());
+    repos.exerciseCases.maxLastUpdate = vi.fn().mockResolvedValue(new Date("2026-01-01"));
+    const service = buildService(repos);
+
+    await expect(
+      service.isUnsafe({ exerciseId: 1, commitTime: new Date("2026-01-02") }),
+    ).resolves.toBe(false);
   });
 });

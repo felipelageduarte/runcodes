@@ -27,6 +27,13 @@ function makeRepos(exercise: ExerciseRecord | null) {
   const exercises: ExerciseRepository = {
     findById: vi.fn().mockResolvedValue(exercise),
     findByIds: vi.fn().mockResolvedValue([]),
+    findOfferingContext: vi.fn().mockResolvedValue({
+      id: 10,
+      classroom: "T1",
+      year: 2026,
+      term: 2,
+      course: { id: 1, code: "SCC0201", title: "ICC" },
+    }),
     findGhosts: vi.fn().mockResolvedValue([]),
     list: vi.fn().mockResolvedValue({ total: 0, exercises: [] }),
     listVisible: vi.fn(),

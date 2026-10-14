@@ -1,6 +1,6 @@
-import type { CourseRepository, ListCoursesFilter } from "../repositories/course.repository.js";
+import type { CourseRepository, ListCoursesFilter, NewCourse } from "../repositories/course.repository.js";
 import type { UserRepository } from "../repositories/user.repository.js";
-import { NotFoundError } from "../domain/errors.js";
+import { NotFoundError, ConflictError } from "../domain/errors.js";
 
 export class CourseService {
   constructor(
@@ -25,5 +25,16 @@ export class CourseService {
     const user = await this.users.findByEmail(userEmail);
     if (!user?.universityId) return [];
     return this.courses.searchByUniversity(user.universityId, search);
+  }
+
+  /** Mirrors CoursesController::add() — admin-only, one course at a time
+   * (the legacy batch-textarea mode isn't ported: a single create form
+   * covers the real need, and the batch path had its own inconsistency —
+   * uniqueness checked per-university there, globally in the single path). */
+  async create(data: NewCourse) {
+    if (await this.courses.existsByCode(data.universityId, data.code)) {
+      throw new ConflictError("A course with this code already exists at this university", "course_code_taken");
+    }
+    return this.courses.create(data);
   }
 }

@@ -1,9 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { ExerciseRepository } from "../repositories/exercise.repository.js";
+import type { ExerciseRepository, ExerciseRecord } from "../repositories/exercise.repository.js";
 import type { EnrollmentRepository } from "../repositories/enrollment.repository.js";
 import type { CommitRepository, CommitRecord } from "../repositories/commit.repository.js";
 import type { StorageRepository } from "../repositories/storage.repository.js";
-import { CommitStatus, CompilableExerciseTypes, UserType } from "../lib/constants.js";
+import type { CommitCaseResultRepository } from "../repositories/commit-case-result.repository.js";
+import type { ExerciseCaseRepository } from "../repositories/exercise-case.repository.js";
+import {
+  CommitStatus,
+  CompilableExerciseTypes,
+  NotCompilableExerciseType,
+  UserType,
+} from "../lib/constants.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../domain/errors.js";
 import type { Requester } from "./offering.service.js";
 
@@ -28,6 +35,8 @@ export class CommitService {
     private readonly enrollments: EnrollmentRepository,
     private readonly commits: CommitRepository,
     private readonly storage: StorageRepository,
+    private readonly caseResults: CommitCaseResultRepository,
+    private readonly exerciseCases: ExerciseCaseRepository,
   ) {}
 
   private async checkAccess(exerciseOfferingId: number, requester: Requester) {
@@ -122,5 +131,103 @@ export class CommitService {
     const isStaff =
       exercise !== null && (await this.enrollments.isStaff(requester.email, exercise.offeringId));
     if (!isStaff) throw new ForbiddenError();
+  }
+
+  /** Staff of the commit's turma (or admin) — same shape as
+   * requireAccessToCommit, but rejects the commit's own owner when they
+   * aren't also staff (editScore/recompile are correction tools, not
+   * something a student does to their own submission). */
+  private async requireStaffForCommit(
+    commit: CommitRecord,
+    requester: Requester,
+  ): Promise<{ exercise: ExerciseRecord }> {
+    const exercise = await this.exercises.findById(commit.exerciseId);
+    if (!exercise) throw new NotFoundError("Exercise not found");
+    const isAdmin = requester.type >= UserType.ADMIN;
+    const isStaff = isAdmin || (await this.enrollments.isStaff(requester.email, exercise.offeringId));
+    if (!isStaff) throw new ForbiddenError();
+    return { exercise };
+  }
+
+  /** Mirrors CommitsController::editScore() — professor overrides a
+   * commit's final nota/status by hand (corrector failed, or the case
+   * needed a human call). Legacy never validated the input beyond the
+   * controller-level staff check; score/status ranges are validated at
+   * the route layer (zod) before this is called. */
+  async editScore(
+    id: number,
+    requester: Requester,
+    patch: { score: string; status: number },
+  ): Promise<CommitRecord> {
+    const commit = await this.commits.findById(id);
+    if (!commit) throw new NotFoundError("Commit not found");
+    await this.requireStaffForCommit(commit, requester);
+
+    const updated = await this.commits.updateScore(id, patch);
+    if (!updated) throw new NotFoundError("Commit not found");
+    return updated;
+  }
+
+  /** Mirrors CommitsController::recompile(). */
+  async recompile(id: number, requester: Requester): Promise<CommitRecord> {
+    const commit = await this.commits.findById(id);
+    if (!commit) throw new NotFoundError("Commit not found");
+    const { exercise } = await this.requireStaffForCommit(commit, requester);
+
+    if (exercise.type === NotCompilableExerciseType) {
+      throw new ValidationError(
+        "This exercise doesn't support recompiling commits",
+        "exercise_not_compilable",
+      );
+    }
+    if (requester.type < UserType.ADMIN && commit.status < CommitStatus.UNCOMPLETED) {
+      throw new ValidationError("This commit is already being processed", "commit_in_progress");
+    }
+
+    await this.caseResults.deleteForCommits([id]);
+    const updated = await this.commits.resetToQueue(id);
+    if (!updated) throw new NotFoundError("Commit not found");
+    return updated;
+  }
+
+  /** Mirrors CommitsController::recompileAll() — reprocesses only the
+   * latest commit per student (same subquery the legacy SQL uses), not
+   * every historical submission. */
+  async recompileAll(exerciseId: number, requester: Requester): Promise<{ count: number }> {
+    const exercise = await this.exercises.findById(exerciseId);
+    if (!exercise || exercise.removed) throw new NotFoundError("Exercise not found");
+
+    const isAdmin = requester.type >= UserType.ADMIN;
+    const isStaff = isAdmin || (await this.enrollments.isStaff(requester.email, exercise.offeringId));
+    if (!isStaff) throw new ForbiddenError();
+
+    if (exercise.type === NotCompilableExerciseType) {
+      throw new ValidationError(
+        "This exercise doesn't support recompiling commits",
+        "exercise_not_compilable",
+      );
+    }
+
+    const latest = await this.commits.listLatestPerStudentForExercise(exerciseId);
+    if (!isAdmin && latest.some((c) => c.status < CommitStatus.UNCOMPLETED)) {
+      throw new ValidationError(
+        "Some commits are still being processed — wait for them before recompiling again",
+        "commits_in_progress",
+      );
+    }
+
+    const ids = latest.map((c) => c.id);
+    await this.caseResults.deleteForCommits(ids);
+    await this.commits.resetManyToQueue(ids);
+    return { count: ids.length };
+  }
+
+  /** Flags commits submitted before the exercise's test cases last
+   * changed — the grading they got may not reflect the current rules.
+   * Not in the legacy app; found during the paridade audit (see
+   * docs/roadmap/gap-audit-2026-10.md item 14). */
+  async isUnsafe(commit: Pick<CommitRecord, "exerciseId" | "commitTime">): Promise<boolean> {
+    const maxLastUpdate = await this.exerciseCases.maxLastUpdate(commit.exerciseId);
+    return maxLastUpdate !== null && commit.commitTime < maxLastUpdate;
   }
 }

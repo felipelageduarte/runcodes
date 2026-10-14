@@ -76,5 +76,18 @@ export function createExerciseManagementRouters(
     }
   });
 
+  // Clone independente (não ghost) — duplica exercício + casos de teste.
+  exercises.post("/:id/clone", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
+      const { targetOfferingId } = shareSchema.parse(req.body);
+      const clone = await managementService.cloneExercise(id, targetOfferingId, req.user!);
+      res.status(201).json(clone);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return { offeringExercises, exercises };
 }

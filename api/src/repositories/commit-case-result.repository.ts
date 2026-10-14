@@ -15,10 +15,14 @@ export interface CommitCaseResultRecord {
   showUserOutput: boolean | null;
 }
 
-/** Read-only — commits_exercise_cases rows are written by the
- * compiler-engine, never by this API. Mirrors CommitsExerciseCasesController. */
+/** Mostly read-only — commits_exercise_cases rows are written by the
+ * compiler-engine, never by this API, with one deliberate exception:
+ * recompile()/recompileAll() delete stale rows before re-queuing a commit,
+ * mirroring CommitsController's own `CommitsExerciseCase->deleteAll()` —
+ * the engine re-inserts fresh rows once it reprocesses. */
 export interface CommitCaseResultRepository {
   listForCommit(commitId: number): Promise<CommitCaseResultRecord[]>;
+  deleteForCommits(commitIds: number[]): Promise<void>;
 }
 
 export class PrismaCommitCaseResultRepository implements CommitCaseResultRepository {
@@ -48,5 +52,10 @@ export class PrismaCommitCaseResultRepository implements CommitCaseResultReposit
       showExpectedOutput: row.exercise_cases.show_expected_output,
       showUserOutput: row.exercise_cases.show_user_output,
     }));
+  }
+
+  async deleteForCommits(commitIds: number[]): Promise<void> {
+    if (commitIds.length === 0) return;
+    await this.prisma.commits_exercise_cases.deleteMany({ where: { commit_id: { in: commitIds } } });
   }
 }

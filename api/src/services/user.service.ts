@@ -1,8 +1,9 @@
 import { randomBytes, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
-import type { UserRepository } from "../repositories/user.repository.js";
+import type { UserRepository, ProfilePatch } from "../repositories/user.repository.js";
 import type { EmailSender } from "../repositories/email-sender.js";
-import { ConflictError, ValidationError, NotFoundError } from "../domain/errors.js";
+import { hashLegacyPassword, isLegacyHash } from "../lib/legacyPassword.js";
+import { ConflictError, ValidationError, NotFoundError, UnauthorizedError } from "../domain/errors.js";
 
 const CONFIRMATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -27,6 +28,7 @@ export class UserService {
     private readonly users: UserRepository,
     private readonly emailSender: EmailSender,
     private readonly appBaseUrl: string,
+    private readonly legacyPasswordSalt: string,
   ) {}
 
   /**
@@ -136,6 +138,40 @@ export class UserService {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await this.users.resetPassword(email, passwordHash);
+  }
+
+  /** Mirrors UsersController::profile()'s "Atualizar Dados Pessoais"
+   * path — self-service only, so `type`/`confirmed` are never patchable
+   * here (that stays admin-only, see AdminUserService). */
+  async getProfile(email: string) {
+    const user = await this.users.findByEmail(email);
+    if (!user) throw new NotFoundError("User not found");
+    const { password: _password, ...rest } = user;
+    return rest;
+  }
+
+  async updateProfile(email: string, patch: ProfilePatch) {
+    const updated = await this.users.updateProfile(email, patch);
+    if (!updated) throw new NotFoundError("User not found");
+    const { password: _password, ...rest } = updated;
+    return rest;
+  }
+
+  /** Mirrors UsersController::profile()'s "Atualizar senha" path, but
+   * verifies the current password the same way AuthService.login() does
+   * (transparent legacy-sha1-to-bcrypt migration included) instead of
+   * trusting a client-supplied flag. */
+  async changePassword(email: string, oldPassword: string, newPassword: string): Promise<void> {
+    const user = await this.users.findByEmail(email);
+    if (!user) throw new NotFoundError("User not found");
+
+    const valid = isLegacyHash(user.password)
+      ? hashLegacyPassword(this.legacyPasswordSalt, oldPassword) === user.password
+      : await bcrypt.compare(oldPassword, user.password);
+    if (!valid) throw new UnauthorizedError("Current password is incorrect", "invalid_current_password");
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.users.updatePassword(email, passwordHash);
   }
 
   private async sendConfirmationEmail(email: string, confirmationToken: string): Promise<void> {

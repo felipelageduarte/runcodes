@@ -113,8 +113,12 @@ function makeRepos(
     findById: vi.fn(),
     listForExercise: vi.fn().mockResolvedValue([makeCase({ id: 1 }), makeCase({ id: 2 })]),
     create: vi.fn(),
+    createMany: vi.fn(),
     update: vi.fn(),
+    updateVisibilityForExercise: vi.fn(),
     delete: vi.fn(),
+    deleteAllForExercise: vi.fn(),
+    maxLastUpdate: vi.fn(),
   };
   const offerings: OfferingRepository = {
     list: vi.fn(),
@@ -142,9 +146,11 @@ function makeRepos(
     listForUserOnExercise: vi.fn().mockResolvedValue([makeCommit()]),
     listLatestPerStudentForExercise: vi.fn().mockResolvedValue([makeCommit()]),
     listLatestForUserAcrossExercises: vi.fn().mockResolvedValue([]),
+    listSince: vi.fn().mockResolvedValue([]),
   };
   const commitCaseResults: CommitCaseResultRepository = {
     listForCommit: vi.fn().mockResolvedValue([makeCaseResult({ exerciseCaseId: 1, status: 1 })]),
+    deleteForCommits: vi.fn(),
   };
   const users: UserRepository = {
     findByEmail: vi.fn().mockResolvedValue({
@@ -346,5 +352,116 @@ describe("StatsService.getOfferingInfographic", () => {
     const result = await service.getOfferingInfographic(1, STAFF);
 
     expect(result).toEqual({ studentCount: 1, gradesAbove5Percent: 0, gradesAverage: 0 });
+  });
+});
+
+describe("StatsService.getExerciseCasesTable", () => {
+  it("throws NotFoundError for a missing/removed exercise", async () => {
+    const repos = makeRepos({ exercise: null });
+    const service = buildService(repos);
+
+    await expect(service.getExerciseCasesTable(10, STAFF)).rejects.toThrow(NotFoundError);
+  });
+
+  it("throws ForbiddenError for a non-staff requester", async () => {
+    const repos = makeRepos({ isStaff: false });
+    const service = buildService(repos);
+
+    await expect(service.getExerciseCasesTable(10, { email: "s@x.com", type: 0 })).rejects.toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it("builds one row per student with per-case pass/fail, null for cases the commit has no result for", async () => {
+    const repos = makeRepos();
+    repos.commitCaseResults.listForCommit = vi
+      .fn()
+      .mockResolvedValue([makeCaseResult({ exerciseCaseId: 1, status: 1 })]);
+    const service = buildService(repos);
+
+    const result = await service.getExerciseCasesTable(10, STAFF);
+
+    expect(result.caseLabels).toEqual(["Case 1", "Case 2"]);
+    expect(result.rows).toEqual([{ email: "alice@x.com", name: "Alice", results: [true, null] }]);
+  });
+
+  it("flags hasUnsafeCommits when a student's latest commit predates the last case update", async () => {
+    const repos = makeRepos();
+    repos.exerciseCases.maxLastUpdate = vi.fn().mockResolvedValue(new Date("2099-06-01"));
+    repos.commits.listLatestPerStudentForExercise = vi
+      .fn()
+      .mockResolvedValue([makeCommit({ commitTime: new Date("2099-01-01") })]);
+    const service = buildService(repos);
+
+    const result = await service.getExerciseCasesTable(10, STAFF);
+
+    expect(result.hasUnsafeCommits).toBe(true);
+  });
+
+  it("doesn't flag hasUnsafeCommits when every commit is newer than the last case update", async () => {
+    const repos = makeRepos();
+    repos.exerciseCases.maxLastUpdate = vi.fn().mockResolvedValue(new Date("2099-01-01"));
+    repos.commits.listLatestPerStudentForExercise = vi
+      .fn()
+      .mockResolvedValue([makeCommit({ commitTime: new Date("2099-06-01") })]);
+    const service = buildService(repos);
+
+    const result = await service.getExerciseCasesTable(10, STAFF);
+
+    expect(result.hasUnsafeCommits).toBe(false);
+  });
+
+  it("redirects a ghost exercise's cases table to the real exercise id", async () => {
+    const repos = makeRepos({ exercise: { ...EXERCISE, ghost: true, realId: 42 } });
+    const service = buildService(repos);
+
+    await service.getExerciseCasesTable(10, STAFF);
+
+    expect(repos.exerciseCases.listForExercise).toHaveBeenCalledWith(42);
+    expect(repos.exerciseCases.maxLastUpdate).toHaveBeenCalledWith(42);
+  });
+});
+
+describe("StatsService.getPlatformActivity", () => {
+  it("rejects a non-admin requester", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    await expect(service.getPlatformActivity(STAFF)).rejects.toThrow(ForbiddenError);
+  });
+
+  it("returns a 28-day trend with zero counts when there are no commits", async () => {
+    const repos = makeRepos();
+    const service = buildService(repos);
+
+    const result = await service.getPlatformActivity(ADMIN);
+
+    expect(result.dailyTrend).toHaveLength(28);
+    expect(result.today).toBe(0);
+    expect(result.yesterday).toBe(0);
+    expect(result.last7Days).toBe(0);
+    expect(result.dailyTrend.every((d) => d.total === 0)).toBe(true);
+  });
+
+  it("buckets commits into today/yesterday/last7Days correctly", async () => {
+    const repos = makeRepos();
+    const now = new Date();
+    const startOfToday = new Date(now.toDateString());
+    const todayCommit = { commitTime: new Date(startOfToday.getTime() + 60_000), status: 5 };
+    const yesterdayCommit = { commitTime: new Date(startOfToday.getTime() - 60_000), status: 5 };
+    const fiveDaysAgoCommit = { commitTime: new Date(startOfToday.getTime() - 5 * 86_400_000), status: 5 };
+    const twentyDaysAgoCommit = { commitTime: new Date(startOfToday.getTime() - 20 * 86_400_000), status: 5 };
+    repos.commits.listSince = vi
+      .fn()
+      .mockResolvedValue([todayCommit, yesterdayCommit, fiveDaysAgoCommit, twentyDaysAgoCommit]);
+    const service = buildService(repos);
+
+    const result = await service.getPlatformActivity(ADMIN);
+
+    expect(result.today).toBe(1);
+    expect(result.yesterday).toBe(1);
+    expect(result.last7Days).toBe(3); // today + yesterday + 5 days ago
+    const total = result.dailyTrend.reduce((sum, d) => sum + d.total, 0);
+    expect(total).toBe(4);
   });
 });

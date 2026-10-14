@@ -327,12 +327,15 @@ model mail_logs {
 }
 
 model messages {
-  id          Int     @id @default(autoincrement())
-  recipes     String?
-  subject     String?
-  message     String?
-  attachments String?
-  template    String?
+  id              Int      @id @default(autoincrement())
+  recipes         String?
+  subject         String?
+  message         String?
+  attachments     String?
+  template        String?
+  sender_email    String?  @db.VarChar(255)
+  sent_at         DateTime @default(now()) @db.Timestamp(6)
+  recipient_count Int      @default(0)
 }
 
 model offerings {

@@ -49,6 +49,20 @@ export interface AdminUserPatch {
   universityId?: number | null;
 }
 
+export interface ProfilePatch {
+  name?: string;
+  universityId?: number | null;
+  identifier?: string | null;
+}
+
+export interface NewUserByAdmin {
+  email: string;
+  name: string;
+  passwordHash: string;
+  type: number;
+  universityId: number | null;
+}
+
 // Interface-first: services depend on this contract, never on PrismaClient
 // directly, so the persistence technology can change without touching
 // business logic (and so services are trivially mockable in tests).
@@ -66,6 +80,20 @@ export interface UserRepository {
   resetPassword(email: string, passwordHash: string): Promise<void>;
   listForAdmin(filter: AdminUserListFilter): Promise<{ total: number; users: UserRecord[] }>;
   updateByAdmin(email: string, patch: AdminUserPatch): Promise<UserRecord | null>;
+  /** Mirrors UsersController::insert() — admin creates an account that's
+   * pre-confirmed (no email-verification round trip), unlike self-signup. */
+  createByAdmin(input: NewUserByAdmin): Promise<UserRecord>;
+  /** Mirrors UsersController::delete() — hard delete, cascades to
+   * enrollments/commits/etc via the FK constraints already in place. */
+  deleteByAdmin(email: string): Promise<boolean>;
+  /** Self-service only — never `type`/`confirmed`, those stay admin-only.
+   * Mirrors UsersController::profile()'s "Atualizar Dados Pessoais" path. */
+  updateProfile(email: string, patch: ProfilePatch): Promise<UserRecord | null>;
+  /** Unpaginated — every confirmed email in the inclusive `[minType,
+   * maxType]` range (`maxType` omitted = no upper bound). Backs the admin
+   * broadcast's audience resolution (mirrors Message::getRecipesList()'s
+   * role buckets, see message.service.ts). */
+  listConfirmedEmailsByTypeRange(minType: number, maxType?: number): Promise<string[]>;
 }
 
 export class PrismaUserRepository implements UserRepository {
@@ -195,6 +223,17 @@ export class PrismaUserRepository implements UserRepository {
     return { total, users: rows.map((r) => ({ ...r, confirmed: r.confirmed ?? false })) };
   }
 
+  async listConfirmedEmailsByTypeRange(minType: number, maxType?: number): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        type: { gte: minType, ...(maxType !== undefined ? { lte: maxType } : {}) },
+        confirmed: true,
+      },
+      select: { email: true },
+    });
+    return rows.map((r) => r.email);
+  }
+
   async updateByAdmin(email: string, patch: AdminUserPatch): Promise<UserRecord | null> {
     try {
       const row = await this.prisma.user.update({
@@ -204,6 +243,64 @@ export class PrismaUserRepository implements UserRepository {
           ...(patch.type !== undefined ? { type: patch.type } : {}),
           ...(patch.confirmed !== undefined ? { confirmed: patch.confirmed } : {}),
           ...(patch.universityId !== undefined ? { universityId: patch.universityId } : {}),
+        },
+        select: {
+          email: true,
+          name: true,
+          password: true,
+          type: true,
+          universityId: true,
+          confirmed: true,
+          identifier: true,
+        },
+      });
+      return { ...row, confirmed: row.confirmed ?? false };
+    } catch {
+      return null;
+    }
+  }
+
+  async createByAdmin(input: NewUserByAdmin): Promise<UserRecord> {
+    const row = await this.prisma.user.create({
+      data: {
+        email: input.email,
+        name: input.name,
+        password: input.passwordHash,
+        type: input.type,
+        source: 0,
+        confirmed: true,
+        universityId: input.universityId,
+      },
+      select: {
+        email: true,
+        name: true,
+        password: true,
+        type: true,
+        universityId: true,
+        confirmed: true,
+        identifier: true,
+      },
+    });
+    return { ...row, confirmed: row.confirmed ?? false };
+  }
+
+  async deleteByAdmin(email: string): Promise<boolean> {
+    try {
+      await this.prisma.user.delete({ where: { email } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async updateProfile(email: string, patch: ProfilePatch): Promise<UserRecord | null> {
+    try {
+      const row = await this.prisma.user.update({
+        where: { email },
+        data: {
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.universityId !== undefined ? { universityId: patch.universityId } : {}),
+          ...(patch.identifier !== undefined ? { identifier: patch.identifier } : {}),
         },
         select: {
           email: true,

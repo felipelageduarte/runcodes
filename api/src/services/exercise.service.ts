@@ -39,11 +39,14 @@ export class ExerciseService {
     // allowed-files — same rule as everywhere else this comes up
     // (commit submission, case CRUD, attachments).
     const targetId = exercise.ghost && exercise.realId ? exercise.realId : exercise.id;
-    const [casesCount, allowedFiles] = await Promise.all([
+    const [casesCount, allowedFiles, offering] = await Promise.all([
       this.exercises.countCases(targetId),
       this.exercises.listAllowedFiles(targetId),
+      // Contexto da turma (nome da disciplina, sala) — a tela de
+      // exercício precisa se situar sem uma segunda request.
+      this.exercises.findOfferingContext(exercise.offeringId),
     ]);
-    return { ...exercise, isOpen, casesCount, allowedFiles };
+    return { ...exercise, isOpen, casesCount, allowedFiles, offering };
   }
 
   /** Resolves the offering an exercise belongs to, for access-control

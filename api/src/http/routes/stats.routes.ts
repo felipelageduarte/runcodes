@@ -15,6 +15,16 @@ export function createExerciseStatsRouter(statsService: StatsService, requireAut
     }
   });
 
+  router.get("/cases-table", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      const exerciseId = Number(req.params.exerciseId);
+      if (!Number.isInteger(exerciseId)) return res.status(400).json({ error: "invalid_id" });
+      res.json(await statsService.getExerciseCasesTable(exerciseId, req.user!));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get("/participants/:userEmail/commits", requireAuth, async (req: AuthedRequest, res, next) => {
     try {
       const exerciseId = Number(req.params.exerciseId);
@@ -22,6 +32,20 @@ export function createExerciseStatsRouter(statsService: StatsService, requireAut
       res.json(
         await statsService.getParticipantCommits(exerciseId, req.params.userEmail, req.user!),
       );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  return router;
+}
+
+export function createAdminStatsRouter(statsService: StatsService, requireAuth: RequestHandler) {
+  const router = Router();
+
+  router.get("/activity", requireAuth, async (req: AuthedRequest, res, next) => {
+    try {
+      res.json(await statsService.getPlatformActivity(req.user!));
     } catch (err) {
       next(err);
     }

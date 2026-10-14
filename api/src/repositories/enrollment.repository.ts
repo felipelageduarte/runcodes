@@ -22,9 +22,18 @@ export interface EnrollmentRepository {
   listStudentsForOffering(
     offeringId: number,
   ): Promise<{ email: string; name: string; identifier: string | null }[]>;
+  /** Every non-banned member email (any role) — backs the "email a
+   * turma inteira" broadcast. Mirrors OfferingsController::email(), but
+   * excludes banned members (the legacy query didn't, likely an
+   * oversight — mailing someone who was removed from the turma isn't
+   * useful). */
+  listMemberEmails(offeringId: number): Promise<string[]>;
   create(offeringId: number, email: string, role: number): Promise<EnrollmentRecord>;
   setRole(offeringId: number, email: string, role: number): Promise<EnrollmentRecord | null>;
   ban(offeringId: number, email: string): Promise<EnrollmentRecord | null>;
+  /** Hard delete — the matrícula row itself is gone, unlike `ban` (soft,
+   * admin-only). Mirrors EnrollmentsController::delete(). */
+  delete(offeringId: number, email: string): Promise<boolean>;
 }
 
 export class PrismaEnrollmentRepository implements EnrollmentRepository {
@@ -109,6 +118,14 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
     return rows.map((r) => r.users);
   }
 
+  async listMemberEmails(offeringId: number): Promise<string[]> {
+    const rows = await this.prisma.enrollments.findMany({
+      where: { offering_id: offeringId, banned: false },
+      select: { user_email: true },
+    });
+    return rows.map((r) => r.user_email);
+  }
+
   async create(offeringId: number, email: string, role: number): Promise<EnrollmentRecord> {
     const row = await this.prisma.enrollments.create({
       data: { offering_id: offeringId, user_email: email, role },
@@ -137,6 +154,17 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       return toRecord(row);
     } catch {
       return null;
+    }
+  }
+
+  async delete(offeringId: number, email: string): Promise<boolean> {
+    try {
+      await this.prisma.enrollments.delete({
+        where: { offering_id_user_email: { offering_id: offeringId, user_email: email } },
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 }
