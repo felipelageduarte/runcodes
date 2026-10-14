@@ -28,6 +28,18 @@ export class AuthService {
     private readonly legacyPasswordSalt: string,
   ) {}
 
+  /** Shared by login and any reauthentication flow (e.g. confirming a
+   * destructive admin action) — same legacy-sha1-vs-bcrypt check, no
+   * token minted, no rehash (callers that log the user in handle that
+   * themselves). */
+  async verifyPassword(email: string, password: string): Promise<boolean> {
+    const user = await this.users.findByEmail(email);
+    if (!user) return false;
+    return isLegacyHash(user.password)
+      ? hashLegacyPassword(this.legacyPasswordSalt, password) === user.password
+      : bcrypt.compare(password, user.password);
+  }
+
   async login(email: string, password: string): Promise<AuthTokens> {
     const user = await this.users.findByEmail(email);
     if (!user) throw new UnauthorizedError("Invalid credentials", "invalid_credentials");

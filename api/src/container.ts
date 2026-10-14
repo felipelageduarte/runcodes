@@ -23,6 +23,7 @@ import { PrismaQuestionRepository } from "./repositories/question.repository.js"
 import { PrismaPublicExerciseRepository } from "./repositories/public-exercise.repository.js";
 import { PrismaLogRepository } from "./repositories/log.repository.js";
 import { PrismaExerciseFileRepository } from "./repositories/exercise-file.repository.js";
+import { PrismaMessageRepository } from "./repositories/message.repository.js";
 import { PrismaCompilationFileRepository } from "./repositories/compilation-file.repository.js";
 import { S3AttachmentStorageRepository } from "./repositories/attachment-storage.repository.js";
 import { SmtpEmailSender } from "./repositories/email-sender.js";
@@ -54,6 +55,7 @@ import { LogService } from "./services/log.service.js";
 import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
 import { MarketplaceStatsService } from "./services/marketplace-stats.service.js";
 import { MarketplaceService } from "./services/marketplace.service.js";
+import { MessageService } from "./services/message.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 import { createAuditLog } from "./http/middleware/auditLog.js";
@@ -99,6 +101,7 @@ export function buildContainer() {
     logs: new PrismaLogRepository(prisma),
     exerciseFiles: new PrismaExerciseFileRepository(prisma),
     compilationFiles: new PrismaCompilationFileRepository(prisma),
+    messages: new PrismaMessageRepository(prisma),
     exerciseFileStorage: new S3AttachmentStorageRepository(s3, `${env.S3_BUCKET_PREFIX}-files`, "exercisefiles"),
     compilationFileStorage: new S3AttachmentStorageRepository(
       s3,
@@ -119,21 +122,28 @@ export function buildContainer() {
     password: env.SMTP_PASSWORD,
   });
 
+  const authService = new AuthService(
+    repositories.users,
+    env.JWT_SECRET,
+    env.JWT_EXPIRES_IN,
+    env.LEGACY_PASSWORD_SALT,
+  );
+
   const services = {
-    auth: new AuthService(
-      repositories.users,
-      env.JWT_SECRET,
-      env.JWT_EXPIRES_IN,
-      env.LEGACY_PASSWORD_SALT,
-    ),
-    user: new UserService(repositories.users, emailSender, env.APP_BASE_URL),
+    auth: authService,
+    user: new UserService(repositories.users, emailSender, env.APP_BASE_URL, env.LEGACY_PASSWORD_SALT),
     enrollment: new EnrollmentService(
       repositories.enrollments,
       repositories.offerings,
       repositories.courses,
       repositories.users,
     ),
-    offeringMembership: new OfferingMembershipService(repositories.enrollments, repositories.users),
+    offeringMembership: new OfferingMembershipService(
+      repositories.enrollments,
+      repositories.users,
+      repositories.offerings,
+      repositories.courses,
+    ),
     course: new CourseService(repositories.courses, repositories.users),
     offering: new OfferingService(
       repositories.offerings,
@@ -142,6 +152,8 @@ export function buildContainer() {
       repositories.enrollments,
       repositories.exercises,
       repositories.commits,
+      repositories.users,
+      emailSender,
     ),
     exercise: new ExerciseService(repositories.exercises, repositories.enrollments),
     exerciseManagement: new ExerciseManagementService(
@@ -149,6 +161,8 @@ export function buildContainer() {
       repositories.enrollments,
       repositories.allowedFiles,
       repositories.publicExercises,
+      repositories.exerciseCases,
+      repositories.caseStorage,
     ),
     exerciseCase: new ExerciseCaseService(
       repositories.exercises,
@@ -168,6 +182,8 @@ export function buildContainer() {
       repositories.enrollments,
       repositories.commits,
       repositories.storage,
+      repositories.commitCaseResults,
+      repositories.exerciseCases,
     ),
     plagiarism: new PlagiarismService(
       repositories.exercises,
@@ -177,7 +193,7 @@ export function buildContainer() {
     ),
     university: new UniversityService(repositories.universities),
     allowedFile: new AllowedFileService(repositories.allowedFiles),
-    adminUser: new AdminUserService(repositories.users),
+    adminUser: new AdminUserService(repositories.users, authService),
     commitCaseResult: new CommitCaseResultService(
       repositories.commits,
       repositories.exercises,
@@ -226,6 +242,7 @@ export function buildContainer() {
       repositories.compilationFiles,
       repositories.compilationFileStorage,
     ),
+    message: new MessageService(repositories.messages, repositories.users, emailSender),
     marketplace: new MarketplaceService(
       repositories.publicExercises,
       repositories.exercises,

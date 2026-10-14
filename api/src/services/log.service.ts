@@ -8,4 +8,8 @@ export class LogService {
     const { total, logs } = await this.logs.list(filter);
     return { total, page: filter.page, pageSize: filter.pageSize, logs };
   }
+
+  stats(filter: Pick<LogListFilter, "userEmail" | "ip" | "q" | "status">) {
+    return this.logs.stats(filter);
+  }
 }

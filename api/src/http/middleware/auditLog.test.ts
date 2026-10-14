@@ -17,7 +17,7 @@ function makeReqRes(overrides: Partial<AuthedRequest> = {}) {
 
 describe("auditLog middleware", () => {
   it("skips GET requests entirely", () => {
-    const logs: LogRepository = { list: vi.fn(), create: vi.fn() };
+    const logs: LogRepository = { list: vi.fn(), stats: vi.fn(), create: vi.fn() };
     const middleware = createAuditLog(logs);
     const { req, res } = makeReqRes({ method: "GET" } as Partial<AuthedRequest>);
     const next = vi.fn();
@@ -30,7 +30,7 @@ describe("auditLog middleware", () => {
   });
 
   it("logs a mutating request after it finishes, attributing it to the authed user", () => {
-    const logs: LogRepository = { list: vi.fn(), create: vi.fn().mockResolvedValue(undefined) };
+    const logs: LogRepository = { list: vi.fn(), stats: vi.fn(), create: vi.fn().mockResolvedValue(undefined) };
     const middleware = createAuditLog(logs);
     const { req, res } = makeReqRes();
     req.user = { email: "prof@x.com", type: 2 };
@@ -48,7 +48,7 @@ describe("auditLog middleware", () => {
   });
 
   it("attributes an unauthenticated mutation to SYSTEM", () => {
-    const logs: LogRepository = { list: vi.fn(), create: vi.fn().mockResolvedValue(undefined) };
+    const logs: LogRepository = { list: vi.fn(), stats: vi.fn(), create: vi.fn().mockResolvedValue(undefined) };
     const middleware = createAuditLog(logs);
     const { req, res } = makeReqRes();
     const next = vi.fn();
@@ -62,7 +62,7 @@ describe("auditLog middleware", () => {
   });
 
   it("strips the IPv4-mapped-IPv6 prefix and truncates to fit the varchar(15) column", () => {
-    const logs: LogRepository = { list: vi.fn(), create: vi.fn().mockResolvedValue(undefined) };
+    const logs: LogRepository = { list: vi.fn(), stats: vi.fn(), create: vi.fn().mockResolvedValue(undefined) };
     const middleware = createAuditLog(logs);
     const { req, res } = makeReqRes({ ip: "::ffff:127.0.0.1" } as Partial<AuthedRequest>);
     const next = vi.fn();
@@ -74,7 +74,7 @@ describe("auditLog middleware", () => {
   });
 
   it("never throws even if the repository write rejects", () => {
-    const logs: LogRepository = { list: vi.fn(), create: vi.fn().mockRejectedValue(new Error("db down")) };
+    const logs: LogRepository = { list: vi.fn(), stats: vi.fn(), create: vi.fn().mockRejectedValue(new Error("db down")) };
     const middleware = createAuditLog(logs);
     const { req, res } = makeReqRes();
     const next = vi.fn();
