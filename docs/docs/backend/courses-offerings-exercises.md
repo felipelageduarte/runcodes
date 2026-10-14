@@ -35,3 +35,7 @@ Um exercício pode ser `ghost = true` com `real_id` apontando para outro exercí
 ## Paginação
 
 Todas as listagens aceitam `page`/`pageSize` (default 1/20, máx. 100) e devolvem `{ total, page, pageSize, ... }`.
+
+## Criar e editar curso/turma
+
+A tabela acima cobre só leitura. Criação e edição, adicionadas na [Fase 7 do roadmap](../frontend/roadmap.md#fase-7--fundação-do-catálogo-curso-e-turma-): `POST /courses` (admin-only), `POST /offerings` (professor+, valida server-side que o curso pertence à universidade do requisitante) e `PUT /offerings/:id` (staff da turma ou admin, só `classroom`/`endDate`). Esse era um gap crítico achado pela [auditoria de paridade de out/2026](../roadmap/gap-audit-2026-10.md) — sem essas rotas, o catálogo só crescia via SQL direto.

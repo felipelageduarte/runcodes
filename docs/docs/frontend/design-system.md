@@ -5,6 +5,21 @@ sidebar_position: 2
 
 # Design system e UX
 
+## Redesign v3 (out/2026) — identidade e estrutura
+
+Direção visual ancorada na identidade histórica do run.codes, não num template de dashboard genérico:
+
+- **Cores de herança**: primary segue o azul-ciano do legado (`#31a5d9` da sidebar original); o **coral `#e45f56`** ("color-three" do site original) volta como `--accent` de assinatura — pulso do relógio do servidor, fio do item ativo da sidebar, urgência de deadline. Nunca compete com o primary em CTAs.
+- **Tipografia em 3 papéis**: Inter (corpo/UI), **Bricolage Grotesque** (`--font-display`, títulos de página e números de destaque — personalidade sem sacrificar leitura), JetBrains Mono (código, relógio, identificadores — promovida a elemento de identidade, não só utilidade).
+- **Relógio do servidor** (assinatura do produto): topbar sempre mostra o horário do servidor (`GET /health` → `now`, offset sincronizado + tick local a cada 1s, re-sync a cada 5min — `useServerClock` em `packages/shared`). É a referência oficial de prazo, como o "Server's Clock" do legado. Ponto coral pulsando = sincronizado.
+- **Estrutura de shell**: sidebar seccionada com eyebrows (Plataforma / Administração, padrão Linear-like) + **topbar** (relógio, ver-como, tema, menu da conta) + bottom nav no mobile. Admin enxerga todas as áreas sem grupo colapsável.
+- **Larguras canônicas** via `PageContainer` (`narrow`/`reading`/`default`/`wide`/`full`) — fim dos `max-w-*` ad-hoc por página; tabelas largas (notas, SQL, tickets) vivem em `wide`, formulários em `narrow`.
+- **Cabeçalho padrão** via `PageHeader` (título display animado, eyebrow, subtitle, backTo, actions) e `SectionHeader` pra seções internas.
+- **Motion system**: `MotionConfig reducedMotion="user"` global; transição de rota (fade+rise, ease-out-expo); `InteractiveCard` (lift unificado de hover); count-up nos números de `StatCard`; easings canônicos `--ease-out-expo` e `--ease-spring`.
+- **Navegação profunda** via `Breadcrumb`/`crumbs` no `PageHeader` (Painel → Turma → Exercício); `backTo` fica pros casos rasos.
+- **Tabelas**: `Table` com `stickyFirstColumn` (matriz de notas não perde a identidade da linha no scroll horizontal) e `mobileCards` (abaixo de `sm` cada linha vira card com label da coluna — tabela densa não cabe em tela estreita); `Pagination` padrão pra listagens server-side.
+- **Catálogo de oferecimentos (admin)**: busca e paginação server-side — `GET /offerings?q=&page=&pageSize=` (filtro em código/título da disciplina e sala, máx. 100 por página).
+
 ## Princípios visuais
 
 O legado (CakePHP + Bootstrap 3-era) tem UI datada: formulários sem validação client-side, navegação por reload de página inteira, tabelas densas sem estados vazios/loading, pouquíssima hierarquia visual. O objetivo aqui não é "modernizar o visual" — é reconstruir a experiência assumindo os padrões que hoje são esperados por padrão: feedback imediato, estados de carregamento, confirmação antes de ações destrutivas, responsividade real.

@@ -55,3 +55,15 @@ Promove/rebaixa um membro já matriculado. Requer staff da turma (professor/assi
 Bane um membro da turma (`banned = true` — soft, não deleta a matrícula). **Admin-only** — nem professor nem assistente podem, espelhando o CakePHP legado (`OfferingsController::ban()` não está na lista `professorAuthorized`, mantido de propósito: um professor não deveria conseguir remover um aluno unilateralmente da própria turma, sem supervisão).
 
 Verificado em teste de integração real: um admin promove um aluno matriculado a professor, esse novo professor consegue se autogerenciar (demover a si mesmo), mas **não** consegue banir ninguém — só admin consegue.
+
+### `POST /api/offerings/:id/members/:email`
+
+Matricula alguém diretamente, sem código — mirrors `EnrollmentsController::enroll()`. Staff da turma **ou** admin (o legado restringia isso a admin-only, já que não está em `professorAuthorized` nem `studentAuthorized`; ampliado aqui pra mesma régua das outras ações de gestão de turma — ver [auditoria de paridade](../roadmap/gap-audit-2026-10.md) item 6). Mesma validação de universidade do `enrollByCode`; `409 already_enrolled`/`banned_from_offering` se já houver matrícula.
+
+### `DELETE /api/offerings/:id/members/:email`
+
+Desmatrícula "dura" — apaga a linha de matrícula, diferente de `ban` (soft, admin-only acima). Mirrors `EnrollmentsController::delete()`, que no legado já era staff-da-turma-ou-admin (está em `professorAuthorized`), não admin-only.
+
+### `POST /api/offerings/:id/email`
+
+Email avulso pra todo mundo matriculado na turma (staff e alunos, não-banidos) — mirrors `OfferingsController::email()`. Staff da turma ou admin. O legado não filtrava membros banidos; aqui filtra (mandar email pra alguém removido da turma não é útil).

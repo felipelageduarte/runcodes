@@ -5,7 +5,7 @@ sidebar_position: 2.5
 
 # Users — cadastro e confirmação de email
 
-Hoje só cobre o que faltava pra alguém conseguir entrar no sistema pela primeira vez. CRUD de usuário por admin, perfil, recuperação de senha seguem no [backlog](../roadmap/backlog.md).
+Cobre cadastro, confirmação, recuperação de senha e perfil do próprio usuário (ver abaixo). Admin gerenciando conta de terceiros (CRUD completo, incluindo criar já confirmado e apagar) está em [admin-and-support.md](./admin-and-support.md).
 
 ## `POST /api/users` — signup
 
@@ -51,3 +51,17 @@ Idempotente: confirmar uma conta já confirmada não dá erro. Token errado, exp
 `AuthService.login()` rejeita login de conta não confirmada com `403 account_not_confirmed` — **depois** de validar a senha, não antes. Isso evita vazar "essa conta existe mas não está confirmada" pra quem não sabe a senha: senha errada sempre volta `401 invalid_credentials`, confirmação pendente só aparece pra quem já provou saber a senha certa.
 
 Esse comportamento não existia até esse módulo ser implementado — a versão anterior do `AuthService` não checava `confirmed` nenhuma vez, então uma conta recém-cadastrada conseguiria logar na hora. Corrigido junto com o signup, testado (unitário e integração) nos dois estados.
+
+## Perfil do próprio usuário
+
+Mirrors `UsersController::profile()`. Era o item de maior impacto prático da [auditoria de paridade de out/2026](../roadmap/gap-audit-2026-10.md) — sem isso, ninguém trocava a própria senha pós-cadastro. Fechado na [Fase 10](../frontend/roadmap.md#fase-10--gestão-de-turma-avançada-).
+
+```
+GET /api/users/me                               (perfil sem o hash de senha)
+PUT /api/users/me        { name?, universityId?, identifier? }
+PUT /api/users/me/password  { oldPassword, newPassword }
+```
+
+`type`/`confirmed` nunca são patcháveis aqui — isso é admin-only ([admin-and-support.md](./admin-and-support.md)), separação deliberada igual a `OfferingMembershipService`/`EnrollmentService`: mesmo agregado, atores e regras de autorização diferentes.
+
+Trocar senha verifica a senha atual do mesmo jeito que `AuthService.login()` — incluindo a migração transparente de hash sha1 legado pra bcrypt na primeira verificação bem-sucedida, então um usuário cujo hash ainda não migrou (nunca logou desde a migração) consegue trocar a senha normalmente. Senha atual errada → `401 invalid_current_password`.

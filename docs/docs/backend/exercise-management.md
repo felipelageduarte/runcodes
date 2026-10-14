@@ -13,6 +13,7 @@ Professor/assistente/admin cria e mantém exercícios e seus casos de teste. Lei
 - `PUT /api/exercises/:id` — edita (todos os campos opcionais, PATCH-like).
 - `DELETE /api/exercises/:id` — **soft delete** (`removed = true`), nunca apaga a linha. Cascateia pra clones "ghost" (`real_id = id`) — mirror exato de `ExercisesController::delete()`.
 - `POST /api/exercises/:id/share` — compartilha o exercício com outra turma como clone "ghost" (`ghost=true`, `real_id` apontando pro original). Autorização exige staff/admin da turma **de destino** (não da turma original) — mirror exato de `Exercise::createGhostExercise()`. Casos, allow-list de arquivo e anexos ficam todos no exercício real; todo módulo que lê isso já redireciona via `real_id`.
+- `POST /api/exercises/:id/clone` — cópia **independente** (não ghost, `ExerciseManagementService.cloneExercise()`): duplica enunciado, allow-list de arquivo e casos de teste (conteúdo próprio, re-hasheado, verificado em teste de integração que o hash do clone é diferente do original). Mesma régua de autorização do `share` (staff/admin do destino + publicado ou staff da origem). Título vira "`<original> (cópia)`". **Anexos** (`ExerciseFile`/`CompilationFile`) **não são clonados** — decisão de escopo: reanexar um PDF/arquivo de apoio é o mesmo esforço de autoria de qualquer forma, o ganho real está nos casos de teste. Achado na [auditoria de paridade de out/2026](../roadmap/gap-audit-2026-10.md) item 16, fechado na [Fase 11](../frontend/roadmap.md#fase-11--polimento-residual-).
 
 ## Arquivos (exercise files e compilation files)
 
@@ -69,3 +70,13 @@ DELETE /api/exercise-case-files/:id                         (staff/admin)
 **Staff/admin-only em tudo**, diferente de `ExerciseFile`/`CompilationFile` (que aluno matriculado também lê): o arquivo de input de um caso é material de correção, não algo que o aluno deveria ver.
 
 Mesmo contrato de S3 do input/output de texto: chave **`{caseId}/files/{filename}`**, no mesmo bucket `runcodes-cases`. `compiler-engine` já lê isso (`fetch_test_case_files()`) — só faltava o lado do Node escrever. Apagar um caso agora limpa tanto `{caseId}/in`/`{caseId}/out` quanto todo arquivo sob `{caseId}/files/` (via `ListObjectsV2` + batch delete), não só os dois primeiros.
+
+## Operações em lote
+
+Além do CRUD individual acima, mirrors `ExerciseCasesController::addBatch()`/`removeAllCases()` (achados pela [auditoria de paridade de out/2026](../roadmap/gap-audit-2026-10.md), fechados na [Fase 8](../frontend/roadmap.md#fase-8--ferramentas-de-correção-do-professor-)):
+
+- **`POST /api/exercises/:id/cases/batch`** — cria vários casos de uma vez, config compartilhada (tipo de saída, cputime, visibilidade). Diferente do legado, recebe o texto de input/output direto no corpo da requisição em vez de upload de arquivos `.in`/`.out` casados por nome — mesmo ganho de produtividade (não precisa criar um por um), contrato mais simples por ser API, não form HTML. Para no primeiro erro; casos já criados antes dele permanecem.
+- **`PUT /api/exercises/:id/cases/visibility`** — aplica `showInput`/`showExpectedOutput`/`showUserOutput` a todos os casos do exercício de uma vez.
+- **`DELETE /api/exercises/:id/cases`** (`removeAllCases`) — apaga todos os casos do exercício, best-effort nos objetos S3.
+- **`GET /api/exercises/:id/cases-table`** (`casesTable`) — matriz aluno × caso ("quem passou em qual caso"), em `StatsService`, diferente do agregado por caso de `getExerciseCaseStats` ([admin-and-support.md](./admin-and-support.md)). Também devolve `hasUnsafeCommits`: `true` quando o commit mais recente de algum aluno é anterior à última mudança nos casos (`exercise_cases.last_update`) — sinal de que a nota pode não refletir a régua atual.
+- **`GET /api/exercises/:id/cases/download.zip`** (`downloadCases`) — zip dos inputs/outputs via `ExerciseCaseService.buildCasesZip()`. Staff/admin baixa tudo; aluno só os casos com `showInput`/`showExpectedOutput` marcado (checado por caso, igual ao legado). Numerado `1.in`/`1.out`/`2.in`/... com `README.txt`. Achado na auditoria de paridade de out/2026 item 18, fechado na [Fase 11](../frontend/roadmap.md#fase-11--polimento-residual-).
