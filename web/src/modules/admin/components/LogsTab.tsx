@@ -1,41 +1,85 @@
-import { useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listLogs, type LogRecord } from "@runcodes/api-client";
-import { Button, FormField, Input, Table, type TableColumn } from "@runcodes/ui";
+import { getLogStats, listLogs, type LogRecord } from "@runcodes/api-client";
+import { Button, cn, FormField, Input, StatCard } from "@runcodes/ui";
+import { AlertTriangle, ChevronRight, ListTree, ScrollText } from "lucide-react";
 
 const PAGE_SIZE = 50;
+
+/** `action` is a free-text "METHOD /path -> STATUS" line (see
+ * runcodes-api's auditLog middleware) — no separate columns, so the
+ * expanded detail parses it back apart for readability. */
+function parseAction(action: string): { method: string | null; path: string | null; status: number | null } {
+  const match = /^(\S+)\s+(.*?)\s*->\s*(\d{3})$/.exec(action);
+  if (!match) return { method: null, path: null, status: null };
+  return { method: match[1], path: match[2], status: Number(match[3]) };
+}
 
 export function LogsTab() {
   const [userEmail, setUserEmail] = useState("");
   const [ip, setIp] = useState("");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<LogRecord[]>([]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const filter = {
+    userEmail: userEmail || undefined,
+    ip: ip || undefined,
+    q: q || undefined,
+    status: status ? Number(status) : undefined,
+  };
+  const filterKey = JSON.stringify(filter);
+
+  function updateFilter(apply: () => void) {
+    apply();
+    setPage(1);
+    setExpandedId(null);
+  }
 
   const query = useQuery({
-    queryKey: ["admin-logs", { userEmail, ip, page }],
-    queryFn: () => listLogs({ userEmail: userEmail || undefined, ip: ip || undefined, page, pageSize: PAGE_SIZE }),
+    queryKey: ["admin-logs", filterKey, page],
+    queryFn: () => listLogs({ ...filter, page, pageSize: PAGE_SIZE }),
   });
+  const statsQuery = useQuery({ queryKey: ["admin-logs-stats", filterKey], queryFn: () => getLogStats(filter) });
 
-  const totalPages = query.data ? Math.max(1, Math.ceil(query.data.total / PAGE_SIZE)) : 1;
+  useEffect(() => {
+    if (!query.data) return;
+    setRows((prev) => (page === 1 ? query.data.logs : [...prev, ...query.data.logs]));
+  }, [query.data, page]);
 
-  const columns: TableColumn<LogRecord>[] = [
-    { key: "datetime", header: "Quando", render: (l) => new Date(l.datetime).toLocaleString("pt-BR") },
-    { key: "userEmail", header: "Usuário", render: (l) => l.userEmail },
-    { key: "action", header: "Ação", render: (l) => l.action },
-    { key: "ip", header: "IP", render: (l) => l.ip },
-  ];
+  const hasMore = query.data ? rows.length < query.data.total : false;
 
   return (
     <div className="space-y-4 py-4">
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard
+          icon={<ScrollText className="size-5" />}
+          label="Eventos (filtro atual)"
+          value={statsQuery.data?.total ?? "—"}
+        />
+        <StatCard
+          icon={<AlertTriangle className="size-5" />}
+          label="Erros (status ≥ 400)"
+          value={statsQuery.data?.errors ?? "—"}
+          color="warning"
+        />
+        <StatCard
+          icon={<ListTree className="size-5" />}
+          label="Ação mais frequente"
+          value={statsQuery.data?.topAction ?? "—"}
+          color="info"
+        />
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[200px]">
           <FormField label="Email do usuário" htmlFor="log-email">
             <Input
               id="log-email"
               value={userEmail}
-              onChange={(e) => {
-                setUserEmail(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => updateFilter(() => setUserEmail(e.target.value))}
             />
           </FormField>
         </div>
@@ -44,33 +88,115 @@ export function LogsTab() {
             <Input
               id="log-ip"
               value={ip}
-              onChange={(e) => {
-                setIp(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => updateFilter(() => setIp(e.target.value))}
             />
+          </FormField>
+        </div>
+        <div className="min-w-[200px]">
+          <FormField label="Busca na ação" htmlFor="log-q">
+            <Input
+              id="log-q"
+              placeholder="/api/enrollments"
+              value={q}
+              onChange={(e) => updateFilter(() => setQ(e.target.value))}
+            />
+          </FormField>
+        </div>
+        <div className="min-w-[140px]">
+          <FormField label="Status" htmlFor="log-status">
+            <select
+              id="log-status"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={status}
+              onChange={(e) => updateFilter(() => setStatus(e.target.value))}
+            >
+              <option value="">Todos</option>
+              {[200, 201, 204, 400, 401, 403, 404, 409, 500].map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
           </FormField>
         </div>
       </div>
 
-      <Table
-        columns={columns}
-        rows={query.data?.logs ?? []}
-        rowKey={(l) => l.id}
-        density="compact"
-        emptyTitle={query.isLoading ? "Carregando..." : "Nenhum log encontrado"}
-      />
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-left text-xs font-medium uppercase text-muted-foreground">
+            <tr>
+              <th className="w-8" />
+              <th className="px-3 py-2">Quando</th>
+              <th className="px-3 py-2">Usuário</th>
+              <th className="px-3 py-2">Ação</th>
+              <th className="px-3 py-2">IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                  {query.isLoading ? "Carregando..." : "Nenhum log encontrado"}
+                </td>
+              </tr>
+            )}
+            {rows.map((log) => {
+              const expanded = expandedId === log.id;
+              const parsed = parseAction(log.action);
+              return (
+                <Fragment key={log.id}>
+                  <tr
+                    className="cursor-pointer border-t border-border hover:bg-muted/30"
+                    onClick={() => setExpandedId(expanded ? null : log.id)}
+                  >
+                    <td className="px-2">
+                      <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-90")} />
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">{new Date(log.datetime).toLocaleString("pt-BR")}</td>
+                    <td className="px-3 py-2">{log.userEmail}</td>
+                    <td className="px-3 py-2">
+                      <span className="font-mono text-xs">{log.action}</span>
+                    </td>
+                    <td className="px-3 py-2">{log.ip}</td>
+                  </tr>
+                  {expanded && (
+                    <tr className="border-t border-border bg-muted/20">
+                      <td />
+                      <td colSpan={4} className="px-3 py-3">
+                        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+                          <div>
+                            <dt className="text-muted-foreground">Método</dt>
+                            <dd className="font-mono">{parsed.method ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Caminho</dt>
+                            <dd className="font-mono">{parsed.path ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Status</dt>
+                            <dd className={cn("font-mono", parsed.status && parsed.status >= 400 && "text-warning")}>
+                              {parsed.status ?? "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Timestamp (ISO)</dt>
+                            <dd className="font-mono">{new Date(log.datetime).toISOString()}</dd>
+                          </div>
+                        </dl>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Anterior
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Página {page} de {totalPages}
-          </span>
-          <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Próxima
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button variant="secondary" size="sm" loading={query.isFetching} onClick={() => setPage((p) => p + 1)}>
+            Carregar mais
           </Button>
         </div>
       )}

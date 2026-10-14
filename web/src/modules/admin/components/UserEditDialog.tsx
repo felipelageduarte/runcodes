@@ -3,9 +3,23 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listUniversities, updateAdminUser, type AdminUserRecord } from "@runcodes/api-client";
+import {
+  ApiError,
+  deleteAdminUser,
+  listUniversities,
+  updateAdminUser,
+  type AdminUserRecord,
+} from "@runcodes/api-client";
 import { userTypeLabel } from "@runcodes/shared";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Dialog,
   DialogContent,
@@ -29,6 +43,9 @@ type FormValues = z.input<typeof schema>;
 
 export function UserEditDialog({ user, trigger }: { user: AdminUserRecord; trigger: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const universitiesQuery = useQuery({ queryKey: ["universities"], queryFn: listUniversities, enabled: open });
@@ -61,6 +78,25 @@ export function UserEditDialog({ user, trigger }: { user: AdminUserRecord; trigg
       setOpen(false);
     },
     onError: () => toast.error("Não foi possível atualizar o usuário"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAdminUser(user.email, deletePassword),
+    onSuccess: () => {
+      toast.success("Usuário removido");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setConfirmDelete(false);
+      setDeletePassword("");
+      setDeleteError(null);
+      setOpen(false);
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError && err.code === "invalid_current_password") {
+        setDeleteError("Senha incorreta");
+        return;
+      }
+      toast.error("Não foi possível remover o usuário");
+    },
   });
 
   return (
@@ -108,13 +144,61 @@ export function UserEditDialog({ user, trigger }: { user: AdminUserRecord; trigg
               Email confirmado
             </label>
           </div>
-          <DialogFooter>
+          <DialogFooter className="justify-between">
+            <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>
+              Remover
+            </Button>
             <Button type="submit" loading={mutation.isPending}>
               Salvar
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(next) => {
+          setConfirmDelete(next);
+          if (!next) {
+            setDeletePassword("");
+            setDeleteError(null);
+          }
+        }}
+      >
+        <AlertDialogContent open={confirmDelete}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover {user.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apaga a conta e tudo vinculado a ela (matrículas, submissões). Essa ação não pode ser desfeita. Confirme
+              com sua senha de admin para continuar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <FormField label="Sua senha" htmlFor="delete-password" error={deleteError ?? undefined}>
+            <Input
+              id="delete-password"
+              type="password"
+              autoComplete="current-password"
+              value={deletePassword}
+              onChange={(e) => {
+                setDeletePassword(e.target.value);
+                setDeleteError(null);
+              }}
+            />
+          </FormField>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!deletePassword || deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteMutation.mutate();
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
