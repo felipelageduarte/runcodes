@@ -31,10 +31,11 @@ export function ViewAsMenu({ collapsedLabel }: { collapsedLabel?: boolean }) {
         <button
           type="button"
           aria-label="Ver como"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
+          title="Ver como outro papel"
+          className="flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <Eye aria-hidden="true" className="size-5 shrink-0" />
-          {!collapsedLabel && <span className="hidden lg:inline">Ver como</span>}
+          <Eye aria-hidden="true" className="size-4.5 shrink-0" />
+          {!collapsedLabel && <span className="hidden xl:inline">Ver como</span>}
         </button>
       </DialogTrigger>
       <DialogContent open={open}>

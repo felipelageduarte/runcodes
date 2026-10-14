@@ -4,6 +4,7 @@ import { listAdminUsers, type AdminUserRecord } from "@runcodes/api-client";
 import { userTypeLabel } from "@runcodes/shared";
 import { Badge, Button, FormField, Input, Table, type TableColumn } from "@runcodes/ui";
 import { UserEditDialog } from "./UserEditDialog";
+import { NewUserDialog } from "./NewUserDialog";
 
 const PAGE_SIZE = 20;
 
@@ -47,17 +48,20 @@ export function AdminUsersTab() {
 
   return (
     <div className="space-y-4 py-4">
-      <div className="max-w-xs">
-        <FormField label="Buscar por email" htmlFor="email-filter">
-          <Input
-            id="email-filter"
-            value={emailFilter}
-            onChange={(e) => {
-              setEmailFilter(e.target.value);
-              setPage(1);
-            }}
-          />
-        </FormField>
+      <div className="flex items-end justify-between gap-3">
+        <div className="max-w-xs">
+          <FormField label="Buscar por email" htmlFor="email-filter">
+            <Input
+              id="email-filter"
+              value={emailFilter}
+              onChange={(e) => {
+                setEmailFilter(e.target.value);
+                setPage(1);
+              }}
+            />
+          </FormField>
+        </div>
+        <NewUserDialog trigger={<Button size="sm">Novo usuário</Button>} />
       </div>
 
       <Table
@@ -65,6 +69,7 @@ export function AdminUsersTab() {
         rows={query.data?.users ?? []}
         rowKey={(u) => u.email}
         density="compact"
+        mobileCards
         emptyTitle={query.isLoading ? "Carregando..." : "Nenhum usuário encontrado"}
       />
 

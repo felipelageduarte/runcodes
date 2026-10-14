@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getDbHealth } from "@runcodes/api-client";
-import { StatCard } from "@runcodes/ui";
+import { type DbHealth, getDbHealth } from "@runcodes/api-client";
+import { StatCard, Table, type TableColumn } from "@runcodes/ui";
 import { Activity, Clock, Database, HardDrive } from "lucide-react";
 
 function formatBytes(bytes: number): string {
@@ -22,6 +22,17 @@ function formatUptime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   return `${hours}h ${minutes}min`;
 }
+
+type ConnectionRow = DbHealth["connectionsByState"][number];
+
+const connectionColumns: TableColumn<ConnectionRow>[] = [
+  {
+    key: "state",
+    header: "Estado da conexão",
+    render: (row) => <span className="font-mono text-xs">{row.state ?? "(sem estado)"}</span>,
+  },
+  { key: "count", header: "Quantidade", render: (row) => row.count },
+];
 
 export function DbHealthPanel() {
   const query = useQuery({ queryKey: ["admin-db-health"], queryFn: getDbHealth, refetchInterval: 15_000 });
@@ -55,24 +66,13 @@ export function DbHealthPanel() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs font-medium uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Estado da conexão</th>
-              <th className="px-3 py-2">Quantidade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.connectionsByState ?? []).map((row) => (
-              <tr key={row.state ?? "null"} className="border-t border-border">
-                <td className="px-3 py-2 font-mono text-xs">{row.state ?? "(sem estado)"}</td>
-                <td className="px-3 py-2">{row.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table
+        columns={connectionColumns}
+        rows={data?.connectionsByState ?? []}
+        rowKey={(row) => row.state ?? "null"}
+        density="compact"
+        emptyTitle="Sem conexões registradas"
+      />
     </div>
   );
 }

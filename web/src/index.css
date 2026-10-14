@@ -56,6 +56,13 @@
   --accent-purple: oklch(0.56 0.21 300);
   --accent-purple-foreground: oklch(0.99 0 0);
 
+  /* Accent coral — resgate do #e45f56 ("color-three") do run.codes
+     original. Usado com parcimônia: urgência de deadline, pulso do
+     relógio do servidor, momentos de destaque. Não compete com o
+     primary em CTAs. */
+  --accent: oklch(0.66 0.17 25);
+  --accent-foreground: oklch(0.99 0 0);
+
   /* Sombras — mais presença que a v1 (que praticamente não aparecia em
      modo claro) */
   --shadow-color: 222 30% 20%;
@@ -100,6 +107,9 @@
   --accent-purple: oklch(0.68 0.19 300);
   --accent-purple-foreground: oklch(0.1 0 0);
 
+  --accent: oklch(0.7 0.16 25);
+  --accent-foreground: oklch(0.1 0 0);
+
   --shadow-color: 230 60% 2%;
   --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.3);
   --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.3), 0 8px 16px -4px hsl(var(--shadow-color) / 0.4);
@@ -137,6 +147,9 @@
   --color-accent-purple: var(--accent-purple);
   --color-accent-purple-foreground: var(--accent-purple-foreground);
 
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-muted: var(--sidebar-muted);
@@ -145,6 +158,13 @@
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  /* Display — títulos de página e números de destaque. Bricolage dá
+     personalidade própria sem perder legibilidade; Inter segue no corpo. */
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Easings de motion — padrão do sistema (ver docs/frontend/design-system.md) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --shadow-xs: var(--shadow-sm);
   --shadow-card: var(--shadow-sm);
@@ -167,4 +187,26 @@
   h3 {
     letter-spacing: -0.02em;
   }
+
+  /* Pulso do relógio do servidor — par de segundos pisca suave. */
+  @keyframes clock-pulse {
+    0%,
+    45% {
+      opacity: 1;
+    }
+    50%,
+    95% {
+      opacity: 0.35;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-clock-pulse {
+      animation: none !important;
+    }
+  }
+}
+
+@utility animate-clock-pulse {
+  animation: clock-pulse 2s steps(1) infinite;
 }

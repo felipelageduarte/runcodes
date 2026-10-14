@@ -19,6 +19,7 @@ import {
   toast,
 } from "@runcodes/ui";
 import { ShareExerciseDialog } from "./ShareExerciseDialog";
+import { CloneExerciseDialog } from "./CloneExerciseDialog";
 import { PublishDialog } from "./PublishDialog";
 
 const typeLabels: Record<number, string> = { 0: "Compilável", 1: "Não compilável", 2: "Compilável (makefile)" };
@@ -74,6 +75,14 @@ export function ExercisesTab({ offering }: { offering: OfferingDetail }) {
                       trigger={
                         <Button variant="ghost" size="sm">
                           Compartilhar
+                        </Button>
+                      }
+                    />
+                    <CloneExerciseDialog
+                      exercise={exercise}
+                      trigger={
+                        <Button variant="ghost" size="sm">
+                          Clonar
                         </Button>
                       }
                     />

@@ -38,7 +38,7 @@ export function UniversitiesTab() {
       ) : !query.data || query.data.length === 0 ? (
         <EmptyState title="Nenhuma instituição cadastrada" />
       ) : (
-        <Table columns={columns} rows={query.data} rowKey={(u) => u.id} density="compact" emptyTitle="Nenhuma instituição" />
+        <Table columns={columns} rows={query.data} rowKey={(u) => u.id} density="compact" mobileCards emptyTitle="Nenhuma instituição" />
       )}
     </div>
   );

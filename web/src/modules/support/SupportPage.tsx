@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
-import { Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
+import { PageContainer, PageHeader, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { MyTicketsTab } from "./components/MyTicketsTab";
 import { TicketQueueTab } from "./components/TicketQueueTab";
 import { AlertsTab } from "./components/AlertsTab";
@@ -21,8 +21,8 @@ export function SupportPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold text-foreground">Suporte</h1>
+    <PageContainer width="wide">
+      <PageHeader title="Suporte" />
 
       <Tabs layoutId="support-tabs" active={tab} onChange={(k) => setTab(k as TabKey)} tabs={tabs} />
 
@@ -32,6 +32,6 @@ export function SupportPage() {
         {tab === "avisos" && isStaff && <AlertsTab />}
         {tab === "faq" && <FaqTab />}
       </div>
-    </div>
+    </PageContainer>
   );
 }

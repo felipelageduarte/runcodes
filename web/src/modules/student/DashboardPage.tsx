@@ -1,13 +1,16 @@
 import { Link } from "react-router-dom";
-import { motion } from "motion/react";
-import { CalendarPlus, CheckCircle2, GraduationCap, Inbox, ListTodo, School, Settings } from "lucide-react";
+import { CalendarPlus, CheckCircle2, GraduationCap, Inbox, ListTodo, Plus, School, Settings } from "lucide-react";
 import { useSession } from "@runcodes/auth";
+import { UserType } from "@runcodes/shared";
 import {
   Badge,
   Button,
-  Card,
   CardContent,
   EmptyState,
+  InteractiveCard,
+  PageContainer,
+  PageHeader,
+  SectionHeader,
   Skeleton,
   StaggerItem,
   StaggerList,
@@ -40,18 +43,30 @@ export function DashboardPage() {
   const totalTurmas = (offerings?.open.length ?? 0) + (offerings?.closed.length ?? 0);
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Olá, {user?.name}</h1>
-        <EnrollDialog
-          trigger={
-            <Button variant="secondary" size="sm">
-              <GraduationCap className="size-4" />
-              Entrar em turma
-            </Button>
-          }
-        />
-      </div>
+    <PageContainer width="default">
+      <PageHeader
+        title={<>Olá, {user?.name}</>}
+        actions={
+          <>
+            {(user?.type ?? 0) >= UserType.PROFESSOR && (
+              <Button variant="secondary" size="sm" asChild>
+                <Link to="/turmas/nova">
+                  <Plus className="size-4" />
+                  Nova turma
+                </Link>
+              </Button>
+            )}
+            <EnrollDialog
+              trigger={
+                <Button variant="secondary" size="sm">
+                  <GraduationCap className="size-4" />
+                  Entrar em turma
+                </Button>
+              }
+            />
+          </>
+        }
+      />
 
       {!isLoading && !isError && offerings && offerings.open.length > 0 && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -69,7 +84,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Exercícios</h2>
+      <SectionHeader title="Exercícios" />
 
       {isLoading ? (
         <QueueSkeleton />
@@ -89,26 +104,24 @@ export function DashboardPage() {
           {queue.map((exercise) => (
             <StaggerItem key={exercise.id}>
               <Link to={`/exercicios/${exercise.id}`}>
-                <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: "easeOut" }}>
-                  <Card className="hover:border-primary-300 hover:shadow-popover">
-                    <CardContent className="flex items-center justify-between gap-4 p-4">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">{exercise.title}</p>
-                        <p className="truncate text-sm text-muted-foreground">{exercise.offeringTitle}</p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <ExerciseStatusBadge commit={exercise.myLatestCommit} />
-                        <span className="text-xs text-muted-foreground">
-                          {exercise.isOpen ? (
-                            formatRelativeDeadline(exercise.deadline)
-                          ) : (
-                            <Badge variant="neutral">Ainda não abriu</Badge>
-                          )}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                <InteractiveCard>
+                  <CardContent className="flex items-center justify-between gap-4 p-4">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">{exercise.title}</p>
+                      <p className="truncate text-sm text-muted-foreground">{exercise.offeringTitle}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <ExerciseStatusBadge commit={exercise.myLatestCommit} />
+                      <span className="text-xs text-muted-foreground">
+                        {exercise.isOpen ? (
+                          formatRelativeDeadline(exercise.deadline)
+                        ) : (
+                          <Badge variant="neutral">Ainda não abriu</Badge>
+                        )}
+                      </span>
+                    </div>
+                  </CardContent>
+                </InteractiveCard>
               </Link>
             </StaggerItem>
           ))}
@@ -117,26 +130,24 @@ export function DashboardPage() {
 
       {teachingOfferings.length > 0 && (
         <>
-          <h2 className="mb-3 mt-8 text-sm font-medium text-muted-foreground">Turmas que você leciona</h2>
+          <SectionHeader title="Turmas que você leciona" className="mt-8" />
           <ul className="grid gap-2 sm:grid-cols-2">
             {teachingOfferings.map((offering) => (
               <li key={offering.id}>
                 <Link to={`/turmas/${offering.id}/gerenciar`}>
-                  <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.15, ease: "easeOut" }}>
-                    <Card className="hover:border-primary-300 hover:shadow-popover">
-                      <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
-                          <Settings className="size-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-foreground">
-                            {offering.course?.title ?? `Turma #${offering.id}`}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Gerenciar turma</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+                  <InteractiveCard>
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+                        <Settings className="size-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-foreground">
+                          {offering.course?.title ?? `Turma #${offering.id}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Gerenciar turma</p>
+                      </div>
+                    </CardContent>
+                  </InteractiveCard>
                 </Link>
               </li>
             ))}
@@ -146,7 +157,7 @@ export function DashboardPage() {
 
       {offerings && offerings.closed.length > 0 && (
         <>
-          <h2 className="mb-3 mt-8 text-sm font-medium text-muted-foreground">Turmas encerradas</h2>
+          <SectionHeader title="Turmas encerradas" className="mt-8" />
           <ul className="space-y-2">
             {offerings.closed.map((offering) => (
               <li key={offering.id}>
@@ -162,6 +173,6 @@ export function DashboardPage() {
           </ul>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

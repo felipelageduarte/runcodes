@@ -11,6 +11,7 @@ export interface CommitRecord {
   score: string | null;
   compiled: boolean | null;
   compiledMessage: string | null;
+  compiledSignal: string | null;
   awsKey: string | null;
   ip: string | null;
 }
@@ -53,4 +54,19 @@ export function getCommitCases(id: number): Promise<CommitCaseResult[]> {
 
 export function getCommitContent(id: number): Promise<{ filename: string; content: string }> {
   return apiFetch(`/commits/${id}/content`);
+}
+
+/** Staff da turma ou admin — sobrescreve nota/status manualmente. */
+export function editCommitScore(id: number, patch: { score: number; status: number }): Promise<CommitRecord> {
+  return apiFetch(`/commits/${id}/score`, { method: "PUT", body: JSON.stringify(patch) });
+}
+
+/** Staff da turma ou admin — reenfileira um commit específico. */
+export function recompileCommit(id: number): Promise<CommitRecord> {
+  return apiFetch(`/commits/${id}/recompile`, { method: "POST" });
+}
+
+/** Staff da turma ou admin — reenfileira o commit mais recente de cada aluno. */
+export function recompileAllCommits(exerciseId: number): Promise<{ count: number }> {
+  return apiFetch(`/exercises/${exerciseId}/commits/recompile-all`, { method: "POST" });
 }

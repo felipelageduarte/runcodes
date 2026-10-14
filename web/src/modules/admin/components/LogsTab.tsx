@@ -1,7 +1,7 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLogStats, listLogs, type LogRecord } from "@runcodes/api-client";
-import { Button, cn, FormField, Input, StatCard } from "@runcodes/ui";
+import { Button, cn, FormField, Input, StatCard, Table, type TableColumn } from "@runcodes/ui";
 import { AlertTriangle, ChevronRight, ListTree, ScrollText } from "lucide-react";
 
 const PAGE_SIZE = 50;
@@ -50,6 +50,71 @@ export function LogsTab() {
   }, [query.data, page]);
 
   const hasMore = query.data ? rows.length < query.data.total : false;
+
+  const columns: TableColumn<LogRecord>[] = [
+    {
+      key: "expand",
+      header: "",
+      render: (log) => {
+        const expanded = expandedId === log.id;
+        return (
+          <button
+            type="button"
+            aria-label={expanded ? "Recolher detalhes" : "Expandir detalhes"}
+            onClick={() => setExpandedId(expanded ? null : log.id)}
+          >
+            <ChevronRight
+              className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-90")}
+            />
+          </button>
+        );
+      },
+    },
+    {
+      key: "datetime",
+      header: "Quando",
+      render: (log) => (
+        <span className="whitespace-nowrap">{new Date(log.datetime).toLocaleString("pt-BR")}</span>
+      ),
+    },
+    { key: "user", header: "Usuário", render: (log) => log.userEmail },
+    {
+      key: "action",
+      header: "Ação",
+      render: (log) => {
+        const expanded = expandedId === log.id;
+        const parsed = parseAction(log.action);
+        return (
+          <div className="space-y-2">
+            <span className="font-mono text-xs">{log.action}</span>
+            {expanded && (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+                <div>
+                  <dt className="text-muted-foreground">Método</dt>
+                  <dd className="font-mono">{parsed.method ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Caminho</dt>
+                  <dd className="font-mono">{parsed.path ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd className={cn("font-mono", parsed.status && parsed.status >= 400 && "text-warning")}>
+                    {parsed.status ?? "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Timestamp (ISO)</dt>
+                  <dd className="font-mono">{new Date(log.datetime).toISOString()}</dd>
+                </div>
+              </dl>
+            )}
+          </div>
+        );
+      },
+    },
+    { key: "ip", header: "IP", render: (log) => log.ip },
+  ];
 
   return (
     <div className="space-y-4 py-4">
@@ -121,77 +186,17 @@ export function LogsTab() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs font-medium uppercase text-muted-foreground">
-            <tr>
-              <th className="w-8" />
-              <th className="px-3 py-2">Quando</th>
-              <th className="px-3 py-2">Usuário</th>
-              <th className="px-3 py-2">Ação</th>
-              <th className="px-3 py-2">IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
-                  {query.isLoading ? "Carregando..." : "Nenhum log encontrado"}
-                </td>
-              </tr>
-            )}
-            {rows.map((log) => {
-              const expanded = expandedId === log.id;
-              const parsed = parseAction(log.action);
-              return (
-                <Fragment key={log.id}>
-                  <tr
-                    className="cursor-pointer border-t border-border hover:bg-muted/30"
-                    onClick={() => setExpandedId(expanded ? null : log.id)}
-                  >
-                    <td className="px-2">
-                      <ChevronRight className={cn("size-4 text-muted-foreground transition-transform", expanded && "rotate-90")} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">{new Date(log.datetime).toLocaleString("pt-BR")}</td>
-                    <td className="px-3 py-2">{log.userEmail}</td>
-                    <td className="px-3 py-2">
-                      <span className="font-mono text-xs">{log.action}</span>
-                    </td>
-                    <td className="px-3 py-2">{log.ip}</td>
-                  </tr>
-                  {expanded && (
-                    <tr className="border-t border-border bg-muted/20">
-                      <td />
-                      <td colSpan={4} className="px-3 py-3">
-                        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
-                          <div>
-                            <dt className="text-muted-foreground">Método</dt>
-                            <dd className="font-mono">{parsed.method ?? "—"}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Caminho</dt>
-                            <dd className="font-mono">{parsed.path ?? "—"}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Status</dt>
-                            <dd className={cn("font-mono", parsed.status && parsed.status >= 400 && "text-warning")}>
-                              {parsed.status ?? "—"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground">Timestamp (ISO)</dt>
-                            <dd className="font-mono">{new Date(log.datetime).toISOString()}</dd>
-                          </div>
-                        </dl>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {query.isLoading && rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">Carregando...</p>
+      ) : (
+        <Table
+          columns={columns}
+          rows={rows}
+          rowKey={(log) => log.id}
+          density="compact"
+          emptyTitle="Nenhum log encontrado"
+        />
+      )}
 
       {hasMore && (
         <div className="flex justify-center">

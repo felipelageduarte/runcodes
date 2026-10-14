@@ -59,6 +59,47 @@ export function deleteExerciseCase(id: number): Promise<void> {
   return apiFetch(`/exercise-cases/${id}`, { method: "DELETE" });
 }
 
+/** Cria vários casos de uma vez, mesma config compartilhada repetida em
+ * cada item (sem upload de arquivo `.in`/`.out` casado por nome como o
+ * legado — texto direto, ver docs/backend/exercise-management.md). */
+export function createExerciseCasesBatch(
+  exerciseId: number,
+  cases: ExerciseCaseInput[],
+): Promise<ExerciseCaseRecord[]> {
+  return apiFetch(`/exercises/${exerciseId}/cases/batch`, {
+    method: "POST",
+    body: JSON.stringify({ cases }),
+  });
+}
+
+export interface CaseVisibilityPatch {
+  showInput?: boolean;
+  showExpectedOutput?: boolean;
+  showUserOutput?: boolean;
+}
+
+/** Aplica a mesma flag de visibilidade a todos os casos do exercício. */
+export function setExerciseCasesVisibility(
+  exerciseId: number,
+  patch: CaseVisibilityPatch,
+): Promise<{ count: number }> {
+  return apiFetch(`/exercises/${exerciseId}/cases/visibility`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function removeAllExerciseCases(exerciseId: number): Promise<{ count: number }> {
+  return apiFetch(`/exercises/${exerciseId}/cases`, { method: "DELETE" });
+}
+
+/** Zip dos inputs/outputs — staff vê tudo, aluno só o que tem
+ * `showInput`/`showExpectedOutput` marcado. */
+export function exerciseCasesDownloadUrl(exerciseId: number): string {
+  const base = import.meta.env.VITE_API_URL ?? "/api";
+  return `${base}/exercises/${exerciseId}/cases/download.zip`;
+}
+
 export interface ExerciseCaseFileRecord {
   id: number;
   exerciseCaseId: number;

@@ -1,14 +1,31 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { PageContainer, PageHeader } from "@runcodes/ui";
 import { PlatformActivityPanel } from "./components/PlatformActivityPanel";
 
+const SECTION_TITLES: Record<string, string> = {
+  universidades: "Instituições",
+  cursos: "Disciplinas",
+  oferecimentos: "Oferecimentos",
+  arquivos: "Tipos de arquivo",
+  usuarios: "Usuários",
+  logs: "Logs",
+  mensagens: "Mensagens",
+  pipeline: "Pipeline",
+  banco: "Banco de dados",
+};
+
 export function AdminPage() {
+  const { pathname } = useLocation();
+  const section = pathname.split("/")[2] ?? "";
+  const title = SECTION_TITLES[section] ?? "Admin";
+
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold text-foreground">Admin</h1>
-
-      <PlatformActivityPanel />
-
+    <PageContainer width="wide">
+      <PageHeader eyebrow="Administração" title={title} />
+      <div className="mb-6">
+        <PlatformActivityPanel />
+      </div>
       <Outlet />
-    </div>
+    </PageContainer>
   );
 }

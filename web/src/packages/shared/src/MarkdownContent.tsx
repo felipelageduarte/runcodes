@@ -8,7 +8,7 @@ import rehypeSanitize from "rehype-sanitize";
  * docs/frontend/security.md#xss-via-conteúdo-gerado-por-usuário. */
 export function MarkdownContent({ content }: { content: string }) {
   return (
-    <div className="prose prose-sm max-w-none text-foreground [&_a]:text-primary-600 [&_code]:text-foreground">
+    <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-em:text-foreground prose-blockquote:text-muted-foreground prose-li:text-foreground prose-p:text-foreground [&_a]:text-primary-600 [&_code]:text-foreground">
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
         {content}
       </ReactMarkdown>

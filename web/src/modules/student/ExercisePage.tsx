@@ -1,8 +1,21 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getExercise, listExerciseFiles, exerciseFileDownloadUrl } from "@runcodes/api-client";
-import { Badge, Button, EmptyState, Skeleton } from "@runcodes/ui";
+import {
+  exerciseCasesDownloadUrl,
+  getExercise,
+  listExerciseFiles,
+  exerciseFileDownloadUrl,
+} from "@runcodes/api-client";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  PageContainer,
+  PageHeader,
+  SectionHeader,
+  Skeleton,
+} from "@runcodes/ui";
 import { formatRelativeDeadline, googleCalendarUrl, MarkdownContent } from "@runcodes/shared";
 import { CalendarPlus, Eye, EyeOff, FileDown } from "lucide-react";
 import { SubmissionPanel } from "./components/SubmissionPanel";
@@ -28,40 +41,51 @@ export function ExercisePage() {
 
   if (exerciseQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-2 p-6">
+      <PageContainer width="wide" className="space-y-2">
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-40 w-full" />
-      </div>
+      </PageContainer>
     );
   }
 
   if (exerciseQuery.isError || !exerciseQuery.data) {
     return (
-      <div className="p-6">
+      <PageContainer width="wide">
         <EmptyState title="Não foi possível carregar este exercício" />
-      </div>
+      </PageContainer>
     );
   }
 
   const exercise = exerciseQuery.data;
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-2 flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">{exercise.title}</h1>
-        <div className="flex shrink-0 gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setShowDescription((v) => !v)}>
-            {showDescription ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            {showDescription ? "Esconder enunciado" : "Mostrar enunciado"}
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={googleCalendarUrl(exercise.title, exercise.deadline)} target="_blank" rel="noreferrer">
-              <CalendarPlus className="size-4" />
-              Google Calendar
-            </a>
-          </Button>
-        </div>
-      </div>
+    <PageContainer width="wide">
+      <PageHeader
+        title={exercise.title}
+        crumbs={[
+          { label: "Painel", to: "/" },
+          {
+            label: exercise.offering?.course?.title ?? "Turma",
+            to: `/turmas/${exercise.offeringId}`,
+          },
+          { label: exercise.title },
+        ]}
+        className="mb-3 sm:mb-3"
+        actions={
+          <>
+            <Button variant="ghost" size="sm" onClick={() => setShowDescription((v) => !v)}>
+              {showDescription ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              {showDescription ? "Esconder enunciado" : "Mostrar enunciado"}
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <a href={googleCalendarUrl(exercise.title, exercise.deadline)} target="_blank" rel="noreferrer">
+                <CalendarPlus className="size-4" />
+                Google Calendar
+              </a>
+            </Button>
+          </>
+        }
+      />
 
       <div className="mb-6 flex items-center gap-2">
         <Badge variant={exercise.isOpen ? "success" : "neutral"}>
@@ -71,6 +95,15 @@ export function ExercisePage() {
           <Badge variant="neutral">
             {exercise.casesCount} caso{exercise.casesCount > 1 ? "s" : ""} de teste
           </Badge>
+        )}
+        {exercise.casesCount > 0 && (
+          <a
+            href={exerciseCasesDownloadUrl(exercise.id)}
+            className="flex items-center gap-1 text-xs text-primary-600 hover:underline"
+          >
+            <FileDown className="size-3.5" />
+            Baixar casos de teste visíveis (.zip)
+          </a>
         )}
       </div>
 
@@ -100,7 +133,7 @@ export function ExercisePage() {
 
           {filesQuery.data && filesQuery.data.length > 0 && (
             <div className="mb-6">
-              <h2 className="mb-2 text-sm font-medium text-muted-foreground">Arquivos de apoio</h2>
+              <SectionHeader title="Arquivos de apoio" className="mb-2" />
               <ul className="space-y-1">
                 {filesQuery.data.map((file) => (
                   <li key={file.id}>
@@ -119,13 +152,13 @@ export function ExercisePage() {
         </div>
 
         <div>
-          <h2 className="mb-2 text-sm font-medium text-muted-foreground">Enviar submissão</h2>
+          <SectionHeader title="Enviar submissão" className="mb-2" />
           <SubmissionPanel exercise={exercise} onSubmitted={() => {}} />
 
-          <h2 className="mb-2 mt-6 text-sm font-medium text-muted-foreground">Suas submissões</h2>
+          <SectionHeader title="Suas submissões" className="mb-2 mt-6" />
           <CommitHistory exerciseId={exercise.id} />
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

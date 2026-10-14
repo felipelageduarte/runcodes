@@ -28,6 +28,7 @@ function makeExercise(overrides: Partial<ExerciseDetail> = {}): ExerciseDetail {
     realId: null,
     markdown: false,
     isOpen: true,
+    offering: null,
     casesCount: 1,
     allowedFiles: [
       { id: 1, name: "Python", extension: "*.py", compilable: true, compileCommand: null, runCommand: null, available: true },

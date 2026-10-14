@@ -1,9 +1,17 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { getMarketplaceExercise } from "@runcodes/api-client";
 import { MarkdownContent } from "@runcodes/shared";
-import { Badge, Button, Card, CardContent, EmptyState, Skeleton } from "@runcodes/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  PageContainer,
+  PageHeader,
+  Skeleton,
+} from "@runcodes/ui";
 import { DifficultyBadge } from "./components/DifficultyBadge";
 import { AdoptDialog } from "./components/AdoptDialog";
 
@@ -28,43 +36,41 @@ export function ExerciseDetailPage() {
 
   if (query.isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-2 p-6">
+      <PageContainer width="reading" className="space-y-2">
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-64 w-full" />
-      </div>
+      </PageContainer>
     );
   }
 
   if (query.isError || !query.data) {
     return (
-      <div className="p-6">
+      <PageContainer width="reading">
         <EmptyState title="Exercício não encontrado no marketplace" />
-      </div>
+      </PageContainer>
     );
   }
 
   const exercise = query.data;
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <Link to="/marketplace" className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:underline">
-        <ArrowLeft className="size-4" />
-        Voltar ao marketplace
-      </Link>
-
-      <div className="mb-2 flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-foreground">{exercise.title}</h1>
-        <DifficultyBadge bucket={exercise.stats.difficultyBucket} />
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span>{exercise.originUniversity?.name ?? "Origem desconhecida"}</span>
-        {exercise.languages.map((lang) => (
-          <Badge key={lang} variant="neutral">
-            {lang}
-          </Badge>
-        ))}
-      </div>
+    <PageContainer width="reading">
+      <PageHeader
+        title={exercise.title}
+        backTo="/marketplace"
+        backLabel="Voltar ao marketplace"
+        subtitle={
+          <span className="flex flex-wrap items-center gap-2">
+            <span>{exercise.originUniversity?.name ?? "Origem desconhecida"}</span>
+            {exercise.languages.map((lang) => (
+              <Badge key={lang} variant="neutral">
+                {lang}
+              </Badge>
+            ))}
+          </span>
+        }
+        actions={<DifficultyBadge bucket={exercise.stats.difficultyBucket} />}
+      />
 
       <Card className="mb-6">
         <CardContent className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
@@ -94,6 +100,6 @@ export function ExerciseDetailPage() {
         title={exercise.title}
         trigger={<Button>Adotar nesta turma</Button>}
       />
-    </div>
+    </PageContainer>
   );
 }

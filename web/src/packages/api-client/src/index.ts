@@ -1,6 +1,8 @@
 export * from "./http";
+export * from "./health";
 export * from "./auth";
 export * from "./offerings";
+export * from "./courses";
 export * from "./exercises";
 export * from "./enrollments";
 export * from "./commits";
@@ -18,3 +20,4 @@ export * from "./db-admin";
 export * from "./tickets";
 export * from "./alerts";
 export * from "./questions";
+export * from "./messages";

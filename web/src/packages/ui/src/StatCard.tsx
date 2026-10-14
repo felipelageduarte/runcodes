@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { motion } from "motion/react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { motion, animate, useReducedMotion } from "motion/react";
 import { cn } from "./lib/cn";
 
 const colorStyles = {
@@ -18,6 +18,32 @@ export interface StatCardProps {
   className?: string;
 }
 
+/** Valor numérico sobe de 0 até o alvo na entrada — dá vida ao topo de
+ * dashboard sem custo de layout (textContent direto, sem re-render). */
+function CountUp({ value }: { value: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (reduced || !Number.isFinite(value)) {
+      node.textContent = String(value);
+      return;
+    }
+    const controls = animate(0, value, {
+      duration: 0.8,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: (v) => {
+        node.textContent = Number.isInteger(value) ? String(Math.round(v)) : v.toFixed(1);
+      },
+    });
+    return () => controls.stop();
+  }, [value, reduced]);
+
+  return <span ref={ref} className="tabular-nums" />;
+}
+
 /** Card de resumo numérico — ícone colorido + valor grande. Usado em
  * topo de dashboard pra dar peso visual mesmo quando a lista abaixo
  * está curta (ver docs/frontend/design-system.md). */
@@ -26,7 +52,7 @@ export function StatCard({ icon, label, value, color = "primary", className }: S
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         "flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-card",
         className,
@@ -36,7 +62,9 @@ export function StatCard({ icon, label, value, color = "primary", className }: S
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-2xl font-semibold leading-none text-foreground">{value}</p>
+        <p className="font-display text-2xl font-bold leading-none text-foreground">
+          {typeof value === "number" ? <CountUp value={value} /> : value}
+        </p>
         <p className="mt-1 truncate text-xs text-muted-foreground">{label}</p>
       </div>
     </motion.div>

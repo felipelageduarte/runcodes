@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getOffering } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
-import { EmptyState, Skeleton, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
+import { Link } from "react-router-dom";
+import { Button, EmptyState, PageContainer, PageHeader, Skeleton, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { isOfferingStaff } from "@runcodes/shared";
 import { MembersTab } from "./components/MembersTab";
 import { ExercisesTab } from "./components/ExercisesTab";
@@ -26,10 +27,10 @@ export function OfferingManagePage() {
 
   if (query.isLoading) {
     return (
-      <div className="mx-auto max-w-4xl space-y-2 p-6">
+      <PageContainer width="wide" className="space-y-2">
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-64 w-full" />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -54,9 +55,20 @@ export function OfferingManagePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h1 className="text-2xl font-semibold text-foreground">{offering.course?.title ?? `Turma #${offering.id}`}</h1>
-      <p className="mb-4 text-sm text-muted-foreground">Código de matrícula: {offering.enrollmentCode ?? "—"}</p>
+    <PageContainer width="wide">
+      <PageHeader
+        title={offering.course?.title ?? `Turma #${offering.id}`}
+        subtitle={`Código de matrícula: ${offering.enrollmentCode ?? "—"}`}
+        crumbs={[
+          { label: "Painel", to: "/" },
+          { label: offering.course?.title ?? `Turma #${offering.id}` },
+        ]}
+        actions={
+          <Button variant="secondary" size="sm" asChild>
+            <Link to={`/turmas/${offering.id}/editar`}>Editar turma</Link>
+          </Button>
+        }
+      />
 
       <Tabs
         layoutId="offering-manage-tabs"
@@ -74,6 +86,6 @@ export function OfferingManagePage() {
         {tab === "membros" && <MembersTab offering={offering} currentUserType={user?.type ?? 0} />}
         {tab === "notas" && <GradesTab offeringId={offering.id} />}
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -70,7 +70,7 @@ export function TicketQueueTab() {
       ) : !query.data || query.data.tickets.length === 0 ? (
         <EmptyState title="Nenhum ticket na fila" />
       ) : (
-        <Table columns={columns} rows={query.data.tickets} rowKey={(t) => t.id} density="compact" emptyTitle="Nenhum ticket" />
+        <Table columns={columns} rows={query.data.tickets} rowKey={(t) => t.id} density="compact" mobileCards emptyTitle="Nenhum ticket" />
       )}
 
       {totalPages > 1 && (

@@ -5,8 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   banMember,
+  enrollMember,
   getGrades,
   setMemberRole,
+  unenrollMember,
   type OfferingDetail,
 } from "@runcodes/api-client";
 import { UserType, userTypeLabel } from "@runcodes/shared";
@@ -21,6 +23,10 @@ import {
   type TableColumn,
   toast,
 } from "@runcodes/ui";
+import { EmailOfferingDialog } from "./EmailOfferingDialog";
+
+const enrollSchema = z.object({ email: z.string().email("Email inválido") });
+type EnrollValues = z.infer<typeof enrollSchema>;
 
 const promoteSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -68,12 +74,41 @@ export function MembersTab({ offering, currentUserType }: { offering: OfferingDe
     onError: () => toast.error("Não foi possível banir"),
   });
 
+  const unenrollMutation = useMutation({
+    mutationFn: (email: string) => unenrollMember(offering.id, email),
+    onSuccess: () => {
+      toast.success("Matrícula removida");
+      invalidate();
+    },
+    onError: () => toast.error("Não foi possível remover a matrícula"),
+  });
+
+  const enrollMutation = useMutation({
+    mutationFn: (email: string) => enrollMember(offering.id, email),
+    onSuccess: () => {
+      toast.success("Aluno matriculado");
+      invalidate();
+      enrollForm.reset();
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError && err.code === "already_enrolled"
+          ? "Esse email já está matriculado"
+          : err instanceof ApiError && err.code === "wrong_university"
+            ? "Esse usuário é de outra universidade"
+            : "Não foi possível matricular",
+      );
+    },
+  });
+
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
   } = useForm<PromoteValues>({ resolver: zodResolver(promoteSchema), defaultValues: { role: 1 } });
+
+  const enrollForm = useForm<EnrollValues>({ resolver: zodResolver(enrollSchema) });
 
   const staff = [...offering.professors, ...offering.assistants];
   const students = gradesQuery.data?.students ?? [];
@@ -96,6 +131,14 @@ export function MembersTab({ offering, currentUserType }: { offering: OfferingDe
           >
             Tornar assistente
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={unenrollMutation.isPending}
+            onClick={() => unenrollMutation.mutate(r.email)}
+          >
+            Desmatricular
+          </Button>
           {isAdmin && (
             <Button
               variant="destructive"
@@ -113,6 +156,10 @@ export function MembersTab({ offering, currentUserType }: { offering: OfferingDe
 
   return (
     <div className="space-y-8 py-4">
+      <div className="flex justify-end">
+        <EmailOfferingDialog offeringId={offering.id} trigger={<Button variant="secondary" size="sm">Email pra turma</Button>} />
+      </div>
+
       <div>
         <h3 className="mb-3 text-sm font-medium text-muted-foreground">Staff da turma</h3>
         {staff.length === 0 ? (
@@ -137,6 +184,14 @@ export function MembersTab({ offering, currentUserType }: { offering: OfferingDe
                     onClick={() => roleMutation.mutate({ email: member.email, role: 0 })}
                   >
                     Rebaixar a aluno
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={unenrollMutation.isPending}
+                    onClick={() => unenrollMutation.mutate(member.email)}
+                  >
+                    Desmatricular
                   </Button>
                   {isAdmin && (
                     <Button
@@ -168,9 +223,30 @@ export function MembersTab({ offering, currentUserType }: { offering: OfferingDe
             rows={students}
             rowKey={(r) => r.email}
             density="compact"
+            mobileCards
             emptyTitle="Nenhum aluno matriculado ainda"
           />
         )}
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h3 className="mb-1 text-sm font-medium text-foreground">Matricular aluno por email</h3>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Matricula direto, sem o aluno precisar digitar o código da turma.
+        </p>
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={enrollForm.handleSubmit((values) => enrollMutation.mutate(values.email))}
+        >
+          <div className="min-w-[220px] flex-1">
+            <FormField label="Email" htmlFor="enroll-email" error={enrollForm.formState.errors.email?.message}>
+              <Input id="enroll-email" {...enrollForm.register("email")} />
+            </FormField>
+          </div>
+          <Button type="submit" loading={enrollMutation.isPending}>
+            Matricular
+          </Button>
+        </form>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">

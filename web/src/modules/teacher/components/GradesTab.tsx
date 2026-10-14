@@ -87,7 +87,7 @@ export function GradesTab({ offeringId }: { offeringId: number }) {
         </a>
       </div>
 
-      <Table columns={columns} rows={rows} rowKey={(r) => r.email} density="compact" emptyTitle="Nenhum aluno matriculado" />
+      <Table columns={columns} rows={rows} rowKey={(r) => r.email} density="compact" stickyFirstColumn emptyTitle="Nenhum aluno matriculado" />
     </div>
   );
 }

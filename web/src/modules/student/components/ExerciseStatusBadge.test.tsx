@@ -15,6 +15,7 @@ function makeCommit(overrides: Partial<CommitRecord> = {}): CommitRecord {
     score: "10",
     compiled: true,
     compiledMessage: null,
+    compiledSignal: null,
     awsKey: "key",
     ip: null,
     ...overrides,

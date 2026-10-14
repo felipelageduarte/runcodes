@@ -18,6 +18,8 @@ import {
   FormField,
   Input,
   Label,
+  PageContainer,
+  PageHeader,
   Skeleton,
   toast,
 } from "@runcodes/ui";
@@ -114,20 +116,36 @@ export function ExerciseFormPage({ mode }: { mode: "create" | "edit" }) {
 
   if (mode === "edit" && exerciseQuery.isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-2 p-6">
+      <PageContainer width="narrow" className="space-y-2">
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-96 w-full" />
-      </div>
+      </PageContainer>
     );
   }
 
   const selectedFileIds = watch("allowedFileIds") ?? [];
 
+  const knownOfferingId =
+    mode === "create" ? offeringIdFromRoute : exerciseQuery.data?.offeringId ?? null;
+  const pageTitle = mode === "create" ? "Novo exercício" : "Editar exercício";
+
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-foreground">
-        {mode === "create" ? "Novo exercício" : "Editar exercício"}
-      </h1>
+    <PageContainer width="narrow">
+      <PageHeader
+        title={pageTitle}
+        crumbs={
+          knownOfferingId != null && Number.isInteger(knownOfferingId)
+            ? [
+                { label: "Painel", to: "/" },
+                {
+                  label: exerciseQuery.data?.offering?.course?.title ?? "Turma",
+                  to: `/turmas/${knownOfferingId}/gerenciar`,
+                },
+                { label: pageTitle },
+              ]
+            : undefined
+        }
+      />
 
       <Card>
         <CardContent className="p-6">
@@ -221,6 +239,6 @@ export function ExerciseFormPage({ mode }: { mode: "create" | "edit" }) {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Store,
-  ShieldCheck,
   LifeBuoy,
   Building2,
   BookOpen,
@@ -11,6 +10,7 @@ import {
   MessageSquare,
   Workflow,
   Database,
+  GraduationCap,
 } from "lucide-react";
 import { UserType } from "@runcodes/shared";
 
@@ -20,35 +20,66 @@ export interface NavItem {
   icon: typeof LayoutDashboard;
   /** Omit for "any authenticated user". */
   minType?: number;
-  /** Sub-items rendered as a collapsible group under this item. */
-  children?: NavItem[];
 }
 
-// Placeholder set for Fase 0 — student/professor dashboards get real
-// content in Fases 1/3 (docs/frontend/roadmap.md); the nav contract
-// (role-filtered items, same shell) is what this phase establishes.
-export const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Painel", icon: LayoutDashboard },
-  { to: "/marketplace", label: "Marketplace", icon: Store, minType: UserType.PROFESSOR },
-  { to: "/suporte", label: "Suporte", icon: LifeBuoy },
+export interface NavSection {
+  id: string;
+  /** Eyebrow da seção na sidebar; omitido pra seção principal. */
+  label?: string;
+  minType?: number;
+  items: NavItem[];
+}
+
+/** Sidebar em seções rotuladas (padrão Linear/Vercel) no lugar do grupo
+ * colapsável — admin enxerga tudo de uma vez, sem clique extra. */
+export const NAV_SECTIONS: NavSection[] = [
   {
-    to: "/admin",
-    label: "Admin",
-    icon: ShieldCheck,
+    id: "plataforma",
+    items: [
+      { to: "/", label: "Painel", icon: LayoutDashboard },
+      { to: "/marketplace", label: "Marketplace", icon: Store, minType: UserType.PROFESSOR },
+      { to: "/suporte", label: "Suporte", icon: LifeBuoy },
+    ],
+  },
+  {
+    id: "admin",
+    label: "Administração",
     minType: UserType.ADMIN,
-    children: [
+    items: [
       { to: "/admin/universidades", label: "Instituições", icon: Building2 },
       { to: "/admin/cursos", label: "Disciplinas", icon: BookOpen },
-      { to: "/admin/arquivos", label: "Tipos de arquivo", icon: FileCog },
+      { to: "/admin/oferecimentos", label: "Oferecimentos", icon: GraduationCap },
       { to: "/admin/usuarios", label: "Usuários", icon: Users },
-      { to: "/admin/logs", label: "Logs", icon: ScrollText },
+      { to: "/admin/arquivos", label: "Tipos de arquivo", icon: FileCog },
       { to: "/admin/mensagens", label: "Mensagens", icon: MessageSquare },
+      { to: "/admin/logs", label: "Logs", icon: ScrollText },
       { to: "/admin/pipeline", label: "Pipeline", icon: Workflow },
       { to: "/admin/banco", label: "Banco de dados", icon: Database },
     ],
   },
 ];
 
-export function visibleNavItems(userType: number | undefined): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.minType === undefined || (userType ?? -1) >= item.minType);
+export function visibleNavSections(userType: number | undefined): NavSection[] {
+  const type = userType ?? -1;
+  return NAV_SECTIONS.filter((s) => s.minType === undefined || type >= s.minType)
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((item) => item.minType === undefined || type >= item.minType),
+    }))
+    .filter((s) => s.items.length > 0);
+}
+
+/** Itens do bottom nav mobile — só o nível principal; admin entra como
+ * um atalho pra primeira rota da seção. */
+export function mobileNavItems(userType: number | undefined): NavItem[] {
+  const sections = visibleNavSections(userType);
+  const items: NavItem[] = [];
+  for (const section of sections) {
+    if (section.id === "admin") {
+      items.push({ to: section.items[0].to, label: "Admin", icon: section.items[0].icon });
+    } else {
+      items.push(...section.items);
+    }
+  }
+  return items;
 }

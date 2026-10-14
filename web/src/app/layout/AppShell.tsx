@@ -1,206 +1,205 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "motion/react";
-import { ChevronDown, LogOut, Moon, Sun, UserCircle } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
+import { LogOut, Moon, Sun, UserCircle, ChevronDown } from "lucide-react";
 import { useSession, useLogout } from "@runcodes/auth";
-import { useTheme } from "@runcodes/shared";
-import { cn } from "@runcodes/ui";
-import { visibleNavItems, type NavItem } from "../navigation";
+import { useTheme, userTypeLabel } from "@runcodes/shared";
+import {
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@runcodes/ui";
+import { visibleNavSections, mobileNavItems, type NavItem } from "../navigation";
 import { ViewAsBar } from "./ViewAsBar";
 import { ViewAsMenu } from "./ViewAsMenu";
 import { AlertsBanner } from "./AlertsBanner";
+import { ServerClock } from "./ServerClock";
 
-function isChildActive(item: NavItem, pathname: string) {
-  return item.children?.some((child) => pathname.startsWith(child.to)) ?? false;
+function initials(name: string | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
 }
 
-/** Sidebar group with sub-items — expands when a child route is active,
- * otherwise toggles via click. Height-based collapse to match the
- * project's existing motion/react usage (see nav-active-pill above). */
-function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
-  const childActive = isChildActive(item, pathname);
-  const [open, setOpen] = useState(childActive);
-
-  useEffect(() => {
-    if (childActive) setOpen(true);
-  }, [childActive]);
-
+function SidebarLink({ item }: { item: NavItem }) {
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={cn(
-          "relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground",
-          childActive && "text-sidebar-foreground",
-        )}
-      >
-        <item.icon aria-hidden="true" className="size-5 shrink-0" />
-        <span className="hidden flex-1 text-left lg:inline">{item.label}</span>
-        <ChevronDown
-          aria-hidden="true"
-          className={cn("hidden size-4 shrink-0 transition-transform lg:inline", open && "rotate-180")}
-        />
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="hidden overflow-hidden lg:block"
-          >
-            <div className="ml-4 flex flex-col gap-1 border-l border-sidebar-border pl-3 pt-1">
-              {item.children?.map((child) => (
-                <NavLink
-                  key={child.to}
-                  to={child.to}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground",
-                      isActive && "text-sidebar-foreground",
-                    )
-                  }
-                >
-                  <child.icon aria-hidden="true" className="size-4 shrink-0" />
-                  {child.label}
-                </NavLink>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <NavLink
+      to={item.to}
+      end={item.to === "/"}
+      aria-label={item.label}
+      title={item.label}
+      className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground"
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.div
+              layoutId="nav-active-pill"
+              className="absolute inset-0 rounded-lg bg-sidebar-active"
+              transition={{ type: "spring", stiffness: 500, damping: 35 }}
+            />
+          )}
+          {/* Fio coral à esquerda do item ativo — eco do accent histórico */}
+          {isActive && (
+            <motion.div
+              layoutId="nav-active-tick"
+              className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent"
+              transition={{ type: "spring", stiffness: 500, damping: 35 }}
+            />
+          )}
+          <item.icon
+            aria-hidden="true"
+            className={cn("relative z-10 size-5 shrink-0", isActive && "text-sidebar-foreground")}
+          />
+          <span className={cn("relative z-10 hidden lg:inline", isActive && "text-sidebar-foreground")}>
+            {item.label}
+          </span>
+        </>
+      )}
+    </NavLink>
   );
 }
 
-/** Casca com nav responsiva: sidebar (desktop/tablet) + bottom nav
- * (mobile) — ver docs/frontend/design-system.md#responsividade. Três
- * layouts de navegação reais, não uma media query de emergência. */
+/** Casca do app: sidebar seccionada (desktop/tablet) + topbar com
+ * relógio do servidor + bottom nav (mobile). Relógio do servidor é a
+ * assinatura — referência oficial de prazos, como no run.codes
+ * original. Ver docs/frontend/design-system.md#responsividade. */
 export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const logout = useLogout();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { pathname } = useLocation();
-  const items = visibleNavItems(user?.type);
+  const sections = visibleNavSections(user?.type);
+  const mobileItems = mobileNavItems(user?.type);
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop/tablet sidebar — cor de marca própria (não acompanha o
-          tema claro/escuro do conteúdo), âncora visual tipo o sidebar
-          ciano do run.codes original. */}
-      <aside className="hidden w-16 flex-col bg-sidebar p-3 md:flex lg:w-56">
-        <div className="mb-6 px-2 text-lg font-semibold text-sidebar-foreground">
-          <span className="lg:hidden">rc</span>
-          <span className="hidden lg:inline">run.codes</span>
+      {/* Sidebar — âncora de marca, cor própria independente do tema. */}
+      <aside className="sticky top-0 hidden h-screen w-16 flex-col bg-sidebar px-3 py-4 md:flex lg:w-60">
+        <div className="mb-6 flex items-center gap-2 px-2">
+          <span className="font-display text-lg font-bold tracking-tight text-sidebar-foreground">
+            <span className="lg:hidden">rc</span>
+            <span className="hidden lg:inline">
+              run<span className="text-accent">.</span>codes
+            </span>
+          </span>
         </div>
-        <nav className="flex flex-1 flex-col gap-1">
-          {items.map((item) =>
-            item.children ? (
-              <NavGroup key={item.to} item={item} pathname={pathname} />
-            ) : (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                aria-label={item.label}
-                className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground"
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && (
-                      <motion.div
-                        layoutId="nav-active-pill"
-                        className="absolute inset-0 rounded-md bg-sidebar-active"
-                        transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                      />
-                    )}
-                    <item.icon
-                      aria-hidden="true"
-                      className={cn("relative z-10 size-5 shrink-0", isActive && "text-sidebar-foreground")}
-                    />
-                    <span className={cn("relative z-10 hidden lg:inline", isActive && "text-sidebar-foreground")}>
-                      {item.label}
-                    </span>
-                  </>
-                )}
-              </NavLink>
-            ),
-          )}
+        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto">
+          {sections.map((section) => (
+            <div key={section.id} className="flex flex-col gap-1">
+              {section.label && (
+                <p className="mb-1 hidden px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted/70 lg:block">
+                  {section.label}
+                </p>
+              )}
+              {section.label && <div className="mb-1 border-t border-sidebar-border lg:hidden" />}
+              {section.items.map((item) => (
+                <SidebarLink key={item.to} item={item} />
+              ))}
+            </div>
+          ))}
         </nav>
-        <div className="flex flex-col gap-1 border-t border-sidebar-border pt-2">
-          <NavLink
-            to="/perfil"
-            aria-label="Meu perfil"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
-          >
-            <UserCircle aria-hidden="true" className="size-5 shrink-0" />
-            <span className="hidden lg:inline">Meu perfil</span>
-          </NavLink>
-          <ViewAsMenu />
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={theme === "dark" ? "Modo claro" : "Modo escuro"}
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
-          >
-            {theme === "dark" ? (
-              <Sun aria-hidden="true" className="size-5 shrink-0" />
-            ) : (
-              <Moon aria-hidden="true" className="size-5 shrink-0" />
-            )}
-            <span className="hidden lg:inline">{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => logout.mutate()}
-            aria-label="Sair"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
-          >
-            <LogOut aria-hidden="true" className="size-5 shrink-0" />
-            <span className="hidden lg:inline">Sair</span>
-          </button>
-        </div>
+        {/* Rodapé: cartão do usuário → perfil */}
+        <NavLink
+          to="/perfil"
+          className="mt-4 flex items-center gap-3 rounded-lg border border-sidebar-border/60 px-2 py-2 transition-colors hover:bg-sidebar-active"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-active font-display text-xs font-bold text-sidebar-foreground">
+            {initials(user?.name)}
+          </span>
+          <span className="hidden min-w-0 flex-col lg:flex">
+            <span className="truncate text-sm font-medium text-sidebar-foreground">{user?.name}</span>
+            <span className="truncate text-xs text-sidebar-muted">
+              {user ? userTypeLabel(user.type) : ""}
+            </span>
+          </span>
+        </NavLink>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        {/* Topbar — contexto global: relógio do servidor, tema, conta. */}
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur sm:px-6">
+          <span className="font-display text-base font-bold tracking-tight text-foreground md:hidden">
+            run<span className="text-accent">.</span>codes
+          </span>
+          <div className="hidden md:block" />
+          <div className="flex items-center gap-1.5">
+            <ServerClock />
+            <div className="mx-1 h-6 w-px bg-border" />
+            <ViewAsMenu collapsedLabel />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Modo claro" : "Modo escuro"}
+              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {theme === "dark" ? (
+                <Sun aria-hidden="true" className="size-4.5" />
+              ) : (
+                <Moon aria-hidden="true" className="size-4.5" />
+              )}
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Menu da conta"
+                  className="flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-muted"
+                >
+                  <span className="flex size-7 items-center justify-center rounded-full bg-primary-600 font-display text-xs font-bold text-primary-foreground">
+                    {initials(user?.name)}
+                  </span>
+                  <ChevronDown aria-hidden="true" className="hidden size-3.5 text-muted-foreground sm:block" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>
+                  <span className="block truncate text-sm font-medium text-foreground">{user?.name}</span>
+                  <span className="block truncate font-normal">{user?.email}</span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => navigate("/perfil")}>
+                  <UserCircle aria-hidden="true" className="size-4" />
+                  Meu perfil
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => logout.mutate()}>
+                  <LogOut aria-hidden="true" className="size-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
         <ViewAsBar />
         <AlertsBanner />
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
 
         {/* Mobile bottom nav */}
-        <nav className="fixed inset-x-0 bottom-0 flex bg-sidebar/95 backdrop-blur md:hidden">
-          {items.map((item) => {
-            const target = item.children ? item.children[0].to : item.to;
-            return (
-              <NavLink
-                key={item.to}
-                to={target}
-                end={item.to === "/"}
-                className={() =>
-                  cn(
-                    "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-sidebar-muted transition-colors",
-                    (item.children ? isChildActive(item, pathname) : pathname === item.to) &&
-                      "text-sidebar-foreground",
-                  )
-                }
-              >
-                <item.icon className="size-5" />
-                {item.label}
-              </NavLink>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => logout.mutate()}
-            className="flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-sidebar-muted"
-          >
-            <LogOut className="size-5" />
-            Sair
-          </button>
+        <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-sidebar-border bg-sidebar/95 backdrop-blur md:hidden">
+          {mobileItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
+              className={({ isActive }) =>
+                cn(
+                  "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-sidebar-muted transition-colors",
+                  isActive && "text-sidebar-foreground",
+                )
+              }
+            >
+              <item.icon className="size-5" />
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
       </div>
     </div>

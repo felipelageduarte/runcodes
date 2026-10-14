@@ -25,6 +25,14 @@ export interface ExerciseDetail {
   isOpen: boolean;
   casesCount: number;
   allowedFiles: AllowedFile[];
+  /** Contexto da turma dona — breadcrumb/cabeçalho sem segunda request. */
+  offering: {
+    id: number;
+    classroom: string | null;
+    year: number;
+    term: number;
+    course: { id: number; code: string; title: string } | null;
+  } | null;
 }
 
 export function getExercise(id: number): Promise<ExerciseDetail> {
@@ -70,6 +78,16 @@ export function shareExercise(id: number, targetOfferingId: number): Promise<Exe
   });
 }
 
+/** Cópia independente (não ghost) — duplica exercício + casos de teste,
+ * sem vínculo com o original depois de criada. Diferente de
+ * `shareExercise` (ghost, continua apontando pro original). */
+export function cloneExercise(id: number, targetOfferingId: number): Promise<ExerciseDetail> {
+  return apiFetch(`/exercises/${id}/clone`, {
+    method: "POST",
+    body: JSON.stringify({ targetOfferingId }),
+  });
+}
+
 export interface ExerciseCaseStats {
   caseLabels: string[];
   correctPercentage: number[];
@@ -97,4 +115,22 @@ export function getParticipantCommits(
 export function exportSubmissionsZipUrl(exerciseId: number): string {
   const base = import.meta.env.VITE_API_URL ?? "/api";
   return `${base}/exercises/${exerciseId}/export-submissions.zip`;
+}
+
+export interface ExerciseCasesTableRow {
+  email: string;
+  name: string;
+  results: (boolean | null)[];
+}
+
+export interface ExerciseCasesTable {
+  caseLabels: string[];
+  rows: ExerciseCasesTableRow[];
+  hasUnsafeCommits: boolean;
+}
+
+/** Matriz aluno × caso de teste — "quem passou em qual caso", diferente
+ * do agregado de `getExerciseCaseStats`. */
+export function getExerciseCasesTable(exerciseId: number): Promise<ExerciseCasesTable> {
+  return apiFetch(`/exercises/${exerciseId}/cases-table`);
 }

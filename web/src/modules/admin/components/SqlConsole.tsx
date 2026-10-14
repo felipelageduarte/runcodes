@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ApiError, getDbSchema, runDbQuery, type QueryResult } from "@runcodes/api-client";
-import { Button, Textarea, toast } from "@runcodes/ui";
+import { Button, Table, type TableColumn, Textarea, toast } from "@runcodes/ui";
 import { AlertTriangle } from "lucide-react";
 
 function formatCell(value: unknown): string {
@@ -10,6 +10,8 @@ function formatCell(value: unknown): string {
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
+
+type ResultRow = Record<string, unknown> & { __i: number };
 
 export function SqlConsole() {
   const [sql, setSql] = useState("");
@@ -40,6 +42,19 @@ export function SqlConsole() {
     mutation.mutate(confirm);
   }
 
+  const resultColumns: TableColumn<ResultRow>[] =
+    result?.kind === "rows"
+      ? result.columns.map((c) => ({
+          key: c,
+          header: c.toUpperCase(),
+          render: (row: ResultRow) => (
+            <span className="whitespace-nowrap font-mono text-xs">{formatCell(row[c])}</span>
+          ),
+        }))
+      : [];
+  const resultRows: ResultRow[] =
+    result?.kind === "rows" ? result.rows.map((row, i) => ({ ...row, __i: i })) : [];
+
   return (
     <div className="grid grid-cols-1 gap-4 py-4 lg:grid-cols-[220px_1fr]">
       <div className="max-h-[32rem] overflow-y-auto rounded-lg border border-border">
@@ -59,7 +74,7 @@ export function SqlConsole() {
         ))}
       </div>
 
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <Textarea
           value={sql}
           onChange={(e) => {
@@ -95,37 +110,13 @@ export function SqlConsole() {
         )}
 
         {result?.kind === "rows" && (
-          <div className="overflow-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs font-medium uppercase text-muted-foreground">
-                <tr>
-                  {result.columns.map((c) => (
-                    <th key={c} className="whitespace-nowrap px-3 py-2">
-                      {c}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.length === 0 && (
-                  <tr>
-                    <td colSpan={result.columns.length || 1} className="px-3 py-4 text-center text-muted-foreground">
-                      Sem resultados
-                    </td>
-                  </tr>
-                )}
-                {result.rows.map((row, i) => (
-                  <tr key={i} className="border-t border-border">
-                    {result.columns.map((c) => (
-                      <td key={c} className="whitespace-nowrap px-3 py-2 font-mono text-xs">
-                        {formatCell(row[c])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            columns={resultColumns}
+            rows={resultRows}
+            rowKey={(row) => row.__i}
+            density="compact"
+            emptyTitle="Consulta sem resultados"
+          />
         )}
       </div>
     </div>

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getExercise, getOffering } from "@runcodes/api-client";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
-import { EmptyState, Skeleton, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
+import { EmptyState, PageContainer, PageHeader, Skeleton, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
 import { isOfferingStaff } from "@runcodes/shared";
 import { CasesTab } from "./components/CasesTab";
 import { StatsTab } from "./components/StatsTab";
@@ -35,10 +35,10 @@ export function ExerciseManagePage() {
 
   if (exerciseQuery.isLoading || (exerciseQuery.data && offeringQuery.isLoading)) {
     return (
-      <div className="mx-auto max-w-4xl space-y-2 p-6">
+      <PageContainer width="wide" className="space-y-2">
         <Skeleton className="h-8 w-1/2" />
         <Skeleton className="h-64 w-full" />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -64,11 +64,15 @@ export function ExerciseManagePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <Link to={`/turmas/${offering.id}/gerenciar`} className="text-sm text-muted-foreground hover:underline">
-        ← {offering.course?.title ?? `Turma #${offering.id}`}
-      </Link>
-      <h1 className="mb-4 mt-1 text-2xl font-semibold text-foreground">{exercise.title}</h1>
+    <PageContainer width="wide">
+      <PageHeader
+        title={exercise.title}
+        crumbs={[
+          { label: "Painel", to: "/" },
+          { label: offering.course?.title ?? `Turma #${offering.id}`, to: `/turmas/${offering.id}/gerenciar` },
+          { label: exercise.title },
+        ]}
+      />
 
       <Tabs
         layoutId="exercise-manage-tabs"
@@ -88,6 +92,6 @@ export function ExerciseManagePage() {
         {tab === "stats" && <StatsTab exerciseId={exercise.id} />}
         {tab === "plagio" && <PlagiarismTab exerciseId={exercise.id} />}
       </div>
-    </div>
+    </PageContainer>
   );
 }

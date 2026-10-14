@@ -55,14 +55,42 @@ export function getOffering(id: number): Promise<OfferingDetail> {
 /** Catálogo geral de turmas (não só as do usuário) — aberto a qualquer
  * autenticado, mas só faz sentido pra quem pode agir sobre turmas que
  * não é staff (ex: admin escolhendo destino de compartilhamento). */
-export function listOfferings(params: { closed?: boolean; pageSize?: number } = {}): Promise<{
+export function listOfferings(
+  params: { closed?: boolean; q?: string; page?: number; pageSize?: number } = {},
+): Promise<{
   total: number;
+  page: number;
+  pageSize: number;
   offerings: OfferingSummary[];
 }> {
   const qs = new URLSearchParams();
   if (params.closed) qs.set("closed", "true");
+  if (params.q) qs.set("q", params.q);
+  if (params.page) qs.set("page", String(params.page));
   qs.set("pageSize", String(params.pageSize ?? 100));
   return apiFetch(`/offerings?${qs.toString()}`);
+}
+
+export interface NewOfferingInput {
+  courseId: number;
+  classroom: string | null;
+  endDate: string;
+}
+
+/** Professor+ — abre turma nova, auto-matricula o criador como professor
+ * e manda o código de matrícula por email. */
+export function createOffering(input: NewOfferingInput): Promise<OfferingSummary> {
+  return apiFetch("/offerings", { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface OfferingUpdateInput {
+  classroom?: string | null;
+  endDate?: string;
+}
+
+/** Staff da turma ou admin — só `classroom`/`endDate` são editáveis. */
+export function updateOffering(id: number, input: OfferingUpdateInput): Promise<OfferingSummary> {
+  return apiFetch(`/offerings/${id}`, { method: "PUT", body: JSON.stringify(input) });
 }
 
 /** `role` segue EnrollmentRole: 0 aluno, 1 assistente, 2 professor —
@@ -80,6 +108,29 @@ export function banMember(offeringId: number, email: string): Promise<Enrollment
   return apiFetch(`/offerings/${offeringId}/members/${encodeURIComponent(email)}/ban`, {
     method: "POST",
   });
+}
+
+/** Staff da turma ou admin — matricula alguém direto, sem código. */
+export function enrollMember(offeringId: number, email: string): Promise<EnrollmentRecord> {
+  return apiFetch(`/offerings/${offeringId}/members/${encodeURIComponent(email)}`, {
+    method: "POST",
+  });
+}
+
+/** Staff da turma ou admin — remoção definitiva (hard delete), diferente
+ * de `banMember` (soft, admin-only). */
+export function unenrollMember(offeringId: number, email: string): Promise<void> {
+  return apiFetch(`/offerings/${offeringId}/members/${encodeURIComponent(email)}`, {
+    method: "DELETE",
+  });
+}
+
+/** Staff da turma ou admin — email avulso pra todo mundo matriculado. */
+export function emailOffering(
+  offeringId: number,
+  input: { subject: string; message: string },
+): Promise<{ count: number }> {
+  return apiFetch(`/offerings/${offeringId}/email`, { method: "POST", body: JSON.stringify(input) });
 }
 
 export interface StudentGrade {

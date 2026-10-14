@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getPipelineStats, listActiveCommits } from "@runcodes/api-client";
-import { Badge, StatCard } from "@runcodes/ui";
+import { type ActiveCommit, getPipelineStats, listActiveCommits } from "@runcodes/api-client";
+import { Badge, StatCard, Table, type TableColumn } from "@runcodes/ui";
 import { CommitStatus, commitStatusLabel, isCommitError } from "@runcodes/shared";
 import { AlertCircle, Clock, Cpu, PlayCircle } from "lucide-react";
 
@@ -18,6 +18,25 @@ function elapsed(since: string): string {
   if (minutes < 60) return `${minutes}min`;
   return `${Math.floor(minutes / 60)}h ${minutes % 60}min`;
 }
+
+const columns: TableColumn<ActiveCommit>[] = [
+  {
+    key: "status",
+    header: "Status",
+    render: (c) => (
+      <Badge variant={c.status === CommitStatus.IN_QUEUE ? "neutral" : "info"}>
+        {commitStatusLabel(c.status)}
+      </Badge>
+    ),
+  },
+  { key: "user", header: "Usuário", render: (c) => c.userEmail },
+  { key: "exercise", header: "Exercício", render: (c) => c.exerciseTitle },
+  {
+    key: "elapsed",
+    header: "Na fila há",
+    render: (c) => <span className="font-mono text-xs">{elapsed(c.commitTime)}</span>,
+  },
+];
 
 export function PipelineTab() {
   const statsQuery = useQuery({
@@ -68,39 +87,17 @@ export function PipelineTab() {
         />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs font-medium uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Usuário</th>
-              <th className="px-3 py-2">Exercício</th>
-              <th className="px-3 py-2">Na fila há</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(activeQuery.data ?? []).length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-muted-foreground">
-                  {activeQuery.isLoading ? "Carregando..." : "Nada em processamento agora"}
-                </td>
-              </tr>
-            )}
-            {(activeQuery.data ?? []).map((c) => (
-              <tr key={c.id} className="border-t border-border">
-                <td className="px-3 py-2">
-                  <Badge variant={c.status === CommitStatus.IN_QUEUE ? "neutral" : "info"}>
-                    {commitStatusLabel(c.status)}
-                  </Badge>
-                </td>
-                <td className="px-3 py-2">{c.userEmail}</td>
-                <td className="px-3 py-2">{c.exerciseTitle}</td>
-                <td className="px-3 py-2 font-mono text-xs">{elapsed(c.commitTime)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {activeQuery.isLoading ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">Carregando...</p>
+      ) : (
+        <Table
+          columns={columns}
+          rows={activeQuery.data ?? []}
+          rowKey={(c) => c.id}
+          density="compact"
+          emptyTitle="Nada em processamento agora"
+        />
+      )}
     </div>
   );
 }

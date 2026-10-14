@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Store } from "lucide-react";
 import { listUniversities, searchMarketplace, type MarketplaceSortBy } from "@runcodes/api-client";
-import { Button, EmptyState, Input, Skeleton, StaggerItem, StaggerList } from "@runcodes/ui";
+import {
+  Button,
+  EmptyState,
+  Input,
+  PageContainer,
+  PageHeader,
+  Skeleton,
+  StaggerItem,
+  StaggerList,
+} from "@runcodes/ui";
 import { ExerciseCard } from "./components/ExerciseCard";
 
 const PAGE_SIZE = 12;
@@ -41,8 +50,8 @@ export function MarketplacePage() {
   const totalPages = resultsQuery.data ? Math.ceil(resultsQuery.data.total / PAGE_SIZE) : 1;
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-foreground">Marketplace</h1>
+    <PageContainer width="wide">
+      <PageHeader title="Marketplace" />
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <div className="min-w-[220px] flex-1">
@@ -98,8 +107,8 @@ export function MarketplacePage() {
       </div>
 
       {resultsQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <Skeleton key={i} className="h-40 w-full" />
           ))}
         </div>
@@ -113,7 +122,7 @@ export function MarketplacePage() {
         />
       ) : (
         <>
-          <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {resultsQuery.data.entries.map((exercise) => (
               <StaggerItem key={exercise.exerciseId}>
                 <ExerciseCard exercise={exercise} />
@@ -141,6 +150,6 @@ export function MarketplacePage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

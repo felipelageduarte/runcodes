@@ -71,3 +71,34 @@ export function resetPassword(email: string, token: string, newPassword: string)
     body: JSON.stringify({ email, token, newPassword }),
   });
 }
+
+export interface ProfileRecord {
+  email: string;
+  name: string;
+  type: number;
+  universityId: number | null;
+  confirmed: boolean;
+  identifier: string | null;
+}
+
+/** Self-service — mirrors UsersController::profile(). */
+export function getProfile(): Promise<ProfileRecord> {
+  return apiFetch("/users/me");
+}
+
+export interface ProfilePatch {
+  name?: string;
+  universityId?: number | null;
+  identifier?: string | null;
+}
+
+export function updateProfile(patch: ProfilePatch): Promise<ProfileRecord> {
+  return apiFetch("/users/me", { method: "PUT", body: JSON.stringify(patch) });
+}
+
+export function changePassword(oldPassword: string, newPassword: string): Promise<{ changed: true }> {
+  return apiFetch("/users/me/password", {
+    method: "PUT",
+    body: JSON.stringify({ oldPassword, newPassword }),
+  });
+}
