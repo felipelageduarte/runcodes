@@ -9,6 +9,8 @@ import {
   Users,
   ScrollText,
   MessageSquare,
+  Workflow,
+  Database,
 } from "lucide-react";
 import { UserType } from "@runcodes/shared";
 
@@ -41,6 +43,8 @@ export const NAV_ITEMS: NavItem[] = [
       { to: "/admin/usuarios", label: "Usuários", icon: Users },
       { to: "/admin/logs", label: "Logs", icon: ScrollText },
       { to: "/admin/mensagens", label: "Mensagens", icon: MessageSquare },
+      { to: "/admin/pipeline", label: "Pipeline", icon: Workflow },
+      { to: "/admin/banco", label: "Banco de dados", icon: Database },
     ],
   },
 ];

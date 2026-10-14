@@ -11,6 +11,8 @@ const AllowedFilesTab = lazy(() => import("./components/AllowedFilesTab").then((
 const AdminUsersTab = lazy(() => import("./components/AdminUsersTab").then((m) => ({ default: m.AdminUsersTab })));
 const LogsTab = lazy(() => import("./components/LogsTab").then((m) => ({ default: m.LogsTab })));
 const BroadcastTab = lazy(() => import("./components/BroadcastTab").then((m) => ({ default: m.BroadcastTab })));
+const PipelineTab = lazy(() => import("./components/PipelineTab").then((m) => ({ default: m.PipelineTab })));
+const DatabaseTab = lazy(() => import("./components/DatabaseTab").then((m) => ({ default: m.DatabaseTab })));
 
 export const adminRoutes: RouteObject[] = [
   {
@@ -28,6 +30,8 @@ export const adminRoutes: RouteObject[] = [
       { path: "usuarios", element: <AdminUsersTab /> },
       { path: "logs", element: <LogsTab /> },
       { path: "mensagens", element: <BroadcastTab /> },
+      { path: "pipeline", element: <PipelineTab /> },
+      { path: "banco", element: <DatabaseTab /> },
     ],
   },
 ];
