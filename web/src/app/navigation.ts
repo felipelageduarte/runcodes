@@ -1,4 +1,15 @@
-import { LayoutDashboard, Store, ShieldCheck, LifeBuoy } from "lucide-react";
+import {
+  LayoutDashboard,
+  Store,
+  ShieldCheck,
+  LifeBuoy,
+  Building2,
+  BookOpen,
+  FileCog,
+  Users,
+  ScrollText,
+  MessageSquare,
+} from "lucide-react";
 import { UserType } from "@runcodes/shared";
 
 export interface NavItem {
@@ -7,6 +18,8 @@ export interface NavItem {
   icon: typeof LayoutDashboard;
   /** Omit for "any authenticated user". */
   minType?: number;
+  /** Sub-items rendered as a collapsible group under this item. */
+  children?: NavItem[];
 }
 
 // Placeholder set for Fase 0 — student/professor dashboards get real
@@ -16,7 +29,20 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard },
   { to: "/marketplace", label: "Marketplace", icon: Store, minType: UserType.PROFESSOR },
   { to: "/suporte", label: "Suporte", icon: LifeBuoy },
-  { to: "/admin", label: "Admin", icon: ShieldCheck, minType: UserType.ADMIN },
+  {
+    to: "/admin",
+    label: "Admin",
+    icon: ShieldCheck,
+    minType: UserType.ADMIN,
+    children: [
+      { to: "/admin/universidades", label: "Instituições", icon: Building2 },
+      { to: "/admin/cursos", label: "Disciplinas", icon: BookOpen },
+      { to: "/admin/arquivos", label: "Tipos de arquivo", icon: FileCog },
+      { to: "/admin/usuarios", label: "Usuários", icon: Users },
+      { to: "/admin/logs", label: "Logs", icon: ScrollText },
+      { to: "/admin/mensagens", label: "Mensagens", icon: MessageSquare },
+    ],
+  },
 ];
 
 export function visibleNavItems(userType: number | undefined): NavItem[] {
