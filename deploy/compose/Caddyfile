@@ -1,0 +1,22 @@
+# Borda do run.codes — TLS automático pro domínio em RC_APP_DOMAIN.
+# Pra testar sem domínio real, use RC_APP_DOMAIN=http://localhost (o
+# prefixo http:// desliga o TLS automático do Caddy).
+{$RC_APP_DOMAIN} {
+	encode zstd gzip
+
+	# API e site de documentação (a API serve /docs: manual público,
+	# /docs/admin-docs atrás da sessão de admin)
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle /docs* {
+		reverse_proxy api:3000
+	}
+
+	# SPA (React) — fallback pra index.html em qualquer rota do cliente
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,0 +1,200 @@
+# run.codes — deploy de produção em máquina única (stack moderno).
+#
+# Layout: monorepo run.codes — este arquivo vive em deploy/compose e os
+# módulos (api/, web/, docs/, compiler/, compiler-images/, compiler-sandbox/)
+# na raiz do repositório. O schema do banco vem do repositório `database`
+# (legado compartilhado), clonado pelo bootstrap.sh em .external/database.
+# Configuração via .env (copie o .env.example).
+#
+# Pra usar serviços gerenciados (AWS RDS/ElastiCache/S3), remova os
+# serviços database/redis/seaweed daqui e aponte as variáveis de conexão
+# no .env pros endpoints gerenciados — API e compiler são 100%
+# configuráveis por env e não sabem a diferença.
+
+name: runcodes
+
+services:
+  # ---------------------------------------------------------------------
+  # Borda: TLS automático (Let's Encrypt) + estáticos + proxy /api e /docs
+  # ---------------------------------------------------------------------
+  caddy:
+    image: caddy:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - web-dist:/srv/web:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      RC_APP_DOMAIN: ${RC_APP_DOMAIN}
+    networks: [runcodes-net]
+    depends_on:
+      - api
+
+  # One-shot: builda o frontend (Vite) dentro de container — nenhum Node
+  # exigido no host. O resultado vai pro volume que o caddy serve.
+  web-build:
+    image: node:24-alpine
+    working_dir: /src
+    command: sh -c "npm ci && npm run build && rm -rf /out/* && cp -r dist/* /out/"
+    volumes:
+      - ../../web:/src
+      - web-dist:/out
+    restart: "no"
+
+  # One-shot: builda o site de documentação (Docusaurus, baseUrl /docs/).
+  # A API serve esse build em /docs — manual público, admin-docs com gate.
+  docs-build:
+    image: node:24-alpine
+    working_dir: /src
+    command: sh -c "npm ci && npm run build && rm -rf /out/* && cp -r build/* /out/"
+    volumes:
+      - ../../docs:/src
+      - docs-dist:/out
+    restart: "no"
+
+  # ---------------------------------------------------------------------
+  # API (Express/Prisma) + worker de plágio
+  # ---------------------------------------------------------------------
+  api:
+    build:
+      context: ../../api
+      target: api
+    restart: unless-stopped
+    environment: &api-env
+      TZ: ${RC_TIMEZONE:-America/Sao_Paulo}
+      PORT: "3000"
+      DATABASE_URL: ${RC_DATABASE_URL:-postgresql://runcodes:${RC_DB_PASSWORD}@database:5432/runcodes}
+      JWT_SECRET: ${RC_JWT_SECRET}
+      LEGACY_PASSWORD_SALT: ${RC_SECURITY_SALT}
+      S3_ENDPOINT: ${RC_S3_ENDPOINT:-http://seaweed:8333}
+      S3_REGION: ${RC_S3_REGION:-sa-east-1}
+      S3_ACCESS_KEY_ID: ${RC_S3_KEY}
+      S3_SECRET_ACCESS_KEY: ${RC_S3_SECRET}
+      S3_BUCKET_PREFIX: runcodes
+      REDIS_URL: ${RC_REDIS_URL:-redis://redis:6379}
+      SMTP_HOST: ${RC_SMTP_HOST}
+      SMTP_PORT: ${RC_SMTP_PORT}
+      SMTP_SECURE: ${RC_SMTP_SECURE:-true}
+      SMTP_USER: ${RC_SMTP_USER}
+      SMTP_PASSWORD: ${RC_SMTP_PASSWORD}
+      SMTP_FROM: ${RC_SMTP_FROM:-run.codes <no-reply@run.codes>}
+      APP_BASE_URL: https://${RC_APP_DOMAIN}
+      DOCS_DIST_DIR: /docs-dist
+    volumes:
+      - docs-dist:/docs-dist:ro
+    networks: [runcodes-net]
+    depends_on:
+      - database
+      - redis
+      - seaweed
+
+  plagiarism-worker:
+    build:
+      context: ../../api
+      target: worker
+    restart: unless-stopped
+    environment: *api-env
+    networks: [runcodes-net]
+    depends_on:
+      - database
+      - redis
+
+  # ---------------------------------------------------------------------
+  # Compiler (worker Python que roda as submissões em containers irmãos)
+  # ---------------------------------------------------------------------
+  rcc:
+    build:
+      context: ../../compiler
+      dockerfile: Dockerfile-base
+    restart: unless-stopped
+    environment:
+      TZ: ${RC_TIMEZONE:-America/Sao_Paulo}
+      RUNCODES_COMPILER_EXEC_DIR: /exec
+      RUNCODES_COMPILER_EXEC_DIR_REMOTE: ${RC_EXEC_DIR:?defina RC_EXEC_DIR no .env (caminho absoluto no host)}
+      RUNCODES_COMPILER_CONCURRENCY: ${RC_COMPILER_CONCURRENCY:-8}
+      RUNCODES_DB_HOST: ${RC_DB_HOST:-database}
+      RUNCODES_DB_PORT: ${RC_DB_PORT:-5432}
+      RUNCODES_DB_USERNAME: ${RC_DB_USER:-runcodes}
+      RUNCODES_DB_PASSWORD: ${RC_DB_PASSWORD}
+      RUNCODES_DB_DATABASE: ${RC_DB_NAME:-runcodes}
+      RUNCODES_S3_ENDPOINT: ${RC_S3_ENDPOINT:-http://seaweed:8333}
+      RUNCODES_S3_REGION: ${RC_S3_REGION:-sa-east-1}
+      RUNCODES_S3_CREDENTIALS_KEY: ${RC_S3_KEY}
+      RUNCODES_S3_CREDENTIALS_SECRET: ${RC_S3_SECRET}
+    volumes:
+      # Sobe containers "irmãos" por linguagem — precisa do socket do host.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${RC_EXEC_DIR}:/exec
+    networks: [runcodes-net]
+    depends_on:
+      - database
+      - seaweed
+
+  # ---------------------------------------------------------------------
+  # Infraestrutura (troque por RDS/ElastiCache/S3 na AWS — ver README)
+  # ---------------------------------------------------------------------
+  database:
+    build:
+      context: ../../.external/database
+      dockerfile: docker/Dockerfile.production
+    restart: unless-stopped
+    environment:
+      TZ: ${RC_TIMEZONE:-America/Sao_Paulo}
+      POSTGRES_PASSWORD: ${RC_DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [runcodes-net]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks: [runcodes-net]
+
+  seaweed:
+    image: chrislusf/seaweedfs:3.47
+    restart: unless-stopped
+    command: server -s3 -volume.max=100 -dir="/data" -ip=seaweed -ip.bind=0.0.0.0
+    volumes:
+      - seaweed-data:/data
+    networks: [runcodes-net]
+
+  seaweed-init:
+    image: amazon/aws-cli:2.17.62
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for i in $$(seq 1 30); do
+          aws --endpoint-url http://seaweed:8333 s3 ls >/dev/null 2>&1 && break
+          echo "waiting for seaweed s3 endpoint... ($$i/30)"
+          sleep 2
+        done
+        for b in runcodes-commits runcodes-outputfiles runcodes-files runcodes-cases; do
+          aws --endpoint-url http://seaweed:8333 s3 mb "s3://$$b" || true
+        done
+    environment:
+      AWS_ACCESS_KEY_ID: ${RC_S3_KEY}
+      AWS_SECRET_ACCESS_KEY: ${RC_S3_SECRET}
+      AWS_DEFAULT_REGION: ${RC_S3_REGION:-sa-east-1}
+    networks: [runcodes-net]
+    depends_on:
+      - seaweed
+    restart: "no"
+
+networks:
+  runcodes-net:
+
+volumes:
+  web-dist:
+  docs-dist:
+  db-data:
+  redis-data:
+  seaweed-data:
+  caddy-data:
+  caddy-config:
