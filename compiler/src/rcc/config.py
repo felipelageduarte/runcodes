@@ -1,0 +1,229 @@
+"""
+Module for handling configuration.
+"""
+
+import json
+import os
+from typing import cast, override
+
+DEFAULT_LOGGER = "run.codes"
+
+# Default number of commits the consumer may process concurrently — the
+# engine's single parallelism knob: this IS the total number of in-flight
+# commits. The workload is IO-bound (containers, S3, database), so sizing is
+# deliberately *not* tied to the CPU count: the real ceiling is how many
+# compilation containers the Docker host can run at once, not the number of
+# cores. 8 matches the old defaults of 2 workers x 4 concurrency.
+DEFAULT_CONCURRENCY = 8
+
+# How long (seconds) the poller suppresses re-enqueueing a commit it already
+# put on the task queue. The poller re-fetches every commit that is still
+# ``STATUS_IN_QUEUE`` on each cycle; this window keeps a commit waiting for a
+# free slot from being put on the queue again and again (consumer-side
+# claiming already makes such duplicates harmless, so this only saves queue
+# capacity and claim round trips).
+DEFAULT_COMMIT_ENQUEUE_SUPPRESSION = 60
+
+
+class ConfigError(ValueError):
+    """Raised when a configuration value is missing, unparseable or invalid."""
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer env var, raising `ConfigError` with a clear message."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ConfigError(f"{name} must be an integer, got {raw!r}") from None
+
+
+class Config:
+    """
+    Acts as a view for `dict` objects. All keys must be of type `str`. Useful
+    for accessing config params in a more readable way.
+
+    Values are deliberately typed as `object`: configuration dictionaries mix
+    strings, numbers, booleans and nested dictionaries, and the type of each
+    key is only known at its point of use (callers convert with `str()`,
+    `int()`, `float()` or `bool()` as appropriate).
+    """
+
+    __config__: dict[str, object]
+
+    def __init__(self, config_dict: dict[str, object]) -> None:
+        _check_dict(config_dict)
+        self.__config__ = config_dict
+
+    def update(self, other: Config | dict[str, object]) -> None:
+        """Update stored configuration using another `Config` or `dict`."""
+        if isinstance(other, Config):
+            self.__config__.update(other.get_dict())
+        else:
+            _check_dict(other)
+            self.__config__.update(other)
+
+    def get_dict(self) -> dict[str, object]:
+        """Return the underlying configuration dictionary."""
+        return self.__config__
+
+    def get(self, key: str, default: object | None = None) -> object:
+        """Return ``config[key]``, or ``default`` when the key is missing.
+
+        Mirrors ``dict.get``; used for optional keys (such as ``concurrency``)
+        that JSON configuration files may not define. Attribute access raises
+        ``KeyError`` for those.
+        """
+        return self.__config__.get(key, default)
+
+    def __getattr__(self, name: str) -> object:
+        return self.__config__[name]
+
+    @override
+    def __repr__(self) -> str:
+        return repr(self.__config__)
+
+
+def get_concurrency(cfg: Config) -> int:
+    """Return the in-flight commit concurrency configured by ``cfg``.
+
+    A missing key falls back to `DEFAULT_CONCURRENCY`, so env- and JSON-built
+    configs behave identically. Raises `ConfigError` when the value cannot be
+    parsed as an integer.
+    """
+
+    def _parse_int(value: object, key: str, env_var: str) -> int:
+        try:
+            return int(str(value))
+        except TypeError, ValueError:
+            raise ConfigError(
+                f"{key} ({env_var}) must be an integer, got {value!r}"
+            ) from None
+
+    return _parse_int(
+        cfg.get("concurrency", DEFAULT_CONCURRENCY),
+        "concurrency",
+        "RUNCODES_COMPILER_CONCURRENCY",
+    )
+
+
+def queue_maxsize(cfg: Config) -> int:
+    """Capacity of the bounded task queue: 2x the in-flight commit slots.
+
+    The factor of two gives the pipeline some headroom while still letting a
+    blocking ``put`` act as the backpressure mechanism that keeps the parent
+    from overproducing work.
+    """
+    return 2 * get_concurrency(cfg)
+
+
+def validate(cfg: Config) -> None:
+    """Validate the concurrency of ``cfg``.
+
+    Raises `ConfigError` with a human-readable message when the value is
+    missing, unparseable, or nonsensical: ``concurrency >= 1``.
+    """
+    concurrency = get_concurrency(cfg)
+    if concurrency < 1:
+        raise ConfigError(
+            f"concurrency (RUNCODES_COMPILER_CONCURRENCY) must be >= 1, got {concurrency}"
+        )
+
+
+class EnvConfig(Config):
+    def __init__(self) -> None:
+        db_config: dict[str, object] = {
+            "name": os.environ.get("RUNCODES_DB_DATABASE", "runcodes"),
+            "host": os.environ.get("RUNCODES_DB_HOST", "database"),
+            "port": int(os.environ.get("RUNCODES_DB_PORT", "5432")),
+            "username": os.environ.get("RUNCODES_DB_USERNAME", "runcodes"),
+            "password": os.environ.get("RUNCODES_DB_PASSWORD", "asdasd33"),
+            "pool_min_size": int(os.environ.get("RUNCODES_DB_POOL_MIN_SIZE", "1")),
+            "pool_timeout": float(os.environ.get("RUNCODES_DB_POOL_TIMEOUT", "30")),
+        }
+        # ``pool_max_size`` is deliberately *omitted* when the env var is
+        # unset: the Postgres provider derives the maximum from the in-flight
+        # commit concurrency (concurrency + 2, clamped to at least
+        # ``pool_min_size``). An explicitly configured
+        # ``RUNCODES_DB_POOL_MAX_SIZE`` always wins.
+        pool_max_env = os.environ.get("RUNCODES_DB_POOL_MAX_SIZE")
+        if pool_max_env is not None:
+            db_config["pool_max_size"] = int(pool_max_env)
+        env_configs: dict[str, object] = {
+            "provider": {
+                "data": "postgres",
+                "storage": "s3",
+            },
+            "db": db_config,
+            "s3": {
+                "region": os.environ.get("RUNCODES_S3_REGION", "sa-east-1"),
+                "endpoint": os.environ.get(
+                    "RUNCODES_S3_ENDPOINT", "http://seaweed:8333"
+                ),
+                "access_key": os.environ.get("RUNCODES_S3_CREDENTIALS_KEY", "test_key"),
+                "secret_key": os.environ.get(
+                    "RUNCODES_S3_CREDENTIALS_SECRET", "test_secret"
+                ),
+                "commits_bucket": f"{os.environ.get('RUNCODES_S3_BUCKET_PREFIX', 'runcodes')}-commits",
+                "outputfiles_bucket": f"{os.environ.get('RUNCODES_S3_BUCKET_PREFIX', 'runcodes')}-outputfiles",
+                "files_bucket": f"{os.environ.get('RUNCODES_S3_BUCKET_PREFIX', 'runcodes')}-files",
+                "cases_bucket": f"{os.environ.get('RUNCODES_S3_BUCKET_PREFIX', 'runcodes')}-cases",
+                "compilation_files_dir": "compilationfiles",
+            },
+            "lock_file": "compiler.lock",
+            "concurrency": _env_int(
+                "RUNCODES_COMPILER_CONCURRENCY", DEFAULT_CONCURRENCY
+            ),
+            "commit_enqueue_suppression": float(
+                os.environ.get(
+                    "RUNCODES_COMPILER_ENQUEUE_SUPPRESSION",
+                    str(DEFAULT_COMMIT_ENQUEUE_SUPPRESSION),
+                )
+            ),
+            "min_sleep_time": 1,
+            "max_sleep_time": 15,
+            "exec_dir": os.environ.get("RUNCODES_COMPILER_EXEC_DIR", "/tmp"),
+            "exec_dir_remote": os.environ.get(
+                "RUNCODES_COMPILER_EXEC_DIR_REMOTE",
+                os.environ.get("RUNCODES_COMPILER_EXEC_DIR", "/tmp"),
+            ),
+            "src_dir": "src",
+            "output_files_dir": "outputfiles",
+            "max_output_file_size": 1048576,
+            "compilation_error_file": "compilation.err",
+            "compilation_output_file": "compilation.out",
+            "compilation_timeout": float(
+                os.environ.get("RUNCODES_DEFAULT_COMPILATION_TIMEOUT", "10")
+            ),
+            "base_exec_timeout": float(
+                os.environ.get("RUNCODES_DEFAULT_EXEC_TIMEOUT", "5")
+            ),
+            "monitor_max_file_size": 5242880,
+            "monitor_max_mem_size": 268435456,
+            "container_cfg_file": "container.config",
+            "slack": None,
+            "log": None,
+            "cleanup_on_error": False,
+        }
+        super().__init__(env_configs)
+
+
+def from_json(fname: str) -> Config:
+    """Build a `Config` from a JSON file."""
+    with open(fname, "r") as config_file:
+        config_dict = cast(dict[str, object], json.load(config_file))
+        return Config(config_dict)
+
+
+def from_env() -> Config:
+    """Build a `Config` from environment variables (with defaults)."""
+    return EnvConfig()
+
+
+def _check_dict(d: object) -> None:
+    if not isinstance(d, dict):
+        raise TypeError("Given argument is not a dict")
+    if not all(isinstance(key, str) for key in cast(dict[object, object], d)):
+        raise TypeError("All dictionary keys must be strings")
