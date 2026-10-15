@@ -1,8 +1,8 @@
 FROM ghdl/ghdl:bookworm-gcc-12.3.0
 
 # Load base executables
-COPY --from=ghcr.io/runcodes-icmc/compiler-images-base:latest /usr/bin/monitor /usr/bin/monitor
-COPY --from=ghcr.io/runcodes-icmc/compiler-images-base:latest /usr/bin/runcodes /usr/bin/runcodes
+COPY --from=ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest /usr/bin/monitor /usr/bin/monitor
+COPY --from=ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest /usr/bin/runcodes /usr/bin/runcodes
 
 RUN apt-get update &&\
 		apt-get install -y make &&\

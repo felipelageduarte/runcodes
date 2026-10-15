@@ -44,7 +44,7 @@ load_container_config() {
         key="${BASH_REMATCH[1]}"
         value="${BASH_REMATCH[2]}"
         # Config-supplied string values are always single-quoted by the
-        # generator (see compiler-engine's create_container_cfg_file); strip
+        # generator (see runcodes-compiler's create_container_cfg_file); strip
         # exactly one matching pair, never arbitrary shell quoting.
         if [[ "${value}" == \'*\' ]]; then
             value="${value:1:-1}"
@@ -137,7 +137,7 @@ run_tests() {
     wd="$(pwd)"
 
     # Every test case's `.in` file is already present at the workspace root
-    # (compiler-engine stages them all up front); lock them all down to the
+    # (runcodes-compiler stages them all up front); lock them all down to the
     # owner only before the loop starts, and open up only the one belonging
     # to the test about to run. Tests run sequentially here, so there's no
     # concurrent access to race against.
@@ -145,9 +145,9 @@ run_tests() {
     # IMPORTANT: this is currently a no-op against the monitored program
     # itself. Permission bits only stop a process that is NOT the file's
     # owner and is not root; today the monitored program runs as the same
-    # root user as everything else in the container (compiler-monitor's
+    # root user as everything else in the container (runcodes-compiler-sandbox's
     # `-u` privilege-drop flag exists but is not wired in here yet -- see
-    # compiler-monitor-oportunidades.md, item S3), so it can read any
+    # runcodes-compiler-sandbox-oportunidades.md, item S3), so it can read any
     # `.in` file regardless of this chmod. This becomes real test-to-test
     # input isolation the moment a non-root `-u` is wired in for an image;
     # until then it is kept because it costs nothing and is still correct
@@ -157,7 +157,11 @@ run_tests() {
 
     while IFS= read -r -d '' test_dir; do
         test_id="${test_dir#./test_}"
-        cp -r --update=none ./src/* "${test_dir}"
+        # -n (skip existing files), not --update=none: they behave the same,
+        # but --update=none requires coreutils >= 9.3 and hard-fails on the
+        # older coreutils of non-trixie base images (e.g. the bookworm-based
+        # vhdl image), which silently left test dirs without the sources.
+        cp -rn ./src/* "${test_dir}"
 
         cd "${test_dir}" || exit
 

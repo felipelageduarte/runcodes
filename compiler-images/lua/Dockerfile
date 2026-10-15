@@ -1,8 +1,8 @@
-FROM ghcr.io/runcodes-icmc/compiler-images-base:latest
+FROM ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest
 
 # Install language-specific dependencies
 RUN apt-get update &&\
-    apt-get install -y lua5.4 luarocks &&\
+    apt-get install -y lua5.4 luarocks make &&\
     apt-get clean &&\
     rm -rf /var/lib/apt/lists/*
 

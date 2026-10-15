@@ -1,6 +1,6 @@
 #!/bin/bash
 # Tests for base/base-script.sh's load_container_config(), the S8 fix in
-# compiler-monitor-oportunidades.md: container.config must be parsed as
+# runcodes-compiler-sandbox-oportunidades.md: container.config must be parsed as
 # plain `key=value` data, never executed as shell (as `source`/`eval` would
 # have done with it before this change).
 #

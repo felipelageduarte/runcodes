@@ -1,8 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble
 
 # Load base executables
-COPY --from=ghcr.io/runcodes-icmc/compiler-images-base:latest /usr/bin/monitor /usr/bin/monitor
-COPY --from=ghcr.io/runcodes-icmc/compiler-images-base:latest /usr/bin/runcodes /usr/bin/runcodes
+COPY --from=ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest /usr/bin/monitor /usr/bin/monitor
+COPY --from=ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest /usr/bin/runcodes /usr/bin/runcodes
 
 # System Upgrade
 RUN apt-get update -y &&\

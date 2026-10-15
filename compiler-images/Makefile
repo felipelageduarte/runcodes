@@ -1,4 +1,4 @@
-IMAGE_PREFIX ?= ghcr.io/runcodes-icmc/compiler-images
+IMAGE_PREFIX ?= ghcr.io/runcodes-icmc/runcodes-compiler-images
 
 build-base:
 	docker build -t ${IMAGE_PREFIX}-base:latest -f ./base/Dockerfile ./base --no-cache

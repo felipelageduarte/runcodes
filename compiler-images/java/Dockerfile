@@ -1,8 +1,8 @@
 FROM eclipse-temurin:25-jdk-noble
 
 # Load base executables
-COPY --from=ghcr.io/runcodes-icmc/compiler-images-base:latest /usr/bin/monitor /usr/bin/monitor
-COPY --from=ghcr.io/runcodes-icmc/compiler-images-base:latest /usr/bin/runcodes /usr/bin/runcodes
+COPY --from=ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest /usr/bin/monitor /usr/bin/monitor
+COPY --from=ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest /usr/bin/runcodes /usr/bin/runcodes
 
 # System Upgrade
 RUN apt-get update -y &&\

@@ -1,4 +1,4 @@
-FROM ghcr.io/runcodes-icmc/compiler-images-base:latest
+FROM ghcr.io/runcodes-icmc/runcodes-compiler-images-base:latest
 
 # Configure Timezone
 ENV TZ=America/Sao_Paulo
