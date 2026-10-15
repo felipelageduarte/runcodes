@@ -24,6 +24,10 @@ const schema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().default("run.codes <no-reply@run.codes>"),
   APP_BASE_URL: z.string().default("http://localhost:5173"),
+  // Build estático do runcodes-docs (Docusaurus, baseUrl /docs/) — servido
+  // pela própria API em /docs: o manual é público, /docs/admin-docs exige
+  // sessão de admin (o cookie httpOnly já autentica o iframe do painel).
+  DOCS_DIST_DIR: z.string().default("../runcodes-docs/build"),
 });
 
 export const env = schema.parse(process.env);

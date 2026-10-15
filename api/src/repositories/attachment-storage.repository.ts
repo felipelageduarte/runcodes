@@ -6,7 +6,7 @@ import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, type S3Client 
  * both ExerciseFile and CompilationFile without duplicating the put/get/
  * delete logic. The compilation-file instance's key shape
  * (`compilationfiles/{exerciseId}/{filename}` inside the `{prefix}-files`
- * bucket) is a hard contract with compiler-engine's
+ * bucket) is a hard contract with runcodes-compiler's
  * fetch_exercise_file() — not opaque, same caveat as the cases bucket.
  */
 export interface AttachmentStorageRepository {

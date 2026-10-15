@@ -43,7 +43,7 @@ export interface CommitRepository {
   updateScore(id: number, patch: CommitScorePatch): Promise<CommitRecord | null>;
   /** Mirrors the reset CommitsController::recompile()/recompileAll() do
    * before re-queuing: status back to IN_QUEUE, compiled fields cleared —
-   * the compiler-engine overwrites everything else once it reprocesses. */
+   * the runcodes-compiler overwrites everything else once it reprocesses. */
   resetToQueue(id: number): Promise<CommitRecord | null>;
   resetManyToQueue(ids: number[]): Promise<void>;
   /** Minimal columns, platform-wide (no offering/exercise filter) — backs
@@ -155,6 +155,25 @@ export class PrismaCommitRepository implements CommitRepository {
   }
 }
 
+/** O runcodes-compiler grava compiled_message e compiled_error em base64
+ * (herança do protocolo com o servidor legado, que decodificava no PHP).
+ * Decodifica tolerante: um valor que não é base64 válido (ex. escrito por
+ * outra via, ou vazio) volta como está. */
+function decodeCompilerText(value: string | null): string | null {
+  if (!value) return value;
+  try {
+    const decoded = Buffer.from(value, "base64").toString("utf8");
+    // Round-trip confirma que era base64 de verdade — "abc" decodifica
+    // "com sucesso" pra lixo, mas não re-encoda pro mesmo valor.
+    if (Buffer.from(decoded, "utf8").toString("base64") === value.replace(/\s/g, "")) {
+      return decoded;
+    }
+    return value;
+  } catch {
+    return value;
+  }
+}
+
 function toRecord(row: {
   id: number;
   user_email: string;
@@ -166,10 +185,17 @@ function toRecord(row: {
   score: unknown;
   compiled: boolean | null;
   compiled_message: string | null;
+  compiled_error: string | null;
   compiled_signal: string | null;
   aws_key: string | null;
   ip: string | null;
 }): CommitRecord {
+  // O erro do compilador (gcc/javac/etc) vive em compiled_error; o
+  // compiled_message é o canal de mensagens "gerais". Pro aluno, o que
+  // importa quando a compilação falha é o erro — expõe o primeiro não
+  // vazio dos dois no mesmo campo que a UI já mostra.
+  const message = decodeCompilerText(row.compiled_message);
+  const error = decodeCompilerText(row.compiled_error);
   return {
     id: row.id,
     userEmail: row.user_email,
@@ -180,7 +206,7 @@ function toRecord(row: {
     corrects: row.corrects,
     score: row.score === null || row.score === undefined ? null : String(row.score),
     compiled: row.compiled,
-    compiledMessage: row.compiled_message,
+    compiledMessage: message || error,
     compiledSignal: row.compiled_signal || null,
     awsKey: row.aws_key,
     ip: row.ip,

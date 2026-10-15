@@ -16,7 +16,7 @@ export interface CommitCaseResultRecord {
 }
 
 /** Mostly read-only — commits_exercise_cases rows are written by the
- * compiler-engine, never by this API, with one deliberate exception:
+ * runcodes-compiler, never by this API, with one deliberate exception:
  * recompile()/recompileAll() delete stale rows before re-queuing a commit,
  * mirroring CommitsController's own `CommitsExerciseCase->deleteAll()` —
  * the engine re-inserts fresh rows once it reprocesses. */

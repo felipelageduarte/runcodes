@@ -46,7 +46,7 @@ export interface UpdateCaseInput {
 }
 
 /** Exercise case (test case) CRUD — input/output text, stored in the S3
- * `cases` bucket at the exact key shape compiler-engine already reads. */
+ * `cases` bucket at the exact key shape runcodes-compiler already reads. */
 export class ExerciseCaseService {
   constructor(
     private readonly exercises: ExerciseRepository,

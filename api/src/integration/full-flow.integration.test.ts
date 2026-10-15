@@ -14,7 +14,7 @@ import { env } from "../lib/env.js";
 // actual S3/SeaweedFS, actual Express routing — instead of the mocked
 // repositories the unit tests use. It creates its own course/offering/
 // exercise/users so it never depends on (or disturbs) local-dev's seed
-// data, and the submission test waits on the real Python compiler-engine
+// data, and the submission test waits on the real Python runcodes-compiler
 // (already running in the local-dev compose) to grade it.
 //
 // Requires: local-dev docker compose up, .env pointing at it.
@@ -363,7 +363,7 @@ describe("submission pipeline", () => {
     expect(Buffer.from(stored).toString()).toBe('print("integration ok")');
   });
 
-  it("is picked up and graded by the real compiler-engine", async () => {
+  it("is picked up and graded by the real runcodes-compiler", async () => {
     const token = await login(emails.student);
     let status = 0;
     for (let attempt = 0; attempt < 15 && status === 0; attempt++) {
@@ -760,7 +760,7 @@ describe("exercise case management", () => {
     expect(res.status).toBe(403);
   });
 
-  it("lets staff create a case, and the content round-trips through S3 at the exact key the compiler-engine reads", async () => {
+  it("lets staff create a case, and the content round-trips through S3 at the exact key the runcodes-compiler reads", async () => {
     const token = await login(emails.professor);
     const res = await request(app)
       .post(`/api/exercises/${crudExerciseId}/cases`)
@@ -857,7 +857,7 @@ describe("exercise case files (file-based test case input)", () => {
     expect(res.status).toBe(403);
   });
 
-  it("lets staff upload a case file, round-tripping through the exact S3 key compiler-engine reads", async () => {
+  it("lets staff upload a case file, round-tripping through the exact S3 key runcodes-compiler reads", async () => {
     const token = await login(emails.professor);
     const res = await request(app)
       .post(`/api/exercise-cases/${fileCaseId}/files`)
@@ -1053,7 +1053,7 @@ describe("exercise attachments (files and compilation files)", () => {
     expect(Buffer.from(download.body).toString()).toBe("reference material");
   });
 
-  it("uploads a compilation file at the exact S3 key compiler-engine reads", async () => {
+  it("uploads a compilation file at the exact S3 key runcodes-compiler reads", async () => {
     const token = await login(emails.professor);
     const res = await request(app)
       .post(`/api/exercises/${exerciseId}/compilation-files`)

@@ -20,7 +20,7 @@ export interface CaseFileContent {
  * its two-phase "upload to a temp key, then attach on case save" dance
  * (an artifact of the legacy jQuery file-upload widget). Here upload is
  * one request, straight into the case's own S3 slot
- * (`{caseId}/files/{filename}` in the `cases` bucket — compiler-engine's
+ * (`{caseId}/files/{filename}` in the `cases` bucket — runcodes-compiler's
  * fetch_test_case_files() already reads this shape).
  *
  * Staff/admin-only throughout: unlike exercise/compilation files, a

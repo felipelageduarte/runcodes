@@ -10,7 +10,7 @@ import {
 /**
  * Exercise case input/output live in the `cases` bucket under keys
  * `{caseId}/in` and `{caseId}/out` — not opaque like commits.aws_key, this
- * exact shape is a hard contract: compiler-engine's S3 storage provider
+ * exact shape is a hard contract: runcodes-compiler's S3 storage provider
  * (provider/storage/s3.py) does `cases_bucket.download_file(f"{id}/in", ...)`
  * verbatim. Changing the key format here breaks grading for every case.
  */
@@ -20,7 +20,7 @@ export interface CaseStorageRepository {
   getInput(caseId: number): Promise<string>;
   getOutput(caseId: number): Promise<string>;
   /** `{caseId}/files/{filename}` — same bucket, same hard contract:
-   * compiler-engine's fetch_test_case_files() reads this verbatim. */
+   * runcodes-compiler's fetch_test_case_files() reads this verbatim. */
   putFile(caseId: number, filename: string, content: Buffer): Promise<void>;
   getFile(caseId: number, filename: string): Promise<Uint8Array>;
   deleteFile(caseId: number, filename: string): Promise<void>;

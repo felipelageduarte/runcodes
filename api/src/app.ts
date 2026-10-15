@@ -37,6 +37,7 @@ import {
   createAdminStatsRouter,
 } from "./http/routes/stats.routes.js";
 import { createExerciseExportRouter } from "./http/routes/exercise-export.routes.js";
+import { createDocsRouter } from "./http/routes/docs.routes.js";
 
 export function buildApp(container: Container) {
   const { services, middleware } = container;
@@ -74,6 +75,11 @@ export function buildApp(container: Container) {
   app.use(cors({ origin: env.APP_BASE_URL, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
+
+  // Site de documentação (estático) — antes do auditLog de propósito:
+  // cada asset de página viraria uma linha de auditoria sem valor.
+  app.use("/docs", createDocsRouter(env.DOCS_DIST_DIR, middleware.requireAuth));
+
   app.use(middleware.auditLog);
 
   app.use("/api/auth", createAuthRouter(services.auth, middleware.requireAuth));

@@ -72,14 +72,22 @@ export function createCommitsRouters(
   });
 
   // Mirrors the Monaco-preload gap tracked in docs/frontend/code-editor.md
-  // — text content (not a binary download), for prefilling the editor
-  // with the student's last submission.
+  // — content (not a binary download), for prefilling the editor with
+  // the student's last submission. A .zip (multi-file project) is
+  // binary — forcing it through toString("utf-8") would silently
+  // corrupt it, so it goes out base64-encoded instead; everything else
+  // (the single-file case) stays plain text like before.
   commits.get("/:id/content", requireAuth, async (req: AuthedRequest, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
       const { filename, content } = await commitService.getContent(id, req.user!);
-      res.json({ filename, content: Buffer.from(content).toString("utf-8") });
+      const isZip = filename.toLowerCase().endsWith(".zip");
+      res.json({
+        filename,
+        encoding: isZip ? "base64" : "utf-8",
+        content: isZip ? Buffer.from(content).toString("base64") : Buffer.from(content).toString("utf-8"),
+      });
     } catch (err) {
       next(err);
     }

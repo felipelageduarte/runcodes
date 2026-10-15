@@ -17,7 +17,7 @@ import { PlagiarismWorkerService } from "./services/plagiarism-worker.service.js
 /**
  * Entry point for the plagiarism worker — a separate deployable process
  * from the API server (`npm run start:worker`, not started by server.ts),
- * the same way compiler-engine is its own process rather than code inside
+ * the same way runcodes-compiler is its own process rather than code inside
  * runcodes-api. Reasons, not just convention: JPlag needs a JVM on the
  * host, both tools can run for minutes on a large turma, and neither of
  * those should be a dependency of (or a way to stall) the HTTP API.

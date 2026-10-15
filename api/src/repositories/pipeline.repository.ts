@@ -1,8 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { CommitStatus } from "../lib/constants.js";
 
-/** Statuses that mean "the compiler-engine hasn't finished with this
- * commit yet" — see compiler-engine/src/rcc/engine/poller.py, which
+/** Statuses that mean "the runcodes-compiler hasn't finished with this
+ * commit yet" — see runcodes-compiler/src/rcc/engine/poller.py, which
  * polls this same status column directly (no queue in front of it). */
 const IN_FLIGHT_STATUSES = [CommitStatus.IN_QUEUE, CommitStatus.COMPILING, CommitStatus.RUNNING];
 
