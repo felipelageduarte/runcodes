@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Module boundary — packages/* are importable by anything, modules/*
+       are only reachable by route (see docs/frontend/overview.md) */
+    "paths": {
+      "@runcodes/ui": ["./src/packages/ui/src/index.ts"],
+      "@runcodes/ui/*": ["./src/packages/ui/src/*"],
+      "@runcodes/api-client": ["./src/packages/api-client/src/index.ts"],
+      "@runcodes/api-client/*": ["./src/packages/api-client/src/*"],
+      "@runcodes/auth": ["./src/packages/auth/src/index.ts"],
+      "@runcodes/auth/*": ["./src/packages/auth/src/*"],
+      "@runcodes/shared": ["./src/packages/shared/src/index.ts"],
+      "@runcodes/shared/*": ["./src/packages/shared/src/*"],
+      "@runcodes/editor": ["./src/packages/editor/src/index.ts"],
+      "@runcodes/editor/*": ["./src/packages/editor/src/*"]
+    },
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}

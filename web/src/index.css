@@ -1,0 +1,213 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/*
+ * Design tokens — docs/frontend/design-system.md.
+ * Direção visual: dev tool polido (Linear/Vercel/GitHub como referência)
+ * — cinzas com leve matiz azulado (mesmo hue do primary, croma baixo, pra
+ * coesão em vez de cinza neutro genérico), sombras suaves em camadas,
+ * cor usada com intenção. Light values on :root, dark overrides on .dark
+ * (class-based, toggled by packages/shared's theme logic + synced with
+ * prefers-color-scheme on first load — see packages/shared/src/theme.ts).
+ */
+:root {
+  /* Fundo com leve matiz azulado (não branco-papel puro) e bordas com
+     mais presença — a v1 era clean a ponto de parecer inacabada em modo
+     claro, sem nada ancorando os cards visualmente. */
+  --background: oklch(0.97 0.005 230);
+  --foreground: oklch(0.17 0.014 230);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.014 230);
+  --border: oklch(0.87 0.012 230);
+  --input: oklch(0.82 0.014 230);
+  --muted: oklch(0.94 0.008 230);
+  --muted-foreground: oklch(0.46 0.014 230);
+  --ring: oklch(0.55 0.18 222);
+
+  /* Primary — azul-ciano, puxado pro tom histórico do run.codes
+     (#31a5d9 na sidebar do legado) em vez de um azul-violeta genérico. */
+  --primary-50: oklch(0.96 0.03 222);
+  --primary-100: oklch(0.91 0.06 222);
+  --primary-300: oklch(0.78 0.12 222);
+  --primary-500: oklch(0.6 0.17 222);
+  --primary-600: oklch(0.5 0.17 222);
+  --primary-700: oklch(0.41 0.16 222);
+  --primary-foreground: oklch(0.99 0 0);
+
+  /* Sidebar/topbar — âncora de marca, cor própria (não acompanha o
+     background). Slate escuro puxado do navbar do legado (#2c3e50 /
+     #354458 — "color-one"), não ciano claro: o azul vivo fica pros
+     botões e dados, o chrome do app é escuro e sóbrio como o original. */
+  --sidebar: oklch(0.31 0.04 252);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-muted: oklch(0.74 0.025 250);
+  --sidebar-active: oklch(0.4 0.055 248);
+  --sidebar-border: oklch(0.4 0.04 252);
+
+  /* Semantic status — mais saturado, usado com mais liberdade (fundos
+     de card/badge, não só texto) */
+  --success: oklch(0.62 0.17 150);
+  --success-foreground: oklch(0.99 0 0);
+  --danger: oklch(0.6 0.22 25);
+  --danger-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.74 0.17 70);
+  --warning-foreground: oklch(0.2 0 0);
+  --info: oklch(0.62 0.14 230);
+  --info-foreground: oklch(0.99 0 0);
+  --accent-purple: oklch(0.56 0.21 300);
+  --accent-purple-foreground: oklch(0.99 0 0);
+
+  /* Accent coral — resgate do #e45f56 ("color-three") do run.codes
+     original. Usado com parcimônia: urgência de deadline, pulso do
+     relógio do servidor, momentos de destaque. Não compete com o
+     primary em CTAs. */
+  --accent: oklch(0.66 0.17 25);
+  --accent-foreground: oklch(0.99 0 0);
+
+  /* Sombras — mais presença que a v1 (que praticamente não aparecia em
+     modo claro) */
+  --shadow-color: 222 30% 20%;
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.08), 0 1px 1px hsl(var(--shadow-color) / 0.06);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.08), 0 8px 20px -4px hsl(var(--shadow-color) / 0.14);
+  --shadow-lg: 0 4px 10px hsl(var(--shadow-color) / 0.12), 0 20px 40px -8px hsl(var(--shadow-color) / 0.22);
+}
+
+.dark {
+  --background: oklch(0.15 0.014 230);
+  --foreground: oklch(0.94 0.004 230);
+  --card: oklch(0.19 0.014 230);
+  --card-foreground: oklch(0.94 0.004 230);
+  --border: oklch(0.3 0.014 230);
+  --input: oklch(0.33 0.016 230);
+  --muted: oklch(0.23 0.014 230);
+  --muted-foreground: oklch(0.65 0.012 230);
+  --ring: oklch(0.68 0.17 222);
+
+  --primary-50: oklch(0.24 0.05 222);
+  --primary-100: oklch(0.29 0.07 222);
+  --primary-300: oklch(0.46 0.13 222);
+  --primary-500: oklch(0.65 0.17 222);
+  --primary-600: oklch(0.7 0.16 222);
+  --primary-700: oklch(0.78 0.14 222);
+  --primary-foreground: oklch(0.12 0 0);
+
+  --sidebar: oklch(0.2 0.03 252);
+  --sidebar-foreground: oklch(0.92 0.005 250);
+  --sidebar-muted: oklch(0.63 0.025 250);
+  --sidebar-active: oklch(0.3 0.045 248);
+  --sidebar-border: oklch(0.3 0.03 252);
+
+  --success: oklch(0.65 0.17 150);
+  --success-foreground: oklch(0.1 0 0);
+  --danger: oklch(0.68 0.2 25);
+  --danger-foreground: oklch(0.1 0 0);
+  --warning: oklch(0.78 0.16 70);
+  --warning-foreground: oklch(0.1 0 0);
+  --info: oklch(0.68 0.12 230);
+  --info-foreground: oklch(0.1 0 0);
+  --accent-purple: oklch(0.68 0.19 300);
+  --accent-purple-foreground: oklch(0.1 0 0);
+
+  --accent: oklch(0.7 0.16 25);
+  --accent-foreground: oklch(0.1 0 0);
+
+  --shadow-color: 230 60% 2%;
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.3);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.3), 0 8px 16px -4px hsl(var(--shadow-color) / 0.4);
+  --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.4), 0 16px 32px -8px hsl(var(--shadow-color) / 0.5);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-ring: var(--ring);
+
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-300: var(--primary-300);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary: var(--primary-600);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-purple-foreground: var(--accent-purple-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  /* Display — títulos de página e números de destaque. Bricolage dá
+     personalidade própria sem perder legibilidade; Inter segue no corpo. */
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Easings de motion — padrão do sistema (ver docs/frontend/design-system.md) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --shadow-xs: var(--shadow-sm);
+  --shadow-card: var(--shadow-sm);
+  --shadow-popover: var(--shadow-md);
+  --shadow-dialog: var(--shadow-lg);
+}
+
+@layer base {
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+
+  /* Pulso do relógio do servidor — par de segundos pisca suave. */
+  @keyframes clock-pulse {
+    0%,
+    45% {
+      opacity: 1;
+    }
+    50%,
+    95% {
+      opacity: 0.35;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-clock-pulse {
+      animation: none !important;
+    }
+  }
+}
+
+@utility animate-clock-pulse {
+  animation: clock-pulse 2s steps(1) infinite;
+}

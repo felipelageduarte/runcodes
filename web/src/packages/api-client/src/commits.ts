@@ -1,0 +1,76 @@
+import { apiFetch } from "./http";
+
+export interface CommitRecord {
+  id: number;
+  userEmail: string;
+  exerciseId: number;
+  commitTime: string;
+  status: number;
+  hash: string | null;
+  corrects: number | null;
+  score: string | null;
+  compiled: boolean | null;
+  compiledMessage: string | null;
+  compiledSignal: string | null;
+  awsKey: string | null;
+  ip: string | null;
+}
+
+export interface CommitCaseResult {
+  id: number;
+  exerciseCaseId: number;
+  cputime: string;
+  memused: number;
+  outputType: number;
+  status: number;
+  statusMessage: string | null;
+  error: string | null;
+  output: string | null;
+  expectedInput: string | null;
+  expectedOutput: string | null;
+}
+
+export function submitCommit(exerciseId: number, file: File): Promise<CommitRecord> {
+  const formData = new FormData();
+  formData.append("files", file);
+  return apiFetch(`/exercises/${exerciseId}/commits`, {
+    method: "POST",
+    body: formData,
+    raw: true,
+  });
+}
+
+export function listCommitsForExercise(exerciseId: number): Promise<CommitRecord[]> {
+  return apiFetch(`/exercises/${exerciseId}/commits`);
+}
+
+export function getCommit(id: number): Promise<CommitRecord> {
+  return apiFetch(`/commits/${id}`);
+}
+
+export function getCommitCases(id: number): Promise<CommitCaseResult[]> {
+  return apiFetch(`/commits/${id}/cases`);
+}
+
+/** `encoding: "base64"` pra um .zip de projeto multi-arquivo (conteúdo
+ * binário) — `"utf-8"` pro caso de arquivo único de texto, como antes. */
+export function getCommitContent(
+  id: number,
+): Promise<{ filename: string; content: string; encoding: "utf-8" | "base64" }> {
+  return apiFetch(`/commits/${id}/content`);
+}
+
+/** Staff da turma ou admin — sobrescreve nota/status manualmente. */
+export function editCommitScore(id: number, patch: { score: number; status: number }): Promise<CommitRecord> {
+  return apiFetch(`/commits/${id}/score`, { method: "PUT", body: JSON.stringify(patch) });
+}
+
+/** Staff da turma ou admin — reenfileira um commit específico. */
+export function recompileCommit(id: number): Promise<CommitRecord> {
+  return apiFetch(`/commits/${id}/recompile`, { method: "POST" });
+}
+
+/** Staff da turma ou admin — reenfileira o commit mais recente de cada aluno. */
+export function recompileAllCommits(exerciseId: number): Promise<{ count: number }> {
+  return apiFetch(`/exercises/${exerciseId}/commits/recompile-all`, { method: "POST" });
+}
