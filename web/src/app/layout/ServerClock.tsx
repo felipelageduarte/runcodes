@@ -21,25 +21,26 @@ export function ServerClock() {
 
   return (
     <div
-      title="Horário do servidor — referência oficial para prazos de entrega"
-      className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5"
+      title="Hora do servidor — referência oficial para prazos de entrega"
+      className="flex items-center gap-2 rounded-lg bg-[oklch(0.45_0.11_240)] px-3 py-1.5 shadow-sm"
     >
       <span className="relative flex size-2">
         <span className="absolute inline-flex size-full animate-clock-pulse rounded-full bg-accent" />
-        <span className="relative inline-flex size-2 rounded-full bg-accent/40" />
+        <span className="relative inline-flex size-2 rounded-full bg-accent/50" />
       </span>
-      <Clock aria-hidden="true" className="size-3.5 text-muted-foreground" />
+      <Clock aria-hidden="true" className="size-3.5 text-white/70" />
+      <span className="hidden text-xs font-medium text-white/70 lg:inline">Hora do servidor</span>
       {now ? (
-        <span className="font-mono text-sm tabular-nums text-foreground">
+        <span className="font-mono text-sm font-semibold tabular-nums text-white">
           {TIME_FMT.format(now)}
-          <span className="ml-2 hidden text-xs text-muted-foreground xl:inline">
+          <span className="ml-2 hidden text-xs font-normal text-white/70 xl:inline">
             {DATE_FMT.format(now)}
           </span>
         </span>
       ) : (
-        <span className="font-mono text-sm text-muted-foreground">--:--:--</span>
+        <span className="font-mono text-sm text-white/60">--:--:--</span>
       )}
-      <span className="sr-only">Horário do servidor</span>
+      <span className="sr-only">Hora do servidor</span>
     </div>
   );
 }

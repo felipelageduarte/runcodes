@@ -18,7 +18,7 @@ import {
 } from "@runcodes/ui";
 import { formatRelativeDeadline, googleCalendarUrl, MarkdownContent } from "@runcodes/shared";
 import { CalendarPlus, Eye, EyeOff, FileDown } from "lucide-react";
-import { SubmissionPanel } from "./components/SubmissionPanel";
+import { SubmissionPanel, type SubmissionMode } from "./components/SubmissionPanel";
 import { CommitHistory } from "./components/CommitHistory";
 import { LanguageAgreements } from "./components/LanguageAgreements";
 
@@ -26,6 +26,7 @@ export function ExercisePage() {
   const { id } = useParams<{ id: string }>();
   const exerciseId = Number(id);
   const [showDescription, setShowDescription] = useState(true);
+  const [mode, setMode] = useState<SubmissionMode>("upload");
 
   const exerciseQuery = useQuery({
     queryKey: ["exercise", exerciseId],
@@ -59,7 +60,7 @@ export function ExercisePage() {
   const exercise = exerciseQuery.data;
 
   return (
-    <PageContainer width="wide">
+    <PageContainer width={mode === "editor" ? "full" : "wide"}>
       <PageHeader
         title={exercise.title}
         crumbs={[
@@ -107,58 +108,57 @@ export function ExercisePage() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          {showDescription && (
-            <div className="mb-6">
-              {exercise.description ? (
-                exercise.markdown ? (
-                  <MarkdownContent content={exercise.description} />
-                ) : (
-                  <p className="whitespace-pre-wrap text-sm text-foreground">{exercise.description}</p>
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground">Sem enunciado.</p>
-              )}
-            </div>
-          )}
-
-          <LanguageAgreements allowedFiles={exercise.allowedFiles} />
-
-          {exercise.allowedFiles.length > 0 && (
-            <p className="mb-4 text-xs text-muted-foreground">
-              Tipos aceitos: {exercise.allowedFiles.map((f) => f.name).join(", ")}
-            </p>
-          )}
-
-          {filesQuery.data && filesQuery.data.length > 0 && (
-            <div className="mb-6">
-              <SectionHeader title="Arquivos de apoio" className="mb-2" />
-              <ul className="space-y-1">
-                {filesQuery.data.map((file) => (
-                  <li key={file.id}>
-                    <a
-                      href={exerciseFileDownloadUrl(file.id)}
-                      className="flex items-center gap-2 text-sm text-primary-600 hover:underline"
-                    >
-                      <FileDown className="size-4" />
-                      {file.path}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {/* Layout sequencial de coluna única — o grid de 2 colunas espremia
+          enunciado e submissão lado a lado sem necessidade; empilhado,
+          cada seção usa a largura inteira da página. */}
+      {showDescription && (
+        <div className="mb-6">
+          {exercise.description ? (
+            exercise.markdown ? (
+              <MarkdownContent content={exercise.description} />
+            ) : (
+              <p className="whitespace-pre-wrap text-sm text-foreground">{exercise.description}</p>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">Sem enunciado.</p>
           )}
         </div>
+      )}
 
-        <div>
-          <SectionHeader title="Enviar submissão" className="mb-2" />
-          <SubmissionPanel exercise={exercise} onSubmitted={() => {}} />
+      <LanguageAgreements allowedFiles={exercise.allowedFiles} />
 
-          <SectionHeader title="Suas submissões" className="mb-2 mt-6" />
-          <CommitHistory exerciseId={exercise.id} />
+      {exercise.allowedFiles.length > 0 && (
+        <p className="mb-4 text-xs text-muted-foreground">
+          Tipos aceitos: {exercise.allowedFiles.map((f) => f.name).join(", ")}
+        </p>
+      )}
+
+      {filesQuery.data && filesQuery.data.length > 0 && (
+        <div className="mb-6">
+          <SectionHeader title="Arquivos de apoio" className="mb-2" />
+          <ul className="space-y-1">
+            {filesQuery.data.map((file) => (
+              <li key={file.id}>
+                <a
+                  href={exerciseFileDownloadUrl(file.id)}
+                  className="flex items-center gap-2 text-sm text-primary-600 hover:underline"
+                >
+                  <FileDown className="size-4" />
+                  {file.path}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
+      )}
+
+      <SectionHeader title="Enviar submissão" className="mb-2" />
+      <div className={mode === "editor" ? "h-[calc(100vh-280px)] min-h-[560px]" : undefined}>
+        <SubmissionPanel exercise={exercise} onSubmitted={() => {}} mode={mode} onModeChange={setMode} />
       </div>
+
+      <SectionHeader title="Suas submissões" className="mb-2 mt-6" />
+      <CommitHistory exerciseId={exercise.id} />
     </PageContainer>
   );
 }

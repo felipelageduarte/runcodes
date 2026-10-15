@@ -23,19 +23,27 @@ export function PlatformActivityPanel() {
 
   return (
     <div className="mb-6 space-y-3">
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard icon={<Activity className="size-5" />} label="Hoje" value={query.data.today} color="primary" />
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
-          icon={<CalendarDays className="size-5" />}
-          label="Ontem"
-          value={query.data.yesterday}
-          color="info"
+          icon={<Activity />}
+          label="Hoje"
+          value={query.data.today}
+          color="slate"
+          variant="filled"
         />
         <StatCard
-          icon={<TrendingUp className="size-5" />}
+          icon={<CalendarDays />}
+          label="Ontem"
+          value={query.data.yesterday}
+          color="primary"
+          variant="filled"
+        />
+        <StatCard
+          icon={<TrendingUp />}
           label="Últimos 7 dias"
           value={query.data.last7Days}
-          color="success"
+          color="accent"
+          variant="filled"
         />
       </div>
       <div className="flex h-16 items-end gap-0.5 rounded-lg border border-border bg-card p-3">

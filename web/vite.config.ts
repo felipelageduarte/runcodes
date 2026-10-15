@@ -20,6 +20,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": { target: "http://localhost:3000", changeOrigin: true },
+      // Site de documentação (Docusaurus) servido pela API — manual
+      // público + admin-docs atrás de sessão (iframe do painel admin).
+      "/docs": { target: "http://localhost:3000", changeOrigin: true },
     },
   },
 });

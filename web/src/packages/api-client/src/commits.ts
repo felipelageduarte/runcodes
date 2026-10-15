@@ -52,7 +52,11 @@ export function getCommitCases(id: number): Promise<CommitCaseResult[]> {
   return apiFetch(`/commits/${id}/cases`);
 }
 
-export function getCommitContent(id: number): Promise<{ filename: string; content: string }> {
+/** `encoding: "base64"` pra um .zip de projeto multi-arquivo (conteúdo
+ * binário) — `"utf-8"` pro caso de arquivo único de texto, como antes. */
+export function getCommitContent(
+  id: number,
+): Promise<{ filename: string; content: string; encoding: "utf-8" | "base64" }> {
   return apiFetch(`/commits/${id}/content`);
 }
 

@@ -1,9 +1,9 @@
 import {
   LayoutDashboard,
   Store,
-  LifeBuoy,
   Building2,
   BookOpen,
+  BookMarked,
   FileCog,
   Users,
   ScrollText,
@@ -38,7 +38,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: "/", label: "Painel", icon: LayoutDashboard },
       { to: "/marketplace", label: "Marketplace", icon: Store, minType: UserType.PROFESSOR },
-      { to: "/suporte", label: "Suporte", icon: LifeBuoy },
     ],
   },
   {
@@ -55,6 +54,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { to: "/admin/logs", label: "Logs", icon: ScrollText },
       { to: "/admin/pipeline", label: "Pipeline", icon: Workflow },
       { to: "/admin/banco", label: "Banco de dados", icon: Database },
+      { to: "/admin/documentacao", label: "Documentação", icon: BookMarked },
     ],
   },
 ];

@@ -12,18 +12,29 @@ const EditorSubmissionMode = lazy(() =>
   import("./EditorSubmissionMode").then((m) => ({ default: m.EditorSubmissionMode })),
 );
 
-type Mode = "upload" | "editor";
+export type SubmissionMode = "upload" | "editor";
 
 /** Upload de arquivo e editor Monaco convergem no mesmo endpoint de
- * submissão — ver docs/frontend/code-editor.md. */
+ * submissão — ver docs/frontend/code-editor.md. Modo é controlável de
+ * fora (ExercisePage usa isso pra saber quando trocar pro layout de
+ * IDE em tela cheia); sem o prop, funciona não-controlado como antes. */
 export function SubmissionPanel({
   exercise,
   onSubmitted,
+  mode: controlledMode,
+  onModeChange,
 }: {
   exercise: ExerciseDetail;
   onSubmitted: (commit: CommitRecord) => void;
+  mode?: SubmissionMode;
+  onModeChange?: (mode: SubmissionMode) => void;
 }) {
-  const [mode, setMode] = useState<Mode>("upload");
+  const [internalMode, setInternalMode] = useState<SubmissionMode>("upload");
+  const mode = controlledMode ?? internalMode;
+  function setMode(next: SubmissionMode) {
+    setInternalMode(next);
+    onModeChange?.(next);
+  }
   const canUseEditor = isCompilableExerciseType(exercise.type) && exercise.allowedFiles.length > 0;
 
   if (!exercise.isOpen) {
@@ -36,11 +47,13 @@ export function SubmissionPanel({
     );
   }
 
+  const isIde = mode === "editor" && canUseEditor;
+
   return (
-    <Card>
-      <CardContent className="p-4">
+    <Card className={isIde ? "flex h-full flex-col" : undefined}>
+      <CardContent className={isIde ? "flex min-h-0 flex-1 flex-col p-4" : "p-4"}>
         {canUseEditor && (
-          <div className="mb-4 flex gap-2">
+          <div className="mb-4 flex shrink-0 gap-2">
             <Button
               variant={mode === "upload" ? "secondary" : "ghost"}
               size="sm"
@@ -60,9 +73,11 @@ export function SubmissionPanel({
           </div>
         )}
 
-        {mode === "editor" && canUseEditor ? (
+        {isIde ? (
           <Suspense fallback={<Skeleton className="h-[60vh] w-full" />}>
-            <EditorSubmissionMode exercise={exercise} onSubmitted={onSubmitted} />
+            <div className="min-h-0 flex-1">
+              <EditorSubmissionMode exercise={exercise} onSubmitted={onSubmitted} />
+            </div>
           </Suspense>
         ) : (
           <FileUploadMode exercise={exercise} onSubmitted={onSubmitted} />

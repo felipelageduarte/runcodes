@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
-import { CalendarPlus, CheckCircle2, GraduationCap, Inbox, ListTodo, Plus, School, Settings } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Inbox, ListTodo, Plus, School, Settings } from "lucide-react";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
 import {
   Badge,
   Button,
+  Card,
   CardContent,
+  CardHeader,
+  CardTitle,
   EmptyState,
   InteractiveCard,
   PageContainer,
@@ -20,6 +23,7 @@ import { formatRelativeDeadline, isApprovedScore, isOfferingStaff } from "@runco
 import { useExerciseQueue } from "./hooks/useExerciseQueue";
 import { ExerciseStatusBadge } from "./components/ExerciseStatusBadge";
 import { EnrollDialog } from "./components/EnrollDialog";
+import { EnrollCard } from "./components/EnrollCard";
 
 function QueueSkeleton() {
   return (
@@ -44,135 +48,155 @@ export function DashboardPage() {
 
   return (
     <PageContainer width="default">
-      <PageHeader
-        title={<>Olá, {user?.name}</>}
-        actions={
-          <>
-            {(user?.type ?? 0) >= UserType.PROFESSOR && (
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/turmas/nova">
-                  <Plus className="size-4" />
-                  Nova turma
-                </Link>
-              </Button>
-            )}
-            <EnrollDialog
-              trigger={
-                <Button variant="secondary" size="sm">
-                  <GraduationCap className="size-4" />
-                  Entrar em turma
-                </Button>
-              }
-            />
-          </>
-        }
-      />
+      <PageHeader title={<>Olá, {user?.name}</>} />
 
       {!isLoading && !isError && offerings && offerings.open.length > 0 && (
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={<School className="size-5" />} label="Turmas" value={totalTurmas} color="primary" />
-          <StatCard icon={<ListTodo className="size-5" />} label="Pendentes" value={queue.length} color="warning" />
-          <StatCard icon={<CheckCircle2 className="size-5" />} label="Aprovados" value={approvedCount} color="success" />
+        <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            variant="filled"
+            icon={<School className="size-5" />}
+            label="Turmas"
+            value={totalTurmas}
+            color="slate"
+          />
+          <StatCard
+            variant="filled"
+            icon={<ListTodo className="size-5" />}
+            label="Pendentes"
+            value={queue.length}
+            color="primary"
+          />
+          <StatCard
+            variant="filled"
+            icon={<CheckCircle2 className="size-5" />}
+            label="Aprovados"
+            value={approvedCount}
+            color="accent"
+          />
           {teachingOfferings.length > 0 && (
             <StatCard
+              variant="filled"
               icon={<Settings className="size-5" />}
               label="Turmas lecionadas"
               value={teachingOfferings.length}
-              color="purple"
+              color="success"
             />
           )}
         </div>
       )}
 
-      <SectionHeader title="Exercícios" />
+      <div className="lg:grid lg:grid-cols-[2fr_1fr] lg:items-start lg:gap-6">
+        <div className="min-w-0">
+          <SectionHeader title="Exercícios" />
 
-      {isLoading ? (
-        <QueueSkeleton />
-      ) : isError ? (
-        <EmptyState title="Não foi possível carregar seus exercícios" description="Tente recarregar a página." />
-      ) : offerings && offerings.open.length === 0 ? (
-        <EmptyState
-          icon={<Inbox className="size-8" />}
-          title="Você ainda não entrou em nenhuma turma"
-          description="Peça o código de matrícula pro seu professor."
-          action={<EnrollDialog trigger={<Button size="sm">Entrar em turma</Button>} />}
-        />
-      ) : queue.length === 0 ? (
-        <EmptyState title="Nenhum exercício disponível nas suas turmas abertas" />
-      ) : (
-        <StaggerList className="space-y-2">
-          {queue.map((exercise) => (
-            <StaggerItem key={exercise.id}>
-              <Link to={`/exercicios/${exercise.id}`}>
-                <InteractiveCard>
-                  <CardContent className="flex items-center justify-between gap-4 p-4">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">{exercise.title}</p>
-                      <p className="truncate text-sm text-muted-foreground">{exercise.offeringTitle}</p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <ExerciseStatusBadge commit={exercise.myLatestCommit} />
-                      <span className="text-xs text-muted-foreground">
-                        {exercise.isOpen ? (
-                          formatRelativeDeadline(exercise.deadline)
-                        ) : (
-                          <Badge variant="neutral">Ainda não abriu</Badge>
-                        )}
-                      </span>
-                    </div>
-                  </CardContent>
-                </InteractiveCard>
-              </Link>
-            </StaggerItem>
-          ))}
-        </StaggerList>
-      )}
+          {isLoading ? (
+            <QueueSkeleton />
+          ) : isError ? (
+            <EmptyState title="Não foi possível carregar seus exercícios" description="Tente recarregar a página." />
+          ) : offerings && offerings.open.length === 0 ? (
+            <EmptyState
+              icon={<Inbox className="size-8" />}
+              title="Você ainda não entrou em nenhuma turma"
+              description="Peça o código de matrícula pro seu professor."
+              action={<EnrollDialog trigger={<Button size="sm">Entrar em turma</Button>} />}
+            />
+          ) : queue.length === 0 ? (
+            <EmptyState title="Nenhum exercício disponível nas suas turmas abertas" />
+          ) : (
+            <StaggerList className="space-y-2">
+              {queue.map((exercise) => (
+                <StaggerItem key={exercise.id}>
+                  <Link to={`/exercicios/${exercise.id}`}>
+                    <InteractiveCard>
+                      <CardContent className="flex items-center justify-between gap-4 p-4">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">{exercise.title}</p>
+                          <p className="truncate text-sm text-muted-foreground">{exercise.offeringTitle}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <ExerciseStatusBadge commit={exercise.myLatestCommit} />
+                          <span className="text-xs text-muted-foreground">
+                            {exercise.isOpen ? (
+                              formatRelativeDeadline(exercise.deadline)
+                            ) : (
+                              <Badge variant="neutral">Ainda não abriu</Badge>
+                            )}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </InteractiveCard>
+                  </Link>
+                </StaggerItem>
+              ))}
+            </StaggerList>
+          )}
 
-      {teachingOfferings.length > 0 && (
-        <>
-          <SectionHeader title="Turmas que você leciona" className="mt-8" />
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {teachingOfferings.map((offering) => (
-              <li key={offering.id}>
-                <Link to={`/turmas/${offering.id}/gerenciar`}>
-                  <InteractiveCard>
-                    <CardContent className="flex items-center gap-3 p-4">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
-                        <Settings className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-foreground">
-                          {offering.course?.title ?? `Turma #${offering.id}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Gerenciar turma</p>
-                      </div>
-                    </CardContent>
-                  </InteractiveCard>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+          {teachingOfferings.length > 0 && (
+            <>
+              <SectionHeader title="Turmas que você leciona" className="mt-8" />
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {teachingOfferings.map((offering) => (
+                  <li key={offering.id}>
+                    <Link to={`/turmas/${offering.id}/gerenciar`}>
+                      <InteractiveCard>
+                        <CardContent className="flex items-center gap-3 p-4">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-purple/15 text-accent-purple">
+                            <Settings className="size-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-foreground">
+                              {offering.course?.title ?? `Turma #${offering.id}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Gerenciar turma</p>
+                          </div>
+                        </CardContent>
+                      </InteractiveCard>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
-      {offerings && offerings.closed.length > 0 && (
-        <>
-          <SectionHeader title="Turmas encerradas" className="mt-8" />
-          <ul className="space-y-2">
-            {offerings.closed.map((offering) => (
-              <li key={offering.id}>
-                <Link
-                  to={`/turmas/${offering.id}`}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-                >
-                  <CalendarPlus className="size-4" />
-                  {offering.course?.title ?? `Turma #${offering.id}`}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+          {offerings && offerings.closed.length > 0 && (
+            <>
+              <SectionHeader title="Turmas encerradas" className="mt-8" />
+              <ul className="space-y-2">
+                {offerings.closed.map((offering) => (
+                  <li key={offering.id}>
+                    <Link
+                      to={`/turmas/${offering.id}`}
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+                    >
+                      <CalendarPlus className="size-4" />
+                      {offering.course?.title ?? `Turma #${offering.id}`}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+
+        <aside className="mt-8 space-y-4 lg:mt-0">
+          <EnrollCard />
+          {(user?.type ?? 0) >= UserType.PROFESSOR && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ações rápidas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button variant="secondary" className="w-full" asChild>
+                  <Link to="/turmas/nova">
+                    <Plus className="size-4" />
+                    Nova turma
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </aside>
+      </div>
     </PageContainer>
   );
 }

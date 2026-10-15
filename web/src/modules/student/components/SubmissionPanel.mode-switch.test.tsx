@@ -11,7 +11,12 @@ import { SubmissionPanel } from "./SubmissionPanel";
 vi.mock("@runcodes/editor", () => ({
   CodeEditor: () => <div data-testid="fake-code-editor" />,
   useDraft: (_id: number, initial: string) => ({ value: initial, setValue: vi.fn(), clearDraft: vi.fn() }),
+  useProjectDraft: () => ({ files: [], setFiles: vi.fn(), clearDraft: vi.fn() }),
   useUnsavedChangesGuard: vi.fn(),
+  languageForExtension: (ext: string) => ext,
+  zipProject: vi.fn(() => new Uint8Array()),
+  unzipProject: vi.fn(() => []),
+  base64ToBytes: vi.fn(() => new Uint8Array()),
 }));
 
 function makeExercise(overrides: Partial<ExerciseDetail> = {}): ExerciseDetail {

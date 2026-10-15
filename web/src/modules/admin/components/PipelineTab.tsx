@@ -58,7 +58,7 @@ export function PipelineTab() {
   return (
     <div className="space-y-4 py-4">
       <p className="text-xs text-muted-foreground">
-        Lê o mesmo status que o compiler-engine atualiza em tempo real — atualiza a cada {POLL_MS / 1000}s.
+        Lê o mesmo status que o runcodes-compiler atualiza em tempo real — atualiza a cada {POLL_MS / 1000}s.
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

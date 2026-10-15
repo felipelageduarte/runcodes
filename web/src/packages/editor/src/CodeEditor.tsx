@@ -16,7 +16,7 @@ export interface CodeEditorProps {
  * docs/frontend/code-editor.md. Nunca executa código no browser: o
  * conteúdo só vira um arquivo na hora de submeter, pelo mesmo caminho de
  * upload que já existia. */
-export function CodeEditor({ value, onChange, extension, height = "60vh", readOnly }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, extension, height = "100%", readOnly }: CodeEditorProps) {
   const { theme } = useTheme();
 
   return (
@@ -28,11 +28,17 @@ export function CodeEditor({ value, onChange, extension, height = "60vh", readOn
       height={height}
       options={{
         readOnly,
-        minimap: { enabled: false },
+        minimap: { enabled: true, scale: 1 },
         fontSize: 13,
         fontFamily: "JetBrains Mono, ui-monospace, monospace",
         scrollBeyondLastLine: false,
         automaticLayout: true,
+        renderLineHighlight: "all",
+        smoothScrolling: true,
+        cursorBlinking: "smooth",
+        bracketPairColorization: { enabled: true },
+        guides: { indentation: true, bracketPairs: true },
+        padding: { top: 8 },
       }}
     />
   );

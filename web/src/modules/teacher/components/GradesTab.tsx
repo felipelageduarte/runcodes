@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getGrades, getOfferingInfographic, gradesExportCsvUrl } from "@runcodes/api-client";
-import { Card, CardContent, EmptyState, Skeleton, Table, type TableColumn } from "@runcodes/ui";
+import { getGrades } from "@runcodes/api-client";
+import { EmptyState, Skeleton, Table, type TableColumn } from "@runcodes/ui";
 
 interface GradeRow {
   email: string;
@@ -13,10 +13,6 @@ export function GradesTab({ offeringId }: { offeringId: number }) {
   const gradesQuery = useQuery({
     queryKey: ["offering", offeringId, "grades"],
     queryFn: () => getGrades(offeringId),
-  });
-  const infographicQuery = useQuery({
-    queryKey: ["offering", offeringId, "infographic"],
-    queryFn: () => getOfferingInfographic(offeringId),
   });
 
   if (gradesQuery.isLoading) {
@@ -55,38 +51,6 @@ export function GradesTab({ offeringId }: { offeringId: number }) {
 
   return (
     <div className="space-y-4 py-4">
-      {infographicQuery.data && (
-        <div className="grid grid-cols-3 gap-3">
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-2xl font-semibold text-foreground">{infographicQuery.data.studentCount}</p>
-              <p className="text-xs text-muted-foreground">Alunos matriculados</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-2xl font-semibold text-foreground">{infographicQuery.data.gradesAbove5Percent}%</p>
-              <p className="text-xs text-muted-foreground">Notas acima de 5</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-2xl font-semibold text-foreground">{infographicQuery.data.gradesAverage.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">Média da turma</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <div className="flex justify-end">
-        <a
-          href={gradesExportCsvUrl(offeringId)}
-          className="text-sm font-medium text-primary-600 hover:underline"
-        >
-          Exportar CSV
-        </a>
-      </div>
-
       <Table columns={columns} rows={rows} rowKey={(r) => r.email} density="compact" stickyFirstColumn emptyTitle="Nenhum aluno matriculado" />
     </div>
   );

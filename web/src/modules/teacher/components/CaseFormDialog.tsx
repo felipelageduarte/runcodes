@@ -98,7 +98,7 @@ export function CaseFormDialog({
           <DialogDescription>
             {existing
               ? "Deixe input/output em branco pra manter o conteúdo atual."
-              : "Input e output são texto puro enviado pro compiler-engine."}
+              : "Input e output são texto puro enviado pro runcodes-compiler."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-1">

@@ -32,7 +32,7 @@ export function ViewAsMenu({ collapsedLabel }: { collapsedLabel?: boolean }) {
           type="button"
           aria-label="Ver como"
           title="Ver como outro papel"
-          className="flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
         >
           <Eye aria-hidden="true" className="size-4.5 shrink-0" />
           {!collapsedLabel && <span className="hidden xl:inline">Ver como</span>}

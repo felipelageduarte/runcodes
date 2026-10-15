@@ -34,14 +34,15 @@
   --primary-700: oklch(0.41 0.16 222);
   --primary-foreground: oklch(0.99 0 0);
 
-  /* Sidebar — âncora de marca, cor própria (não acompanha o
-     background), mesmo espírito do sidebar colorido do run.codes
-     original — âncora visual que o layout anterior não tinha. */
-  --sidebar: oklch(0.32 0.1 222);
-  --sidebar-foreground: oklch(0.95 0.01 222);
-  --sidebar-muted: oklch(0.8 0.04 222);
-  --sidebar-active: oklch(0.42 0.12 222);
-  --sidebar-border: oklch(0.4 0.1 222);
+  /* Sidebar/topbar — âncora de marca, cor própria (não acompanha o
+     background). Slate escuro puxado do navbar do legado (#2c3e50 /
+     #354458 — "color-one"), não ciano claro: o azul vivo fica pros
+     botões e dados, o chrome do app é escuro e sóbrio como o original. */
+  --sidebar: oklch(0.31 0.04 252);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-muted: oklch(0.74 0.025 250);
+  --sidebar-active: oklch(0.4 0.055 248);
+  --sidebar-border: oklch(0.4 0.04 252);
 
   /* Semantic status — mais saturado, usado com mais liberdade (fundos
      de card/badge, não só texto) */
@@ -90,11 +91,11 @@
   --primary-700: oklch(0.78 0.14 222);
   --primary-foreground: oklch(0.12 0 0);
 
-  --sidebar: oklch(0.13 0.02 230);
-  --sidebar-foreground: oklch(0.9 0.01 230);
-  --sidebar-muted: oklch(0.6 0.03 230);
-  --sidebar-active: oklch(0.24 0.06 222);
-  --sidebar-border: oklch(0.22 0.02 230);
+  --sidebar: oklch(0.2 0.03 252);
+  --sidebar-foreground: oklch(0.92 0.005 250);
+  --sidebar-muted: oklch(0.63 0.025 250);
+  --sidebar-active: oklch(0.3 0.045 248);
+  --sidebar-border: oklch(0.3 0.03 252);
 
   --success: oklch(0.65 0.17 150);
   --success-foreground: oklch(0.1 0 0);

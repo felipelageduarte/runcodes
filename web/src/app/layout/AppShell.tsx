@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { LogOut, Moon, Sun, UserCircle, ChevronDown } from "lucide-react";
+import { LogOut, Moon, Sun, UserCircle, ChevronDown, LifeBuoy } from "lucide-react";
 import { useSession, useLogout } from "@runcodes/auth";
-import { useTheme, userTypeLabel } from "@runcodes/shared";
+import { useTheme } from "@runcodes/shared";
 import {
   cn,
   DropdownMenu,
@@ -105,40 +105,36 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           ))}
         </nav>
-        {/* Rodapé: cartão do usuário → perfil */}
-        <NavLink
-          to="/perfil"
-          className="mt-4 flex items-center gap-3 rounded-lg border border-sidebar-border/60 px-2 py-2 transition-colors hover:bg-sidebar-active"
-        >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-active font-display text-xs font-bold text-sidebar-foreground">
-            {initials(user?.name)}
-          </span>
-          <span className="hidden min-w-0 flex-col lg:flex">
-            <span className="truncate text-sm font-medium text-sidebar-foreground">{user?.name}</span>
-            <span className="truncate text-xs text-sidebar-muted">
-              {user ? userTypeLabel(user.type) : ""}
-            </span>
-          </span>
-        </NavLink>
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        {/* Topbar — contexto global: relógio do servidor, tema, conta. */}
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur sm:px-6">
-          <span className="font-display text-base font-bold tracking-tight text-foreground md:hidden">
+        {/* Topbar — chrome escuro contínuo com a sidebar, como a navbar
+            slate do legado. Relógio do servidor sempre visível. */}
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 bg-sidebar px-4 shadow-md sm:px-6">
+          <span className="font-display text-base font-bold tracking-tight text-sidebar-foreground md:hidden">
             run<span className="text-accent">.</span>codes
           </span>
           <div className="hidden md:block" />
           <div className="flex items-center gap-1.5">
             <ServerClock />
-            <div className="mx-1 h-6 w-px bg-border" />
+            <div className="mx-1 h-6 w-px bg-sidebar-border" />
             <ViewAsMenu collapsedLabel />
+            <a
+              href="/docs/manual/intro/"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Manual do usuário"
+              title="Manual do usuário"
+              className="rounded-lg p-2 text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
+            >
+              <LifeBuoy aria-hidden="true" className="size-4.5" />
+            </a>
             <button
               type="button"
               onClick={toggleTheme}
               aria-label={theme === "dark" ? "Modo claro" : "Modo escuro"}
               title={theme === "dark" ? "Modo claro" : "Modo escuro"}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="rounded-lg p-2 text-sidebar-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-foreground"
             >
               {theme === "dark" ? (
                 <Sun aria-hidden="true" className="size-4.5" />
@@ -151,12 +147,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   aria-label="Menu da conta"
-                  className="flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-muted"
+                  className="flex items-center gap-1.5 rounded-lg p-1.5 transition-colors hover:bg-sidebar-active"
                 >
                   <span className="flex size-7 items-center justify-center rounded-full bg-primary-600 font-display text-xs font-bold text-primary-foreground">
                     {initials(user?.name)}
                   </span>
-                  <ChevronDown aria-hidden="true" className="hidden size-3.5 text-muted-foreground sm:block" />
+                  <ChevronDown aria-hidden="true" className="hidden size-3.5 text-sidebar-muted sm:block" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -169,6 +165,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <UserCircle aria-hidden="true" className="size-4" />
                   Meu perfil
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/suporte")}>
+                  <LifeBuoy aria-hidden="true" className="size-4" />
+                  Ajuda
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => logout.mutate()}>
                   <LogOut aria-hidden="true" className="size-4" />
                   Sair

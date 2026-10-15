@@ -24,7 +24,7 @@ export function AttachmentsTab({ exerciseId }: { exerciseId: number }) {
       />
       <AttachmentList
         title="Arquivos de compilação"
-        hint="Headers, makefiles de apoio — usados pelo compiler-engine, não aparecem pro aluno."
+        hint="Headers, makefiles de apoio — usados pelo runcodes-compiler, não aparecem pro aluno."
         queryKey={["exercise", exerciseId, "compilation-files"]}
         list={() => listCompilationFiles(exerciseId)}
         upload={(file) => uploadCompilationFile(exerciseId, file)}

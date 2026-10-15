@@ -2,9 +2,9 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getCommitCases, getCommitContent, type CommitRecord } from "@runcodes/api-client";
-import { Badge, Button, Card } from "@runcodes/ui";
-import { commitSignalMessage, commitStatusLabel, formatDateTime, isCommitError, isCommitInProgress } from "@runcodes/shared";
-import { CommitCasesList } from "./CommitCasesList";
+import { Button, Card } from "@runcodes/ui";
+import { formatDateTime, isCommitInProgress } from "@runcodes/shared";
+import { SubmissionOutcome, SubmissionStatusBadge } from "./SubmissionOutcome";
 
 /** Ver o código de qualquer submissão do histórico, não só a mais
  * recente — o backend já aceitava isso (dono ou staff), só faltava a
@@ -72,7 +72,7 @@ export function CommitCard({ commit, defaultOpen = false }: { commit: CommitReco
           {commit.score !== null && (
             <span className="text-sm font-medium text-foreground">Nota: {commit.score}</span>
           )}
-          <Badge variant={inProgress ? "info" : "neutral"}>{commitStatusLabel(commit.status)}</Badge>
+          <SubmissionStatusBadge status={commit.status} />
         </div>
       </button>
       {open && (
@@ -82,22 +82,7 @@ export function CommitCard({ commit, defaultOpen = false }: { commit: CommitReco
               <CommitCode commitId={commit.id} />
             </div>
           )}
-          {isCommitError(commit.status) && (commit.compiledMessage || commit.compiledSignal) && (
-            <div className="space-y-2 p-4 text-sm">
-              {commit.compiledSignal && (
-                <p className="text-danger">
-                  <span className="font-mono font-medium">{commit.compiledSignal}</span> —{" "}
-                  {commitSignalMessage(commit.compiledSignal)}
-                </p>
-              )}
-              {commit.compiledMessage && (
-                <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs text-muted-foreground">
-                  {commit.compiledMessage}
-                </pre>
-              )}
-            </div>
-          )}
-          {casesQuery.data ? <CommitCasesList cases={casesQuery.data} /> : null}
+          <SubmissionOutcome commit={commit} cases={casesQuery.data} />
         </div>
       )}
     </Card>
