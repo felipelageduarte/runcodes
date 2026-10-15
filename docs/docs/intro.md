@@ -1,36 +1,38 @@
 ---
 id: intro
-title: run.codes — visão geral
-slug: /
+title: Bem-vindo ao run.codes
 sidebar_position: 1
 ---
 
-# run.codes
+# Bem-vindo ao run.codes
 
-run.codes é uma plataforma de correção automática de exercícios de programação (online judge) usada no ICMC/USP e outras instituições. Este site documenta o **sistema como um todo**: como os repositórios se encaixam, as decisões de arquitetura e o estado de cada módulo.
+O run.codes é uma plataforma de **correção automática de exercícios de programação**. Funciona assim: o professor cadastra um exercício com casos de teste (entradas e saídas esperadas); você escreve seu código e submete; o sistema compila e executa sua solução num ambiente isolado, compara a saída com o gabarito, caso a caso, e devolve o resultado em segundos — quantas vezes você precisar, até o prazo.
 
-## Por que um repo de documentação separado
+## Por onde começar
 
-O sistema é um monorepo *lógico* (mesma organização, propósito único) mas **poliglota e multi-repo** na prática — cada módulo tem seu próprio ciclo de vida, linguagem e deploy:
+O manual está organizado por papel. Vá direto pra seção que descreve o seu:
 
-| Repositório | Linguagem | Responsabilidade |
-|---|---|---|
-| [`server`](https://github.com/runcodes-icmc/server) | PHP 5.6 / CakePHP 2.4 | Aplicação web legada (em migração) |
-| [`runcodes-api`](https://github.com/runcodes-icmc/runcodes-api) | Node.js / TypeScript | Nova API — substitui `server` incrementalmente |
-| [`runcodes-web`](https://github.com/runcodes-icmc/runcodes-web) | React / TypeScript | Novo frontend — substitui as views do `server` |
-| `compiler-engine` | Python | Motor de compilação/execução sandboxed (`rcc`) |
-| `compiler-monitor` | C | Processo dentro do container que mede tempo/memória/sinais |
-| `compiler-images` | Dockerfiles | Imagens de compilação por linguagem |
-| `database` | SQL | Schema Postgres compartilhado por todos os módulos |
-| `deploy` | IaC/scripts | Deploy de produção |
-| `local-dev` | Docker Compose | Ambiente de desenvolvimento local integrado |
+### Sou aluno
 
-Nenhum desses repos sozinho pode documentar "como o sistema funciona" — só a junção faz sentido. Daí o repo `runcodes-docs` à parte.
+1. [Primeiros passos](./aluno/primeiros-passos.md) — criar conta, confirmar o email e entrar numa turma com o código do professor.
+2. [Submetendo exercícios](./aluno/submetendo-exercicios.md) — enviar sua solução por upload de arquivo, prazos e tipos de arquivo aceitos.
+3. [Usando o editor de código](./aluno/usando-o-editor.md) — escrever e submeter direto no navegador, inclusive projetos com mais de um arquivo.
+4. [Entendendo o resultado](./aluno/entendendo-resultados.md) — o que significa cada status, o resultado por caso de teste e a nota.
+5. [Erros de compilação e sinais](./aluno/erros-e-sinais.md) — o que fazer quando aparece "SIGSEGV", "tempo excedido" ou erro de compilação.
 
-## Mapa de leitura
+### Sou professor (ou monitor/assistente)
 
-- **[Arquitetura](./architecture/overview.md)** — como as peças se conectam, o fluxo de uma submissão de código ponta a ponta.
-- **[Estratégia de migração](./architecture/migration-strategy.md)** — por que Node.js/React, e como a migração do PHP legado está sendo feita (strangler pattern).
-- **[Backend (runcodes-api)](./backend/overview.md)** — arquitetura em camadas, módulos implementados, como testar. Funcionalmente completo.
-- **[Frontend (runcodes-web)](./frontend/overview.md)** — SDD do frontend novo: arquitetura modular, design system, jornadas redesenhadas, editor de código, marketplace de exercícios, segurança, testes, roadmap de fases.
-- **[Roadmap](./roadmap/backlog.md)** — o que falta, incluindo o plano de detecção de plágio (MOSS/JPlag/Dolos).
+1. [Criando uma turma](./professor/criando-turma.md) — abrir uma turma de uma disciplina e convidar os alunos.
+2. [Criando exercícios](./professor/criando-exercicios.md) — enunciado, prazos, linguagens aceitas e arquivos de apoio.
+3. [Casos de teste](./professor/casos-de-teste.md) — como o corretor automático decide se a solução está certa.
+4. [Acompanhando notas e submissões](./professor/acompanhando-notas.md) — matriz de notas, exportação em CSV, estatísticas, correção manual e recompilação.
+5. [Marketplace de exercícios](./professor/marketplace.md) — reaproveitar exercícios publicados por outros professores.
+6. [Detecção de plágio](./professor/deteccao-de-plagio.md) — comparar as submissões da turma entre si.
+
+### Dúvidas rápidas
+
+A [FAQ](./faq.md) responde as perguntas mais comuns dos dois papéis.
+
+## Uma ideia que vale conhecer desde já
+
+A nota no run.codes vem dos **casos de teste**: cada caso alimenta seu programa com uma entrada e compara a saída produzida com a saída esperada. A nota é proporcional aos casos corretos (10 × acertos ÷ total). Isso significa que "compilou e rodou no meu computador" não basta — a saída precisa bater **exatamente** com o esperado (salvo exercícios com comparação numérica tolerante). Grande parte deste manual existe pra te ajudar a entender e depurar essa diferença.

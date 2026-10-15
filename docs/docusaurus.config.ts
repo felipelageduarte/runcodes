@@ -4,7 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "run.codes",
-  tagline: "Documentação do sistema run.codes — arquitetura, APIs e módulos",
+  tagline: "Documentação do run.codes — manual do usuário e documentação técnica",
   favicon: "img/favicon.ico",
 
   // NOTE: `v4: true` (and the rspack/SWC "faster" pipeline it pulls in) has
@@ -17,7 +17,11 @@ const config: Config = {
   },
 
   url: "https://docs.run.codes",
-  baseUrl: "/",
+  // Servido pela runcodes-api em /docs (manual público, admin-docs atrás
+  // de sessão de admin) — ver docs.routes.ts lá. Build precisa casar com
+  // esse prefixo; pra servir na raiz de um domínio próprio, sobrescreva
+  // com DOCUSAURUS_BASE_URL=/ no build.
+  baseUrl: process.env.DOCUSAURUS_BASE_URL ?? "/docs/",
 
   organizationName: "runcodes-icmc",
   projectName: "runcodes-docs",
@@ -26,6 +30,12 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    hooks: {
+      // O manual do usuário usa placeholders de screenshot
+      // (/img/screenshots/*.png) que ainda serão capturados com o sistema
+      // rodando — ver docs/SCREENSHOTS-TODO.md. Não pode quebrar o build.
+      onBrokenMarkdownImages: "warn",
+    },
   },
   themes: ["@docusaurus/theme-mermaid"],
 
@@ -38,15 +48,32 @@ const config: Config = {
     [
       "classic",
       {
+        // Instância 1: Manual do usuário (público) — rota /manual
         docs: {
+          path: "docs",
+          routeBasePath: "manual",
           sidebarPath: "./sidebars.ts",
-          routeBasePath: "/",
         },
         blog: false,
         theme: {
           customCss: "./src/css/custom.css",
         },
       } satisfies Preset.Options,
+    ],
+  ],
+
+  plugins: [
+    [
+      "@docusaurus/plugin-content-docs",
+      // Instância 2: Documentação de administração/técnica — rota /admin-docs.
+      // Rota separada de propósito: é a parte que vai ser embutida na área
+      // restrita do admin, sem arrastar o manual público junto.
+      {
+        id: "admin",
+        path: "admin",
+        routeBasePath: "admin-docs",
+        sidebarPath: "./sidebarsAdmin.ts",
+      },
     ],
   ],
 
@@ -64,9 +91,16 @@ const config: Config = {
       items: [
         {
           type: "docSidebar",
-          sidebarId: "docsSidebar",
+          sidebarId: "manualSidebar",
           position: "left",
-          label: "Documentação",
+          label: "Manual do usuário",
+        },
+        {
+          type: "docSidebar",
+          sidebarId: "adminSidebar",
+          docsPluginId: "admin",
+          position: "left",
+          label: "Administração & técnica",
         },
       ],
     },
