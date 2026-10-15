@@ -91,8 +91,9 @@ async def process_commits(
     Non-retryable exceptions stop the consumer (after the in-flight commits
     finish); retryable ones are logged and skipped.
 
-    The connection pool is opened here before the pull loop starts and closed
-    when the consumer exits.
+    The data provider's connection pool is owned by the caller
+    (:func:`rcc.main`), which opens it before the consumer starts and closes
+    it after the consumer exits.
     """
     logger = logging.getLogger(DEFAULT_LOGGER)
 
@@ -111,12 +112,6 @@ async def process_commits(
     logger.debug("Consumer started")
 
     concurrency = get_concurrency(cfg)
-
-    try:
-        await data_provider.open()
-    except Exception:
-        logger.exception("Failed to open database connection pool")
-        raise
 
     semaphore = asyncio.Semaphore(concurrency)
     in_flight: set[asyncio.Task[None]] = set()
@@ -169,6 +164,4 @@ async def process_commits(
         if in_flight:
             _ = await asyncio.gather(*in_flight)
     finally:
-        await data_provider.close()
-
-    logger.debug("Consumer stopped")
+        logger.debug("Consumer stopped")

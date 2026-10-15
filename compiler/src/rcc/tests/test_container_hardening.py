@@ -1,5 +1,5 @@
 """Unit tests for the container-hardening flags added to `run()` in
-container.py (compiler-monitor-oportunidades.md, items S1/S2/S10):
+container.py (runcodes-compiler-sandbox-oportunidades.md, items S1/S2/S10):
 `network_mode="none"`, `cap_drop=["ALL"]`, `security_opt=["no-new-privileges"]`.
 
 These flags only constrain what the container is *allowed* to do; they do

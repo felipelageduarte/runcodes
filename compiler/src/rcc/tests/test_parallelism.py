@@ -301,8 +301,10 @@ class TestWorkerConcurrency(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(max_active, 2)
         self.assertEqual(sorted(finished), [0, 1, 2, 3, 4])
         self.assertEqual(task_queue.qsize(), 0)
-        self.assertEqual(provider.open_count, 1)
-        self.assertEqual(provider.close_count, 1)
+        # Pool lifecycle (open/close) is owned by rcc.main(), covered by
+        # TestMainBackpressure.
+        self.assertEqual(provider.open_count, 0)
+        self.assertEqual(provider.close_count, 0)
 
     async def test_stop_hint_drains_in_flight_commits(self) -> None:
         finished: list[int] = []
@@ -320,8 +322,10 @@ class TestWorkerConcurrency(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(sorted(finished), [1, 2, 3])
         self.assertEqual(task_queue.qsize(), 0)
-        self.assertEqual(provider.open_count, 1)
-        self.assertEqual(provider.close_count, 1)
+        # Pool lifecycle (open/close) is owned by rcc.main(), covered by
+        # TestMainBackpressure.
+        self.assertEqual(provider.open_count, 0)
+        self.assertEqual(provider.close_count, 0)
 
     async def test_retryable_failure_does_not_leak_a_slot(self) -> None:
         active = 0
@@ -382,8 +386,10 @@ class TestWorkerConcurrency(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(1, finished)
         self.assertIn(2, finished)
         self.assertTrue(all(cid in (2, 3) for cid in finished))
-        self.assertEqual(provider.open_count, 1)
-        self.assertEqual(provider.close_count, 1)
+        # Pool lifecycle (open/close) is owned by rcc.main(), covered by
+        # TestMainBackpressure.
+        self.assertEqual(provider.open_count, 0)
+        self.assertEqual(provider.close_count, 0)
 
     async def test_duplicate_commits_are_processed_once(self) -> None:
         """Copies of the same commit (the poller re-enqueues IN_QUEUE
@@ -485,8 +491,10 @@ class TestProcessCommitIntegration(unittest.IsolatedAsyncioTestCase):
         for commit in commits:
             self.assertEqual(commit.status, Commit.STATUS_COMPLETED)
         self.assertEqual(task_queue.qsize(), 0)
-        self.assertEqual(provider.open_count, 1)
-        self.assertEqual(provider.close_count, 1)
+        # Pool lifecycle (open/close) is owned by rcc.main(), covered by
+        # TestMainBackpressure.
+        self.assertEqual(provider.open_count, 0)
+        self.assertEqual(provider.close_count, 0)
 
 
 class RecordingQueue(asyncio.Queue[Commit | None]):
@@ -547,19 +555,16 @@ async def fake_consumer(
 ) -> None:
     """Stand-in for ``rcc.engine.process_commits`` as a consumer task.
 
-    Mirrors the real consumer: opens the pool, pulls one item per loop turn
-    (sleeping to simulate slow work), stops on the None hint and closes the
-    pool on the way out.
+    Mirrors the real consumer: pulls one item per loop turn (sleeping to
+    simulate slow work) and stops on the None hint. The pool's lifecycle is
+    owned by ``rcc.main()``, not by the consumer.
     """
-    await data_provider.open()
-    try:
-        while True:
-            item = await task_queue.get()
-            if item is None:
-                return
-            await asyncio.sleep(CONSUMER_COMMIT_SECONDS)
-    finally:
-        await data_provider.close()
+    _ = data_provider
+    while True:
+        item = await task_queue.get()
+        if item is None:
+            return
+        await asyncio.sleep(CONSUMER_COMMIT_SECONDS)
 
 
 class PollingProvider(rcc.provider.data.DataProvider):
@@ -686,8 +691,8 @@ class TestMainBackpressure(unittest.IsolatedAsyncioTestCase):
                 patch.stop()
 
         # The shutdown sequence ran: the consumer drained the queue
-        # (including the None hint) and the provider pool was opened and
-        # closed once.
+        # (including the None hint) and main() opened and closed the provider
+        # pool exactly once (it owns the pool lifecycle).
         self.assertEqual(provider.open_count, 1)
         self.assertEqual(provider.close_count, 1)
         self.assertEqual(task_queue.qsize(), 0)

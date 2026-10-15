@@ -1,6 +1,7 @@
 """Workspace management: download inputs, prepare files, store outputs."""
 
 import asyncio
+import math
 import os
 import shutil
 import zipfile
@@ -18,6 +19,47 @@ from .common import (
 if TYPE_CHECKING:
     from ..provider.data import DataProvider
     from ..provider.storage import StorageProvider
+
+# Guardrails for student-submitted zip archives (overridable through the
+# optional config keys ``max_zip_members`` and ``max_zip_uncompressed_size``).
+# They bound what extractall() may write to disk, so a crafted archive (a zip
+# bomb, or one with thousands of members) cannot exhaust the worker's disk.
+DEFAULT_MAX_ZIP_MEMBERS = 4096
+DEFAULT_MAX_ZIP_UNCOMPRESSED_SIZE = 256 * 1024 * 1024  # 256 MiB
+
+
+def check_zip_safety(
+    zip_file: zipfile.ZipFile, max_members: int, max_total_size: int
+) -> None:
+    """Reject archives that are unsafe to extract.
+
+    * Member names that are absolute or contain a ``..`` path component are
+      rejected outright. ``extractall()`` on modern Python already sanitizes
+      such names instead of writing outside the target directory, but it does
+      so *silently* (relocating the file); failing the commit visibly is both
+      safer and easier to debug.
+    * The archive is rejected when it has more than ``max_members`` members or
+      when its declared total uncompressed size exceeds ``max_total_size``
+      (zip-bomb protection; the sizes are validated against the actual stream
+      by zipfile's CRC/size checks during extraction).
+    """
+    infos = zip_file.infolist()
+    if len(infos) > max_members:
+        raise ValueError(
+            f"Zip archive has too many members ({len(infos)} > {max_members})"
+        )
+    total_size = 0
+    for info in infos:
+        name = info.filename.replace("\\", "/")
+        if name.startswith("/") or ".." in name.split("/"):
+            raise ValueError(
+                f"Zip archive has an unsafe member name: {info.filename!r}"
+            )
+        total_size += info.file_size
+    if total_size > max_total_size:
+        raise ValueError(
+            f"Zip archive expands to too much data ({total_size} > {max_total_size} bytes)"
+        )
 
 
 async def download_commit_file(
@@ -62,6 +104,18 @@ async def copy_source_files(
     extension = commit.extension
     if extension == "zip":
         with zipfile.ZipFile(destination) as zip_file:
+            check_zip_safety(
+                zip_file,
+                int(str(cfg.get("max_zip_members", DEFAULT_MAX_ZIP_MEMBERS))),
+                int(
+                    str(
+                        cfg.get(
+                            "max_zip_uncompressed_size",
+                            DEFAULT_MAX_ZIP_UNCOMPRESSED_SIZE,
+                        )
+                    )
+                ),
+            )
             extension = deduce_language(zip_file)
             commit.extension = extension
             commit.language = language_from_extension(extension)
@@ -126,31 +180,40 @@ async def copy_test_case_files(
 def create_container_cfg_file(
     cfg: Config, commit: Commit, test_cases: list[TestCase], base_dir: str
 ) -> None:
+    # Every numeric value is serialized as a non-negative integer: the
+    # hardened load_container_config in base-script.sh validates them with
+    # ^[0-9]+$ and hard-fails on anything else -- a float like the config
+    # default compilation_timeout=10.0 would kill every commit. Ceil, not
+    # trunc, so a fractional timeout never gets shorter than configured.
     container_cfg: list[tuple[str, object, bool]] = [
-        ("monitor_max_fs", cfg.monitor_max_file_size, False),
-        ("monitor_max_ms", cfg.monitor_max_mem_size, False),
-        ("compilation_timeout", cfg.compilation_timeout, False),
+        ("monitor_max_fs", math.ceil(cfg.monitor_max_file_size), False),
+        ("monitor_max_ms", math.ceil(cfg.monitor_max_mem_size), False),
+        ("compilation_timeout", math.ceil(cfg.compilation_timeout), False),
         ("src_file", commit.fname, True),
     ]
     container_cfg.extend(
-        [(f"t_{test.id}", test.cpu_time, False) for test in test_cases]
+        [(f"t_{test.id}", math.ceil(test.cpu_time), False) for test in test_cases]
     )
-    # Per-test memory ceiling (falls back to the global monitor_max_ms in
-    # base-script.sh when a test case leaves max_mem_size at 0/unset) --
-    # this field already existed on TestCase but was never threaded through
-    # to the container, so every test ran under the same global memory
-    # limit regardless of what an exercise actually configured per case.
-    container_cfg.extend(
-        [
-            (f"m_{test.id}", test.max_mem_size, False)
-            for test in test_cases
-            if test.max_mem_size > 0
-        ]
-    )
+    # Per-test memory ceiling (m_<id>) is deliberately NOT emitted, even
+    # though TestCase carries max_mem_size and base-script.sh understands
+    # the key. The legacy server hardcodes maxmemsize=4096 on every case
+    # and the legacy pipeline never forwarded it, so the unit was never
+    # pinned down -- enforced as bytes (what monitor -m takes) it is 4KiB
+    # and kills any process instantly (a bare python3 needs ~9MB RSS);
+    # even read as KiB it is below interpreter baseline. Threading it
+    # through was tried in 2026-10 and broke every existing exercise.
+    # Revisit only together with a DB migration that defines the unit and
+    # fixes the stored values.
     with open(os.path.join(base_dir, str(cfg.container_cfg_file)), "w") as cfg_file:
         for cfg_item in container_cfg:
             if cfg_item[2]:  # value needs shell quoting
-                print(f"{cfg_item[0]}='{cfg_item[1]}'", file=cfg_file)
+                # The config file is sourced by base-script.sh inside the
+                # container, and the value (the submitted filename) is
+                # student-controlled: escape embedded single quotes so a
+                # crafted name cannot break out of the quoting and inject
+                # shell into the container startup.
+                value = str(cfg_item[1]).replace("'", "'\\''")
+                print(f"{cfg_item[0]}='{value}'", file=cfg_file)
             else:
                 print(f"{cfg_item[0]}={cfg_item[1]}", file=cfg_file)
 

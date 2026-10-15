@@ -89,7 +89,29 @@ def process_test_results(
         run_time,
         test_status,
         run_signal,
+        # stdout/stderr do aluno vão pro banco junto do resultado — é o que
+        # a UI mostra como "Sua saída" quando o caso tem show_user_output
+        # (a visibilidade é decidida na API, aqui sempre grava). Sem isso a
+        # coluna `output` fica no default '' e o aluno nunca vê a própria
+        # saída, mesmo com a chave ligada no caso de teste.
+        output=_read_capped(user_out_fname),
+        output_type=test_case.output_type,
+        error=_read_capped(user_err_fname),
     )
+
+
+# Grande o bastante pra qualquer saída didática, pequeno o bastante pra não
+# inchar a linha do banco com a saída de um loop descontrolado (o arquivo
+# completo continua no bucket de outputfiles).
+_MAX_STORED_OUTPUT = 64 * 1024
+
+
+def _read_capped(fname: str, limit: int = _MAX_STORED_OUTPUT) -> str:
+    try:
+        with open(fname, encoding="utf-8", errors="replace") as f:
+            return f.read(limit)
+    except OSError:
+        return ""
 
 
 def process_test_results_batch(

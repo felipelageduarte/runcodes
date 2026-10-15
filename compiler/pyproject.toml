@@ -1,5 +1,5 @@
 [project]
-name = "compiler-engine"
+name = "runcodes-compiler"
 version = "0.1.0"
 description = "The run.codes compiler engine"
 requires-python = ">=3.14"

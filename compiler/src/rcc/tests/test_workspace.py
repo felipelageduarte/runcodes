@@ -1,19 +1,21 @@
 """Unit tests for workspace.create_container_cfg_file, in particular the
 per-test memory ceiling (`m_<id>`) added alongside the existing per-test
-timeout (`t_<id>`) -- compiler-monitor-oportunidades.md item S1/S7: TestCase
+timeout (`t_<id>`) -- runcodes-compiler-sandbox-oportunidades.md item S1/S7: TestCase
 already carried `max_mem_size`, but it was never threaded through to the
 container, so every test ran under the same global memory limit regardless
 of what an exercise configured per case.
 """
 
 import datetime
+import io
 import os
 import tempfile
 import unittest
+import zipfile
 from typing import override
 
 from rcc.config import Config
-from rcc.engine.workspace import create_container_cfg_file
+from rcc.engine.workspace import check_zip_safety, create_container_cfg_file
 from rcc.model import Commit, TestCase
 
 
@@ -105,18 +107,12 @@ class TestCreateContainerCfgFile(unittest.TestCase):
         self.assertIn("t_1=3", lines)
         self.assertIn("t_2=7", lines)
 
-    def test_per_test_memory_omitted_when_unset(self) -> None:
-        # Control case: a test case that leaves max_mem_size at its default
-        # (0) must NOT get an `m_<id>` line, so base-script.sh's existing
-        # fallback to the global monitor_max_ms keeps applying exactly as
-        # it did before this field existed.
-        commit = build_commit()
-        test_cases = [build_test_case(1, max_mem_size=0)]
-        create_container_cfg_file(self.cfg, commit, test_cases, self.tmpdir.name)
-        lines = self.read_cfg()
-        self.assertFalse(any(line.startswith("m_1=") for line in lines))
-
-    def test_per_test_memory_emitted_when_set(self) -> None:
+    def test_per_test_memory_never_emitted(self) -> None:
+        # m_<id> is deliberately not emitted even when max_mem_size is set:
+        # the legacy server hardcodes maxmemsize=4096 on every case with an
+        # undefined unit, and enforcing it (monitor -m takes bytes) kills any
+        # process instantly. See the comment in create_container_cfg_file —
+        # revisit together with a DB migration that pins the unit down.
         commit = build_commit()
         test_cases = [
             build_test_case(1, max_mem_size=0),
@@ -124,8 +120,65 @@ class TestCreateContainerCfgFile(unittest.TestCase):
         ]
         create_container_cfg_file(self.cfg, commit, test_cases, self.tmpdir.name)
         lines = self.read_cfg()
-        self.assertFalse(any(line.startswith("m_1=") for line in lines))
-        self.assertIn("m_2=1073741824", lines)
+        self.assertFalse(any(line.startswith("m_") for line in lines))
+
+    def test_src_file_single_quotes_are_escaped(self) -> None:
+        # The config file is sourced by base-script.sh inside the container:
+        # a single quote in the (student-controlled) filename must not break
+        # out of the quoting.
+        commit = build_commit("a'$(touch pwned)'.c")
+        create_container_cfg_file(self.cfg, commit, [], self.tmpdir.name)
+        lines = self.read_cfg()
+        self.assertIn("src_file='a'\\''$(touch pwned)'\\''.c'", lines)
+
+
+def build_zip(members: dict[str, bytes]) -> zipfile.ZipFile:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return zipfile.ZipFile(io.BytesIO(buffer.getvalue()))
+
+
+class TestCheckZipSafety(unittest.TestCase):
+    def test_accepts_a_plain_archive(self) -> None:
+        with build_zip({"main.c": b"int main(){}", "lib/util.h": b""}) as zf:
+            check_zip_safety(zf, max_members=10, max_total_size=1024)
+
+    def test_rejects_too_many_members(self) -> None:
+        with (
+            build_zip({f"f{i}.c": b"x" for i in range(5)}) as zf,
+            self.assertRaisesRegex(ValueError, "too many members"),
+        ):
+            check_zip_safety(zf, max_members=4, max_total_size=1024)
+
+    def test_rejects_oversized_total_uncompressed_size(self) -> None:
+        with (
+            build_zip({"a.c": b"x" * 600, "b.c": b"y" * 600}) as zf,
+            self.assertRaisesRegex(ValueError, "too much data"),
+        ):
+            check_zip_safety(zf, max_members=10, max_total_size=1024)
+
+    def test_rejects_parent_directory_traversal(self) -> None:
+        with (
+            build_zip({"../evil.c": b"x"}) as zf,
+            self.assertRaisesRegex(ValueError, "unsafe member name"),
+        ):
+            check_zip_safety(zf, max_members=10, max_total_size=1024)
+
+    def test_rejects_absolute_member_names(self) -> None:
+        with (
+            build_zip({"/etc/passwd": b"x"}) as zf,
+            self.assertRaisesRegex(ValueError, "unsafe member name"),
+        ):
+            check_zip_safety(zf, max_members=10, max_total_size=1024)
+
+    def test_rejects_backslash_traversal(self) -> None:
+        with (
+            build_zip({"..\\evil.c": b"x"}) as zf,
+            self.assertRaisesRegex(ValueError, "unsafe member name"),
+        ):
+            check_zip_safety(zf, max_members=10, max_total_size=1024)
 
 
 if __name__ == "__main__":

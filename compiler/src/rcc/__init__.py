@@ -73,6 +73,14 @@ async def _stop_consumer(
         _ = consumer.cancel()
 
 
+async def _cancel_poller(poller_task: asyncio.Task[None] | None) -> None:
+    """Cancel the poller task and wait for it to wind down."""
+    if poller_task is None or poller_task.done():
+        return
+    _ = poller_task.cancel()
+    _ = await asyncio.gather(poller_task, return_exceptions=True)
+
+
 def _load_config() -> tuple[config.Config, logging.Logger]:
     """Parse arguments, build the configuration and set up logging.
 
@@ -113,7 +121,7 @@ async def main() -> None:
     from .engine import poller
 
     if (current := asyncio.current_task()) is not None:
-        current.set_name("poller")
+        current.set_name("main")
 
     cfg, logger = _load_config()
 
@@ -132,22 +140,55 @@ async def main() -> None:
             maxsize=config.queue_maxsize(cfg)
         )
         consumer: asyncio.Task[None] | None = None
+        poller_task: asyncio.Task[None] | None = None
 
         try:
-            # The consumer opens the connection pool itself before pulling,
-            # so its first claim round trip finds it ready. Connections are
-            # established lazily, so a database that is not up yet does not
-            # crash the process: poll cycles simply fail and are retried.
+            # The pool's lifecycle is owned here: it is opened before the
+            # poller and the consumer start, and closed in the finally below.
+            # (It used to be opened by the consumer, but the poller's first
+            # fetch always ran before the consumer task was even scheduled,
+            # so every startup logged a spurious "connection pool is not
+            # open" poll failure.) Connections are still established lazily
+            # (the pool opens with wait=False), so a database that is not up
+            # yet does not crash the process: poll cycles simply fail and are
+            # retried.
+            await data_provider.open()
+
             consumer = asyncio.create_task(
                 engine.process_commits(data_provider, task_queue, cfg),
                 name="consumer",
             )
+            poller_task = asyncio.create_task(
+                poller.poll_commits(data_provider, task_queue, cfg, logger),
+                name="poller",
+            )
 
-            await poller.poll_commits(data_provider, task_queue, cfg, logger)
+            # The poller never returns on its own, so the wait normally ends
+            # because the consumer stopped (a non-retryable failure). Shut
+            # the poller down and exit instead of polling forever (and
+            # eventually hanging on a full task queue) with nothing consuming
+            # commits — the supervisor (docker/systemd) restarts the process.
+            _ = await asyncio.wait(
+                (consumer, poller_task), return_when=asyncio.FIRST_COMPLETED
+            )
+            _ = poller_task.cancel()
+            _ = await asyncio.gather(poller_task, return_exceptions=True)
+            # Drain the consumer (no-op when it already stopped), then
+            # surface whichever side failed.
+            await _stop_consumer(consumer, task_queue, logger)
+            for task in (consumer, poller_task):
+                if (
+                    task.done()
+                    and not task.cancelled()
+                    and (error := task.exception()) is not None
+                ):
+                    raise error
+            logger.error("Consumer stopped; exiting")
         except KeyboardInterrupt:
             # Only possible for a second Ctrl-C while the first one is already
             # being handled (see the CancelledError branch below).
             logger.info("Interrupted; waiting for consumer")
+            await _cancel_poller(poller_task)
             await _stop_consumer(consumer, task_queue, logger)
         except asyncio.CancelledError:
             # asyncio.run() (Python >= 3.11) translates the first Ctrl-C into
@@ -155,16 +196,9 @@ async def main() -> None:
             # re-raise so asyncio.run() turns the cancellation back into a
             # KeyboardInterrupt for the caller.
             logger.info("Interrupted; waiting for consumer")
+            await _cancel_poller(poller_task)
             await _stop_consumer(consumer, task_queue, logger)
             raise
         finally:
+            await data_provider.close()
             logger.info("Exited")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        # asyncio.run() re-raises KeyboardInterrupt after gracefully stopping
-        # the consumer: nothing left to do.
-        pass

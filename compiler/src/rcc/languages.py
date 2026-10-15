@@ -3,7 +3,7 @@ import zipfile
 from collections.abc import Iterable
 from typing import override
 
-IMAGE_FORMAT = "ghcr.io/runcodes-icmc/compiler-images-%s:latest"
+IMAGE_FORMAT = "ghcr.io/runcodes-icmc/runcodes-compiler-images-%s:latest"
 
 
 class Language:

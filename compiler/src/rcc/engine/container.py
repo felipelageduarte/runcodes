@@ -33,7 +33,7 @@ CONTAINER_LOG_READER_JOIN_TIMEOUT = 5.0
 # process needs to run - so both can be dropped unconditionally with no
 # effect on well-behaved submissions.
 #
-# Per-language memory/CPU/pids ceilings (compiler-monitor-oportunidades.md,
+# Per-language memory/CPU/pids ceilings (runcodes-compiler-sandbox-oportunidades.md,
 # items S1/E4) are intentionally NOT added here yet: they need a limit
 # that is configurable per language (Java's JVM and MPI-based jobs expect
 # very different budgets than a plain C binary) and that work is tracked
@@ -211,10 +211,14 @@ async def run(
 
         if commit.status != Commit.STATUS_ERROR:
             await _run_execution(data_provider, commit, test_cases, cfg, log_reader)
-
-        await _teardown_container(container, cfg)
     finally:
-        log_reader.stop()
+        # Teardown runs on every path: a compilation/execution timeout (or any
+        # other failure above) used to skip it, leaving the container running
+        # and never removed — leaking one container per failed commit.
+        try:
+            await _teardown_container(container, cfg)
+        finally:
+            log_reader.stop()
 
 
 async def _run_compilation(
@@ -291,7 +295,12 @@ async def _run_execution(
 
 
 async def _teardown_container(container: Container, cfg: Config) -> None:
-    """Wait for the container, killing it on timeout, then remove it."""
+    """Wait for the container, killing it on timeout, then remove it.
+
+    Never raises: it runs in ``run()``'s cleanup path, where an exception
+    would mask the failure that triggered the teardown. ``remove(force=True)``
+    runs regardless, so a kill/wait failure cannot leak the container.
+    """
     logger = logging.getLogger(DEFAULT_LOGGER)
     try:
         _ = await asyncio.to_thread(
@@ -299,7 +308,12 @@ async def _teardown_container(container: Container, cfg: Config) -> None:
         )
     except requests.exceptions.ReadTimeout:
         logger.exception("Container wait timed out")
-        await asyncio.to_thread(container.kill)
+        try:
+            await asyncio.to_thread(container.kill)
+        except Exception:
+            logger.exception("Container kill failed")
+    except Exception:
+        logger.exception("Container wait failed")
     finally:
         try:
             await asyncio.to_thread(container.remove, force=True)

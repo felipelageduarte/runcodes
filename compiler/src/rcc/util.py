@@ -2,10 +2,8 @@
 Collection of utilities.
 """
 
-import datetime
 import fcntl
 import os
-import time
 from collections.abc import Callable, Iterable
 from types import TracebackType
 from typing import Self, TextIO
@@ -83,9 +81,6 @@ class Sleeper:
     def reset(self) -> None:
         self.alpha = 0.0
 
-    def sleep(self, increase: bool = True) -> None:
-        time.sleep(self.sleep_time(increase))
-
     def sleep_time(self, increase: bool = True) -> float:
         """Compute the next sleep duration and advance the internal counter.
 
@@ -103,8 +98,3 @@ class Sleeper:
 def count_if[T](pred: Callable[[T], object], iterable: Iterable[T]) -> int:
     """Returns the number of elements of `iterable` for which `pred` holds."""
     return sum(1 for x in iterable if pred(x))
-
-
-def from_datetime_to_timestamp(dt: datetime.datetime) -> int:
-    epoch = datetime.datetime.fromtimestamp(0, tz=datetime.UTC)
-    return int((dt - epoch).total_seconds())

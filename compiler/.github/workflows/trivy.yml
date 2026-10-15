@@ -64,13 +64,13 @@ jobs:
       # Plain `docker build` (no buildx cache) so the scan also works for
       # pull requests from forks, which cannot write the Actions cache.
       - name: Build image for scanning
-        run: docker build -t compiler-engine:${{ github.sha }} .
+        run: docker build -t runcodes-compiler:${{ github.sha }} .
 
       - name: Run Trivy on the image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
-          image-ref: compiler-engine:${{ github.sha }}
+          image-ref: runcodes-compiler:${{ github.sha }}
           trivy-config: trivy.yaml
           # Focus the merge gate on the shipped artifact.
           scanners: vuln,secret

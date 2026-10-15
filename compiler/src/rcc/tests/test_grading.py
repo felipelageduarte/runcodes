@@ -1,5 +1,5 @@
 """Unit tests for grading.process_test_results, in particular its handling
-of a missing/malformed `monitor_out` file (compiler-monitor-oportunidades.md,
+of a missing/malformed `monitor_out` file (runcodes-compiler-sandbox-oportunidades.md,
 item B6): a sandbox-level failure should fail only the affected test case,
 not raise and abort the whole batch.
 """
