@@ -1,13 +1,13 @@
 # `monitor_out` output format
 
 The monitor binary writes one `key=value` line per field to stdout. This
-file is what `compiler-engine`'s `grading.py` reads back (as
+file is what `runcodes-compiler`'s `grading.py` reads back (as
 `<test_id>.monitor_out`) to decide a test case's outcome.
 
 ## v1 fields (unchanged since the original implementation)
 
 These three fields have the exact same name, meaning, and text formatting
-as before the `-t`/`-T`/rusage work landed. `compiler-engine` only reads
+as before the `-t`/`-T`/rusage work landed. `runcodes-compiler` only reads
 `signal` and `time` today; both are guaranteed to keep this shape so a
 v1-only consumer keeps working unmodified.
 
@@ -54,7 +54,7 @@ when the monitor itself fails before it can run the command at all (e.g.
 `parse_args` rejects an empty command, or `set_limits`/`reopen_streams`
 fail), it exits with a distinct non-zero code and writes nothing to
 `monitor_out` -- there's no process to report stats about. The caller
-(currently `compiler-engine`'s `grading.process_test_results`) is expected
+(currently `runcodes-compiler`'s `grading.process_test_results`) is expected
 to treat a missing or unparseable `monitor_out` as its own "judge error"
 case, which it already does.
 
@@ -68,6 +68,6 @@ These are about the monitor binary's own exit code (as opposed to
 | `0` | The monitor ran to completion (the monitored command may have failed in any way -- that is what `monitor_out` describes). |
 | `1` | Bad command-line arguments (see `monitor -h`), or `fork()` itself failed. |
 | `252` | Failed to set resource limits (`setrlimit`). |
-| `253` | Failed to open/redirect the in/out/err files (including a symlink being refused -- see `-S5` in `compiler-monitor-oportunidades.md`). |
+| `253` | Failed to open/redirect the in/out/err files (including a symlink being refused -- see `-S5` in `runcodes-compiler-sandbox-oportunidades.md`). |
 | `254` | Failed to drop privileges requested via `-u`. |
 | `255` | The command itself could not be parsed or executed (empty/over-long command, or `execvp` failed). |

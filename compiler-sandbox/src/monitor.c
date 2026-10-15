@@ -210,8 +210,10 @@ drop_privileges(const MonitorParams *params) {
         return 0;
     /* Belt and suspenders: even if some inherited capability survived the
      * uid/gid switch, this stops it from granting anything extra across
-     * the exec. */
-    prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
+     * the exec. Failing to arm it is treated like any other failed drop:
+     * better to refuse to run than to run with more privilege than asked. */
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0)
+        return 0;
     return 1;
 }
 
@@ -377,6 +379,15 @@ run_monitor(const MonitorParams *params, MonitorStats *stats) {
             exec_cmd(params);
             break;
         default:
+            /* Mirror the child's own setpgid(0, 0) from the parent side
+             * (the standard both-sides pattern): without this there is a
+             * window, before the child gets scheduled, in which process
+             * group `pid` does not exist yet and a very short wall timeout
+             * could fire kill(-pid, ...) into nothing (ESRCH), leaving the
+             * child running and the monitor blocked in wait4() forever.
+             * EACCES just means the child already exec'd, i.e. its own
+             * setpgid() already won the race -- fine either way. */
+            setpgid(pid, pid);
             trace_child(pid, params, stats);
             break;
     }

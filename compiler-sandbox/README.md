@@ -5,7 +5,7 @@ gathers information such as the running time, exit status and/or signal that
 ended its execution.
 
 **Disclaimer:** this solution, even though it works, might not be sufficient on preventing
-miss-use from the users. See `compiler-monitor-oportunidades.md` for a full audit of
+miss-use from the users. See `runcodes-compiler-sandbox-oportunidades.md` for a full audit of
 remaining gaps, and `docs/adr-sandbox-isolation.md` for the trade-off between continuing
 to harden this binary versus adopting a dedicated sandbox (isolate/nsjail/gVisor).
 

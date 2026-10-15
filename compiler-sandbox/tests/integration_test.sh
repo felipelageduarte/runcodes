@@ -1,7 +1,7 @@
 #!/bin/bash
 # Integration test suite for the monitor binary. Builds the fixture
 # programs under tests/fixtures and exercises every behavior documented in
-# compiler-monitor-oportunidades.md that is observable end-to-end (as
+# runcodes-compiler-sandbox-oportunidades.md that is observable end-to-end (as
 # opposed to tests/test_signal_name.c's pure-function unit tests).
 #
 # Usage: integration_test.sh /path/to/monitor /path/to/tests/fixtures

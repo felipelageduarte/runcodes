@@ -12,10 +12,14 @@ RUN mkdir /build
 WORKDIR /build
 COPY ./CMakeLists.txt ./CMakeLists.txt
 COPY ./src/ ./src/
+# CMakeLists declara os alvos de teste (test_signal_name + integração) —
+# sem tests/ no contexto o `cmake .` falha com "No SOURCES given".
+COPY ./tests/ ./tests/
 
 # Build project
 RUN cmake .
 RUN cmake --build .
+RUN ctest --output-on-failure
 
 # Create final image with only the built binary
 FROM debian:trixie-slim AS dist

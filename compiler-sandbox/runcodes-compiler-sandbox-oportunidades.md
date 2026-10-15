@@ -1,8 +1,8 @@
-# compiler-monitor: Oportunidades de Segurança, Correções e Evoluções
+# runcodes-compiler-sandbox: Oportunidades de Segurança, Correções e Evoluções
 
-> **Propósito deste documento**: servir como SDD (Software Design Document) de referência para uma futura iteração do módulo `compiler-monitor`. Cada item traz identificador, severidade, localização exata, cenário de exploração ou falha, proposta de correção com detalhamento técnico e critérios de aceite.
+> **Propósito deste documento**: servir como SDD (Software Design Document) de referência para uma futura iteração do módulo `runcodes-compiler-sandbox`. Cada item traz identificador, severidade, localização exata, cenário de exploração ou falha, proposta de correção com detalhamento técnico e critérios de aceite.
 >
-> **Escopo analisado**: `compiler-monitor/src/{monitor.c, monitor.h, main.c}`, `compiler-monitor/{CMakeLists.txt, Dockerfile, Makefile, src/Makefile}` e os pontos de integração que definem o comportamento efetivo do sandbox: `compiler-images/base/base-script.sh`, scripts por linguagem (`c-script.sh`, `java-script.sh`, `python-script.sh`, etc.) e `compiler-engine/src/rcc/engine/{container.py, grading.py}`.
+> **Escopo analisado**: `runcodes-compiler-sandbox/src/{monitor.c, monitor.h, main.c}`, `runcodes-compiler-sandbox/{CMakeLists.txt, Dockerfile, Makefile, src/Makefile}` e os pontos de integração que definem o comportamento efetivo do sandbox: `runcodes-compiler-images/base/base-script.sh`, scripts por linguagem (`c-script.sh`, `java-script.sh`, `python-script.sh`, etc.) e `runcodes-compiler/src/rcc/engine/{container.py, grading.py}`.
 >
 > **Data da análise**: 2026-10-11.
 
@@ -12,10 +12,10 @@
 
 ### 1.1 Papel do módulo
 
-O `compiler-monitor` é um binário C (~300 linhas) que executa um comando filho sob limites de recursos e reporta estatísticas de execução. Ele é o componente mais interno da cadeia de sandbox do run.codes:
+O `runcodes-compiler-sandbox` é um binário C (~300 linhas) que executa um comando filho sob limites de recursos e reporta estatísticas de execução. Ele é o componente mais interno da cadeia de sandbox do run.codes:
 
 ```
-compiler-engine (Python, host)
+runcodes-compiler (Python, host)
   └── docker run <imagem-da-linguagem>          [container.py:170]
         └── /usr/bin/runcodes (base-script.sh, PID 1, root)
               └── /usr/bin/monitor -f .. -m .. -i .. -o .. -e .. -c "timeout --signal=SIGKILL N <cmd>"
@@ -64,7 +64,7 @@ Severidades: **Crítica** (comprometimento do host ou de outros usuários), **Al
 
 ### S1 — [CRÍTICA] Container sem limites de recursos no Docker
 
-**Local**: `compiler-engine/src/rcc/engine/container.py:170-176`.
+**Local**: `runcodes-compiler/src/rcc/engine/container.py:170-176`.
 
 ```python
 container = await asyncio.to_thread(
@@ -125,7 +125,7 @@ O código do aluno roda com acesso de rede completo (bridge default do Docker). 
 
 ### S3 — [CRÍTICA] Todo o pipeline roda como root dentro do container
 
-**Local**: imagens (`compiler-images/*/Dockerfile` não definem `USER`), `base-script.sh` (PID 1 root), `monitor.c` (não faz `setuid`/`setgid` antes do `execvp`).
+**Local**: imagens (`runcodes-compiler-images/*/Dockerfile` não definem `USER`), `base-script.sh` (PID 1 root), `monitor.c` (não faz `setuid`/`setgid` antes do `execvp`).
 
 O programa do aluno herda **root** do monitor. Consequências dentro do container:
 1. Sobrescrever `/usr/bin/monitor` ou `/usr/bin/runcodes` durante a fase de compilação (um `Makefile` é código arbitrário executado com `make all`), comprometendo todas as fases seguintes do mesmo commit, inclusive forjando resultados.
@@ -366,7 +366,7 @@ O contrato do módulo ("garantir que retorna a quantidade de recursos utilizados
 
 **Local**: `CMakeLists.txt:5` (`ADD_COMPILE_OPTIONS(-Wall -O2 -static)`).
 
-`ADD_COMPILE_OPTIONS` aplica flags só na compilação; `-static` é flag de **link**. O binário sai dinâmico. Funciona hoje porque builder e imagem base são ambos `debian:trixie-slim` (mesma glibc), mas quebra silenciosamente se as bases divergirem (o binário é copiado via `COPY --from=ghcr.io/...compiler-monitor:latest` para a imagem base de todas as linguagens).
+`ADD_COMPILE_OPTIONS` aplica flags só na compilação; `-static` é flag de **link**. O binário sai dinâmico. Funciona hoje porque builder e imagem base são ambos `debian:trixie-slim` (mesma glibc), mas quebra silenciosamente se as bases divergirem (o binário é copiado via `COPY --from=ghcr.io/...runcodes-compiler-sandbox:latest` para a imagem base de todas as linguagens).
 
 **Correção**:
 ```cmake
@@ -546,16 +546,16 @@ E1 (rusage), E4 (cgroups v2 por teste — resolve o `FIXME` do Java), E10 (contr
 
 | Referência | Arquivo | Linhas |
 |---|---|---|
-| Parse e exec do comando | `compiler-monitor/src/monitor.c` | 66-138 |
-| Loop de wait / WCOREDUMP | `compiler-monitor/src/monitor.c` | 140-171 |
-| Limites (FSIZE/AS) | `compiler-monitor/src/monitor.c` | 83-104 |
-| CLI e validação de flags | `compiler-monitor/src/main.c` | 34-76 |
-| Impressão do resultado | `compiler-monitor/src/main.c` | 103-111 |
-| Flag `-static` incorreta | `compiler-monitor/CMakeLists.txt` | 5 |
-| Build Docker (2 estágios) | `compiler-monitor/Dockerfile` | 1-23 |
-| Invocação do monitor (compilação/testes) | `compiler-images/base/base-script.sh` | funcs `compile`/`run_tests` |
-| `source`/`eval` de config | `compiler-images/base/base-script.sh` | topo e funcs |
-| Java sem limite de memória | `compiler-images/java/java-script.sh` | `monitor_max_ms=0` |
-| `docker run` sem contenção | `compiler-engine/src/rcc/engine/container.py` | 163-176 |
-| Protocolo de mensagens de log | `compiler-engine/src/rcc/engine/container.py` | 117-131, 201-271 |
-| Parse do `monitor_out` e veredito | `compiler-engine/src/rcc/engine/grading.py` | 39-73 |
+| Parse e exec do comando | `runcodes-compiler-sandbox/src/monitor.c` | 66-138 |
+| Loop de wait / WCOREDUMP | `runcodes-compiler-sandbox/src/monitor.c` | 140-171 |
+| Limites (FSIZE/AS) | `runcodes-compiler-sandbox/src/monitor.c` | 83-104 |
+| CLI e validação de flags | `runcodes-compiler-sandbox/src/main.c` | 34-76 |
+| Impressão do resultado | `runcodes-compiler-sandbox/src/main.c` | 103-111 |
+| Flag `-static` incorreta | `runcodes-compiler-sandbox/CMakeLists.txt` | 5 |
+| Build Docker (2 estágios) | `runcodes-compiler-sandbox/Dockerfile` | 1-23 |
+| Invocação do monitor (compilação/testes) | `runcodes-compiler-images/base/base-script.sh` | funcs `compile`/`run_tests` |
+| `source`/`eval` de config | `runcodes-compiler-images/base/base-script.sh` | topo e funcs |
+| Java sem limite de memória | `runcodes-compiler-images/java/java-script.sh` | `monitor_max_ms=0` |
+| `docker run` sem contenção | `runcodes-compiler/src/rcc/engine/container.py` | 163-176 |
+| Protocolo de mensagens de log | `runcodes-compiler/src/rcc/engine/container.py` | 117-131, 201-271 |
+| Parse do `monitor_out` e veredito | `runcodes-compiler/src/rcc/engine/grading.py` | 39-73 |
