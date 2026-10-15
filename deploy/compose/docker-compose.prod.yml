@@ -145,6 +145,9 @@ services:
     environment:
       TZ: ${RC_TIMEZONE:-America/Sao_Paulo}
       POSTGRES_PASSWORD: ${RC_DB_PASSWORD}
+      # Senha do usuário de aplicação `runcodes` (o init script do repo
+      # database a aplica na primeira inicialização do volume).
+      RUNCODES_PASSWORD: ${RC_DB_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - db-data:/var/lib/postgresql/data
