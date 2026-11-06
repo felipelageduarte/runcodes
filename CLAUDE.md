@@ -45,3 +45,9 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   tem rótulo de 13 caracteres e o xfs aceita 12 (`Usage: mkfs.xfs`). Causa: script de host nunca rodou
   num Linux real antes do deploy. Regra: rótulo xfs até 12 caracteres (`rcdata`); `bash -n` não pega
   erro de argumento, então script de host novo roda numa instância descartável antes de ir à `main`.
+- 2026-11-06: segundo deploy passou do `host-setup` e quebrou ao gerar o `.env`
+  (`line 1: +: command not found`): o programa `jq` estava entre aspas simples do shell e continha aspas
+  simples (o `'` virou `'` ao gravar o arquivo). Regra: aspa dentro de filtro `jq` vai por
+  `--arg q "'"`; filtro de script se testa com dado fictício localmente antes do PR.
+- 2026-11-06: branch criada de um `main` local desatualizado deu PR em conflito e o guard bloqueia force
+  push. Regra: `git fetch` e branch a partir de `origin/main`, nunca do `main` local.
