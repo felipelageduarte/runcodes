@@ -64,9 +64,11 @@ Quando o runcodes ganhar conta própria (como o botimovel em 2026-10-19):
 
 ## Restore ensaiado
 
-Backup só vale com restore executado e registrado. **Ainda não ensaiado.** Ao ensaiar (instância
-descartável ou o passo 5 acima), registre aqui data, dump usado e tempo total.
+Backup só vale com restore executado e registrado. Ensaio: baixar o dump do S3 e restaurar num
+Postgres descartável (`docker run postgres:18-alpine`, sem tocar o banco de produção), conferir a
+contagem de tabelas e remover o container. Repetir a cada mudança de schema relevante e a cada
+trimestre; só o banco foi ensaiado, os arquivos do Seaweed (tar.gz) ainda não.
 
 | Data | Origem | Tempo | Resultado |
 |---|---|---|---|
-| (pendente) | | | |
+| 2026-11-06 | `postgres/runcodes-20261106T202615Z.dump` (70,9 KiB) | 5 s | 28 de 28 tabelas, igual à produção (banco ainda sem dados de aluno) |
