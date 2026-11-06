@@ -37,6 +37,10 @@ ensure_secret() { # nome
 for s in DB_PASSWORD JWT_SECRET SECURITY_SALT S3_KEY S3_SECRET; do ensure_secret "$s"; done
 
 step "Gerando .env a partir do SSM"
+# umask restrito SÓ aqui (subshell): vazar para o resto do script deixa arquivos
+# do repo database e o jar do JPlag em 0600, ilegíveis para o postgres/node dos
+# containers (achado 2026-11-06).
+(
 umask 077
 tmp="$(mktemp)"
 aws ssm get-parameters-by-path --path "$PREFIX/" --with-decryption --recursive \
@@ -50,6 +54,7 @@ aws ssm get-parameters-by-path --path "$PREFIX/" --with-decryption --recursive \
 } >"$ENV_FILE"
 rm -f "$tmp"
 chmod 600 "$ENV_FILE"
+)
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 [ -n "${RC_SMTP_HOST:-}" ] || echo "AVISO: SMTP não configurado (/runcodes/prod/SMTP_*): e-mails de cadastro/reset não saem."
@@ -58,6 +63,26 @@ export RC_LANGS="${RC_COMPILER_LANGS:-c cpp python java}"
 step "Repositório database (schema) e JPlag"
 bash "$COMPOSE_DIR/bootstrap.sh" database
 bash "$COMPOSE_DIR/bootstrap.sh" jplag
+
+# O que entra em imagem precisa ser legível pelos usuários dos containers
+# (postgres lê o schema; node lê o jar do JPlag).
+chmod -R a+rX "$ROOT/.external" "$ROOT/api/vendor" 2>/dev/null || true
+
+# Self-heal: init do Postgres que falhou deixa o cluster sem o role `runcodes` e
+# o container seguinte "pula a inicialização". Sem o role não existe dado de
+# aplicação, então recriar o volume vazio é seguro. Nunca dispara num banco são.
+heal_half_initialized_db() {
+  local db=runcodes-database-1 n
+  docker inspect -f '{{.State.Running}}' "$db" 2>/dev/null | grep -qx true || return 0
+  n="$(docker exec "$db" psql -U postgres -tAc "select count(*) from pg_roles where rolname='runcodes'" 2>/dev/null || echo err)"
+  if [ "$n" = "0" ]; then
+    echo "  banco sem o role runcodes (init falhou antes): recriando o volume vazio"
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" rm -sf database api plagiarism-worker rcc
+    docker volume rm runcodes_db-data
+    # a camada COPY antiga carrega o schema com modo 0600: rebuild sem cache
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build --no-cache database
+  fi
+}
 
 step "Imagens de linguagem"
 need_images=false
@@ -81,6 +106,9 @@ step "Build do frontend e da documentação (one-shots, em sequência)"
 "${COMPOSE[@]}" run --rm web-build
 "${COMPOSE[@]}" run --rm docs-build
 
+step "Banco: checagem de inicialização"
+heal_half_initialized_db
+
 step "Subindo o stack"
 mkdir -p "$RC_EXEC_DIR"
 mapfile -t services < <("${COMPOSE[@]}" config --services | grep -vx -e web-build -e docs-build)
@@ -102,6 +130,14 @@ if [ "$ok" != true ]; then
   "${COMPOSE[@]}" logs --tail 40 api >&2 || true
   exit 1
 fi
+
+# /api/health não toca o banco: o smoke consulta uma rota que lê do Postgres.
+step "Smoke com banco (GET /api/universities)"
+curl -fsS -H "X-Origin-Verify: ${RC_ORIGIN_VERIFY}" http://127.0.0.1/api/universities >/dev/null || {
+  echo "ERRO: rota com banco falhou (credencial ou schema do Postgres):" >&2
+  "${COMPOSE[@]}" logs --tail 30 api >&2 || true
+  exit 1
+}
 
 git -C "$ROOT" rev-parse HEAD >"$DEPLOYED_SHA_FILE"
 docker image prune -f >/dev/null
