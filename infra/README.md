@@ -46,5 +46,6 @@ orçamento em 80% real e 100% previsto de US$ 40 (variável `monthly_budget_usd`
 - E-mail (cadastro, reset) só funciona depois de configurar SMTP: ver
   [Operação](docs/operacao.md#smtp).
 - Sem WAF nem rate limit na borda. Antes de abrir para público amplo, avaliar.
-- O restore do backup ainda não foi ensaiado: registrar data e tempo em
-  [Segregar, pausar e desligar](docs/segregacao.md#restore-ensaiado) quando for.
+- O restore do Postgres foi ensaiado em 2026-11-06 (5 s, banco vazio); o dos arquivos do Seaweed
+  ainda não. Tempos com dados reais: registrar em
+  [Segregar, pausar e desligar](docs/segregacao.md#restore-ensaiado).
