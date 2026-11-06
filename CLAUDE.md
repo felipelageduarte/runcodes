@@ -57,3 +57,8 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   (`Permission denied`), o init morreu no meio e o restart pulou a inicialização, sem o role. O
   `/api/health` não toca o banco, então o health check e o smoke ficaram verdes. Regra: umask restrito só em
   subshell; o smoke pós-deploy precisa tocar o banco (ver `deploy.sh`).
+- 2026-11-06: o primeiro backup manual falhou (`upload failed: - to s3://AQICAHiz...`): o checkov pediu
+  parâmetros SSM criptografados, viraram `SecureString`, e `aws ssm get-parameter` sem `--with-decryption`
+  devolve o blob cifrado, que o `backup.sh` usou como nome de bucket. Regra: todo `get-parameter` de
+  parâmetro `SecureString` leva `--with-decryption`; o timer só roda às 03:30 UTC, então o backup precisa
+  ser disparado à mão logo após o deploy (alarme `backup-stale` avisa).
