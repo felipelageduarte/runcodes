@@ -51,3 +51,9 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   `--arg q "'"`; filtro de script se testa com dado fictício localmente antes do PR.
 - 2026-11-06: branch criada de um `main` local desatualizado deu PR em conflito e o guard bloqueia force
   push. Regra: `git fetch` e branch a partir de `origin/main`, nunca do `main` local.
+- 2026-11-06: terceiro deploy "passou" mas `/api/universities` deu 500 (`password authentication failed for
+  user "runcodes"`). Causa: o `umask 077` do trecho do `.env` valia para o resto do `remote-deploy.sh`; o
+  clone do repo `database` ficou 0600, o `postgres` do container não leu `01-init.sql`
+  (`Permission denied`), o init morreu no meio e o restart pulou a inicialização, sem o role. O
+  `/api/health` não toca o banco, então o health check e o smoke ficaram verdes. Regra: umask restrito só em
+  subshell; o smoke pós-deploy precisa tocar o banco (ver `deploy.sh`).

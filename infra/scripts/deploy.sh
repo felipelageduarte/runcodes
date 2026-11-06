@@ -91,4 +91,5 @@ curl -fsS --retry 10 --retry-delay 10 --retry-connrefused --retry-all-errors --m
   "$PUBLIC_URL/api/health"
 echo ""
 curl -fsS --retry 3 --retry-delay 5 --max-time 15 -o /dev/null -w "frontend: HTTP %{http_code}\n" "$PUBLIC_URL/"
+curl -fsS --retry 3 --retry-delay 5 --max-time 15 -o /dev/null -w "banco (/api/universities): HTTP %{http_code}\n" "$PUBLIC_URL/api/universities"
 echo "==> Deploy concluído: $PUBLIC_URL"
