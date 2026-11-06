@@ -41,3 +41,7 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   Regra: o gate `high` vale para o servidor; exceção só com advisory de impacto local e prazo.
 - 2026-11-06: `node --test <diretório>` falha no Node 24 (`Cannot find module`); passar os arquivos
   (`infra/scripts/*.test.mjs`). O passo nunca tinha rodado local antes do CI.
+- 2026-11-06: segundo deploy passou do `host-setup` e quebrou ao gerar o `.env`
+  (`line 1: +: command not found`): o programa `jq` estava entre aspas simples do shell e continha aspas
+  simples (o `'` virou `'` ao gravar o arquivo). Regra: aspa dentro de filtro `jq` vai por
+  `--arg q "'"`; filtro de script se testa com dado fictício localmente antes do PR.

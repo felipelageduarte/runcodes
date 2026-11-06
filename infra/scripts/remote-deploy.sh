@@ -41,7 +41,7 @@ umask 077
 tmp="$(mktemp)"
 aws ssm get-parameters-by-path --path "$PREFIX/" --with-decryption --recursive \
   --query 'Parameters[].[Name,Value]' --output json |
-  jq -r --arg p "$PREFIX/" '.[] | "RC_" + (.[0] | ltrimstr($p)) + "='" + .[1] + "'"' >"$tmp"
+  jq -r --arg p "$PREFIX/" --arg q "'" '.[] | "RC_" + (.[0] | ltrimstr($p)) + "=" + $q + .[1] + $q' >"$tmp"
 {
   cat "$tmp"
   echo "RC_APP_DOMAIN=':80'"
