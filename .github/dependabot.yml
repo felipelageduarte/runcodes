@@ -1,0 +1,64 @@
+# Atualizações automáticas de dependências (Dependabot version updates).
+#
+# Semanal, segunda 06:00 BRT. Minor/patch agrupados num PR por ecossistema;
+# major sai em PR próprio. cooldown de 7 dias: só propõe versão publicada há
+# pelo menos uma semana. NADA de auto-merge: merge na main dispara deploy em
+# produção.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /api
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Sao_Paulo }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 3
+    labels: []
+    commit-message: { prefix: "chore(deps)" }
+    groups:
+      api-minor-patch: { update-types: [minor, patch] }
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Sao_Paulo }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 3
+    labels: []
+    commit-message: { prefix: "chore(deps)" }
+    groups:
+      web-minor-patch: { update-types: [minor, patch] }
+
+  - package-ecosystem: npm
+    directory: /docs
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Sao_Paulo }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 2
+    labels: []
+    commit-message: { prefix: "chore(deps)" }
+    groups:
+      docs-minor-patch: { update-types: [minor, patch] }
+
+  - package-ecosystem: pip
+    directory: /compiler
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Sao_Paulo }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 2
+    labels: []
+    commit-message: { prefix: "chore(deps)" }
+
+  - package-ecosystem: terraform
+    directory: /infra/terraform
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Sao_Paulo }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 2
+    labels: []
+    commit-message: { prefix: "chore(deps)" }
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/Sao_Paulo }
+    cooldown: { default-days: 7 }
+    open-pull-requests-limit: 3
+    labels: []
+    commit-message: { prefix: "chore(deps)" }
+    groups:
+      actions: { patterns: ["*"] }
