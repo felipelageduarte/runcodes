@@ -54,6 +54,15 @@ for kv in SMTP_HOST=smtp.gmail.com SMTP_PORT=465 SMTP_SECURE=true SMTP_USER=... 
 done
 ```
 
+## Migrations do banco
+
+`api/db/migrations/NNN_*.sql` roda no deploy (`infra/scripts/migrate.sh`), em ordem, uma vez cada
+(tabela `schema_migrations`), cada arquivo numa transação, **antes** de a API nova subir. Por isso
+só migration aditiva (`ADD COLUMN` com default ou nula, `CREATE TABLE/INDEX`); `DROP`/`RENAME`/troca de
+tipo só num deploy posterior, quando o código antigo já não usa. Nunca edite migration aplicada: crie a
+próxima. O schema base vem do repo `runcodes-icmc/database` (clonado no deploy); tudo que a API exige
+além dele mora aqui.
+
 ## Mudanças comuns
 
 - **Mais linguagens**: edite `compiler_langs` em `infra/terraform/variables.tf` (cada imagem ocupa

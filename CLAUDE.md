@@ -62,3 +62,9 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   devolve o blob cifrado, que o `backup.sh` usou como nome de bucket. Regra: todo `get-parameter` de
   parâmetro `SecureString` leva `--with-decryption`; o timer só roda às 03:30 UTC, então o backup precisa
   ser disparado à mão logo após o deploy (alarme `backup-stale` avisa).
+- 2026-11-06: criar o primeiro admin falhou com `users.confirmation_token_hash does not exist`: a API
+  (Prisma) exige 6 migrations (`001` a `006`) que só existiam no clone local de `runcodes-icmc/database`
+  (3 commits sem push e 1 arquivo não rastreado); o deploy clona o repo remoto, sem elas. Cadastro,
+  reset de senha, plágio, exercícios públicos e broadcast estavam quebrados em produção e o smoke
+  (`/api/universities`) não via. Agora as migrations vivem em `api/db/migrations/` e o deploy as aplica
+  (`infra/scripts/migrate.sh`). Regra: tudo que o código exige do banco vive no repo que faz o deploy.

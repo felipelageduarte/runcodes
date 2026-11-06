@@ -109,6 +109,14 @@ step "Build do frontend e da documentação (one-shots, em sequência)"
 step "Banco: checagem de inicialização"
 heal_half_initialized_db
 
+step "Banco: migrations (antes do código novo)"
+"${COMPOSE[@]}" up -d --build database
+for i in $(seq 1 30); do
+  docker exec runcodes-database-1 pg_isready -U postgres -d runcodes >/dev/null 2>&1 && break
+  sleep 2
+done
+bash "$ROOT/infra/scripts/migrate.sh"
+
 step "Subindo o stack"
 mkdir -p "$RC_EXEC_DIR"
 mapfile -t services < <("${COMPOSE[@]}" config --services | grep -vx -e web-build -e docs-build)
