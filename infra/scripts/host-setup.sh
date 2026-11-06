@@ -39,7 +39,7 @@ setup_data_volume() {
   [ -n "${dev:-}" ] || { echo "volume de dados não apareceu" >&2; exit 1; }
   if ! blkid "$dev" >/dev/null 2>&1; then
     log "formatando $dev (xfs)"
-    mkfs.xfs -L runcodes-data "$dev"
+    mkfs.xfs -L rcdata "$dev"
   fi
   mkdir -p "$DATA_DIR"
   local uuid

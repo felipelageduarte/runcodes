@@ -41,3 +41,7 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   Regra: o gate `high` vale para o servidor; exceção só com advisory de impacto local e prazo.
 - 2026-11-06: `node --test <diretório>` falha no Node 24 (`Cannot find module`); passar os arquivos
   (`infra/scripts/*.test.mjs`). O passo nunca tinha rodado local antes do CI.
+- 2026-11-06: primeiro deploy aplicou a infra (55 recursos) e falhou no host: `mkfs.xfs -L runcodes-data`
+  tem rótulo de 13 caracteres e o xfs aceita 12 (`Usage: mkfs.xfs`). Causa: script de host nunca rodou
+  num Linux real antes do deploy. Regra: rótulo xfs até 12 caracteres (`rcdata`); `bash -n` não pega
+  erro de argumento, então script de host novo roda numa instância descartável antes de ir à `main`.
