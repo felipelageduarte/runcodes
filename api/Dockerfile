@@ -23,12 +23,18 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY prisma ./prisma
 COPY package.json ./
+# Sem root no container (semgrep dockerfile.security.missing-user). A imagem
+# node:*-slim já traz o usuário `node`; a API só lê /app e /docs-dist.
+USER node
 EXPOSE 3000
 CMD ["node", "dist/server.js"]
 
 FROM api AS worker
+# o estágio api termina com USER node; apt precisa de root.
+USER root
 # JPlag roda numa JVM; o jar é baixado por `npm run fetch:jplag` antes do
 # build da imagem (ver deploy/compose/bootstrap.sh) e entra via vendor/.
 RUN apt-get update && apt-get install -y --no-install-recommends default-jre-headless && rm -rf /var/lib/apt/lists/*
 COPY vendor ./vendor
+USER node
 CMD ["node", "dist/worker.js"]
