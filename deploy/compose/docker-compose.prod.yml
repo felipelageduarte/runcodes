@@ -24,12 +24,13 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${RC_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - web-dist:/srv/web:ro
       - caddy-data:/data
       - caddy-config:/config
     environment:
       RC_APP_DOMAIN: ${RC_APP_DOMAIN}
+      RC_ORIGIN_VERIFY: ${RC_ORIGIN_VERIFY:-}
     networks: [runcodes-net]
     depends_on:
       - api
@@ -82,7 +83,7 @@ services:
       SMTP_USER: ${RC_SMTP_USER}
       SMTP_PASSWORD: ${RC_SMTP_PASSWORD}
       SMTP_FROM: ${RC_SMTP_FROM:-run.codes <no-reply@run.codes>}
-      APP_BASE_URL: https://${RC_APP_DOMAIN}
+      APP_BASE_URL: ${RC_PUBLIC_URL:-https://${RC_APP_DOMAIN}}
       DOCS_DIST_DIR: /docs-dist
     volumes:
       - docs-dist:/docs-dist:ro
@@ -97,7 +98,10 @@ services:
       context: ../../api
       target: worker
     restart: unless-stopped
-    environment: *api-env
+    environment:
+      <<: *api-env
+      # Limita a JVM do JPlag: o host de validação tem 2 GB.
+      JAVA_TOOL_OPTIONS: ${RC_JAVA_TOOL_OPTIONS:--Xmx512m}
     networks: [runcodes-net]
     depends_on:
       - database

@@ -1,0 +1,87 @@
+# Operação
+
+Perfil AWS local: `export PATH="/opt/homebrew/bin:$PATH" AWS_PROFILE=felipelageduarte`.
+
+## Deploy
+
+Merge na `main` dispara `.github/workflows/deploy.yml`: testes, depois `infra/scripts/deploy.sh --yes`
+(terraform plan + plan-guard, apply, SSM executa `remote-deploy.sh` na instância, health check em
+`<url>/api/health`).
+
+```bash
+gh run list --workflow deploy.yml --limit 5
+gh run watch <id> --exit-status
+```
+
+Primeiro deploy: 30 a 60 minutos (build das imagens de linguagem num t4g.small). Os seguintes só
+refazem o que mudou (imagens de linguagem só se `compiler-images/` ou `compiler-sandbox/` mudaram).
+
+Deploy manual (hotfix): `infra/scripts/deploy.sh` (pede confirmação). O apply local usa o working
+tree de quem roda, não a `main`: commite antes.
+
+## Acesso e logs (sem SSH)
+
+```bash
+INSTANCE=$(terraform -chdir=infra/terraform output -raw instance_id)
+aws ssm start-session --target "$INSTANCE"
+# na instância:
+sudo -i
+cd /opt/runcodes/deploy/compose
+docker compose -f docker-compose.prod.yml --env-file .env ps
+docker compose -f docker-compose.prod.yml --env-file .env logs -f --tail 100 api rcc
+tail -f /var/log/runcodes-deploy.log
+```
+
+## Configuração e segredos
+
+Tudo em SSM Parameter Store sob `/runcodes/prod/` (SecureString). O `.env` do compose é gerado a
+cada deploy a partir daí (`RC_<NOME>`). Segredos da aplicação (DB, JWT, salt, S3) são gerados na
+primeira execução e nunca passam pelo Terraform. Trocar um valor:
+
+```bash
+aws ssm put-parameter --name /runcodes/prod/NOME --type SecureString --overwrite --value '...'
+```
+
+`DB_PASSWORD` não se troca assim: o Postgres foi inicializado com ele.
+
+### SMTP
+
+Sem SMTP o cadastro e o reset de senha não enviam e-mail. Defina e redeploy (`gh workflow run deploy.yml`):
+
+```bash
+for kv in SMTP_HOST=smtp.gmail.com SMTP_PORT=465 SMTP_SECURE=true SMTP_USER=... SMTP_PASSWORD=... SMTP_FROM='run.codes <...>'; do
+  aws ssm put-parameter --name "/runcodes/prod/${kv%%=*}" --type SecureString --overwrite --value "${kv#*=}"
+done
+```
+
+## Mudanças comuns
+
+- **Mais linguagens**: edite `compiler_langs` em `infra/terraform/variables.tf` (cada imagem ocupa
+  disco; confira `df -h /data`), PR, merge.
+- **Instância maior**: `instance_type` em `variables.tf`. Mudar o tipo para/reinicia a instância (minutos
+  fora do ar). O plan-guard não barra update in-place.
+- **Disco**: aumente `data_volume_gb`; depois, na instância, `xfs_growfs /data`.
+- **Domínio próprio**: ACM em us-east-1, `aliases` e `viewer_certificate` no CloudFront, registro
+  Route53, e `PUBLIC_URL` no SSM. Com certificado próprio dá para subir `minimum_protocol_version`
+  para TLSv1.2 e religar os checks CKV_AWS_174/CKV2_AWS_42 no `.checkov.yaml`.
+
+## Alarmes (SNS `runcodes-alerts`, e-mail)
+
+Confirme a inscrição SNS no e-mail após o primeiro apply (duas: us-east-1 do health check e do
+tópico principal). Alarmes: status da instância (recupera sozinha), créditos de CPU, disco `/` e
+`/data` > 80%, memória > 90%, health fim a fim, 5xx no CloudFront, backup sem sucesso por 26 h,
+orçamento.
+
+Resposta rápida:
+
+| Alarme | Primeiro passo |
+|---|---|
+| `health-check-failed` | `lifecycle.sh status`; `docker compose ps`; logs da `api`; `/var/log/runcodes-deploy.log` |
+| `disk-data-high` | `docker system df`; `docker image prune -a` (reconstrói o que faltar no próximo deploy) |
+| `memory-high` / `cpu-credits-low` | subir `instance_type` |
+| `backup-stale` | `systemctl status runcodes-backup`; `journalctl -u runcodes-backup` |
+
+## Rotina
+
+Revisão completa (`/revisao`) a cada milestone, antes de abrir para mais gente, após incidente e a
+cada trimestre.

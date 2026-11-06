@@ -1,0 +1,12 @@
+#!/bin/bash
+# Primeira inicialização: o mínimo para clonar o repositório. Todo o resto
+# (Docker, swap, volume, agente, timers) vive em infra/scripts/host-setup.sh,
+# versionado e idempotente, e é reexecutado a cada deploy.
+set -euxo pipefail
+exec > >(tee /var/log/runcodes-userdata.log) 2>&1
+
+dnf install -y git
+if [ ! -d /opt/runcodes/.git ]; then
+  git clone --depth 50 "${git_repo_url}" /opt/runcodes
+fi
+bash /opt/runcodes/infra/scripts/host-setup.sh

@@ -1,2 +1,8 @@
 # clones externos do bootstrap (repo database) e configs locais
 .external/
+
+# terraform
+.terraform/
+*.tfplan
+tfplan
+crash.log

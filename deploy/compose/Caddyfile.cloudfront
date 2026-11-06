@@ -1,0 +1,23 @@
+# Borda atrás do CloudFront (deploy AWS). O TLS termina no CloudFront; aqui é
+# HTTP puro na porta 80, aberta no security group só ao CloudFront. Mesmo assim
+# exigimos o cabeçalho secreto X-Origin-Verify: sem ele, outra distribuição
+# CloudFront (de qualquer conta) não consegue usar este origin.
+:80 {
+	encode zstd gzip
+
+	@sem_origem not header X-Origin-Verify {$RC_ORIGIN_VERIFY}
+	respond @sem_origem 403
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle /docs* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}
