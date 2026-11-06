@@ -34,3 +34,10 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   root só para o apt). Causa: imagem base sem `USER`. Regra: container de aplicação sempre não-root.
 - 2026-11-06: `*.tfvars` está sob regra de leitura negada no ambiente do dono; o stack usa só defaults
   de `variables.tf`. Não criar `environments/*.tfvars`.
+- 2026-11-06: o `npm audit` do primeiro PR barrou a API (multer, body-parser, zod high; nodemailer,
+  qs, minimatch moderate). `npm audit fix` + zod 3 -> 4 (build e 362 testes verdes). No web, zod 4 faz
+  `z.coerce.number()` virar `unknown` e quebra o tipo de ~12 telas com react-hook-form: o web ficou em
+  zod 3 e o gate dele em `critical` até migrar (usar `useForm<z.input<S>, any, z.output<S>>`).
+  Regra: o gate `high` vale para o servidor; exceção só com advisory de impacto local e prazo.
+- 2026-11-06: `node --test <diretório>` falha no Node 24 (`Cannot find module`); passar os arquivos
+  (`infra/scripts/*.test.mjs`). O passo nunca tinha rodado local antes do CI.

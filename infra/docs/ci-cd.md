@@ -10,7 +10,7 @@ PR para `main` -> `ci.yml` (`test`, `terraform-plan`, `security`) -> merge -> `d
 |---|---|
 | `test` | api (build + vitest), web (oxlint + vitest + build), docs (tsc + build), compiler (ruff + unittest), plan-guard |
 | `terraform-plan` | `fmt -check`, `validate`, `plan` somente leitura (role `runcodes-github-plan`) |
-| `security` | gitleaks (commits do PR), `npm audit --audit-level=high` (api, web), semgrep 1.183.0, checkov 3.4.3 |
+| `security` | gitleaks (commits do PR), `npm audit` (api em `high`; web em `critical` até migrar o zod, ver `CLAUDE.md`), semgrep 1.183.0, checkov 3.4.3 |
 
 Deploy: concorrência serializada (`deploy-production`), role `runcodes-github-deploy` (só `main`),
 plan-guard recusa destruir instância, volume de dados, VPC, CloudFront, buckets ou IAM; para liberar,

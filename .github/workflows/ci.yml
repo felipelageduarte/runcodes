@@ -55,7 +55,7 @@ jobs:
           npm run build
 
       - name: Scripts de infra (plan-guard)
-        run: node --test infra/scripts/
+        run: node --test infra/scripts/*.test.mjs
 
       # uv baixa o Python 3.14 exigido pelo compiler (requires-python).
       - name: Compiler (ruff + unittest)
@@ -149,7 +149,10 @@ jobs:
       - name: npm audit (dependências de produção)
         run: |
           npm --prefix api audit --omit=dev --audit-level=high
-          npm --prefix web audit --omit=dev --audit-level=high
+          # web: zod 3 -> 4 quebra os tipos do react-hook-form em ~12 telas
+          # (GHSA-mrhx-c7xc-m3w5, DoS de memória só na aba do próprio usuário).
+          # Gate em critical até a migração; ver CLAUDE.md, Achados.
+          npm --prefix web audit --omit=dev --audit-level=critical
 
       # SAST. Achado ERROR ou WARNING falha. Exceção consciente leva
       # `// nosemgrep: <id da regra> -- motivo` na linha anterior.

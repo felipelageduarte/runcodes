@@ -55,7 +55,7 @@ jobs:
           npm run build
 
       - name: Scripts de infra (plan-guard)
-        run: node --test infra/scripts/
+        run: node --test infra/scripts/*.test.mjs
 
   deploy:
     needs: test
