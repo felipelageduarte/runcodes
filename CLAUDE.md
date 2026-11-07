@@ -68,3 +68,8 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   reset de senha, plágio, exercícios públicos e broadcast estavam quebrados em produção e o smoke
   (`/api/universities`) não via. Agora as migrations vivem em `api/db/migrations/` e o deploy as aplica
   (`infra/scripts/migrate.sh`). Regra: tudo que o código exige do banco vive no repo que faz o deploy.
+- 2026-11-07: o seed do repo `database` (`schema/production.sql`) cria `admin@admin` (ADMIN, confirmado, hash
+  SHA-1 legado público), que ficou ativo em produção. Removido à mão (`DELETE`, aprovado pelo dono). Regra:
+  após qualquer init novo do banco (recriação do volume, self-heal do `remote-deploy.sh`), conferir
+  `SELECT email FROM users` e apagar o `admin@admin` antes de abrir ao público; restore de backup antigo
+  também o traz de volta.
