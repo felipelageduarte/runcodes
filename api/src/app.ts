@@ -72,9 +72,13 @@ export function buildApp(container: Container) {
   // browser to accept the httpOnly session cookie set by /api/auth/login —
   // APP_BASE_URL is already the frontend's origin (reused from the email
   // confirmation/reset links).
-  app.use(cors({ origin: env.APP_BASE_URL, credentials: true }));
+  app.use(cors({ origin: container.allowedOrigins, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
+  // Mutação com cookie de sessão exige Origin conhecida (+ X-Requested-With,
+  // ver csrfGuard.ts). Antes das rotas e do auditLog: request forjado não
+  // vira linha de auditoria com o e-mail da vítima.
+  app.use(middleware.csrfGuard);
 
   // Site de documentação (estático) — antes do auditLog de propósito:
   // cada asset de página viraria uma linha de auditoria sem valor.

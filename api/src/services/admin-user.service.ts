@@ -7,6 +7,7 @@ import type {
 } from "../repositories/user.repository.js";
 import { NotFoundError, ConflictError, UnauthorizedError } from "../domain/errors.js";
 import type { AuthService } from "./auth.service.js";
+import type { SessionRevoker } from "../lib/session-state.js";
 
 export interface NewUserByAdminInput {
   email: string;
@@ -21,11 +22,13 @@ export interface NewUserByAdminInput {
  * same reason OfferingMembershipService is split from EnrollmentService:
  * different actor, different authorization shape, same aggregate.
  * Authorization itself (admin-only) is enforced at the route layer via
- * requireMinType, same as every other admin-only resource. */
+ * requirePermission("admin.users:manage"), same as every other admin-only
+ * resource. */
 export class AdminUserService {
   constructor(
     private readonly users: UserRepository,
     private readonly auth: AuthService,
+    private readonly sessions?: SessionRevoker,
   ) {}
 
   async list(filter: AdminUserListFilter) {
@@ -42,6 +45,11 @@ export class AdminUserService {
   async update(email: string, patch: AdminUserPatch) {
     const updated = await this.users.updateByAdmin(email, patch);
     if (!updated) throw new NotFoundError("User not found");
+    // Rebaixar, promover ou desconfirmar vale para a sessão corrente do
+    // alvo, não só para o próximo login (spec F2/G2).
+    if (patch.type !== undefined || patch.confirmed !== undefined) {
+      await this.sessions?.revoke(email);
+    }
     return omitPassword(updated);
   }
 
@@ -63,6 +71,7 @@ export class AdminUserService {
       throw new UnauthorizedError("Current password is incorrect", "invalid_current_password");
     }
     if (!(await this.users.deleteByAdmin(email))) throw new NotFoundError("User not found");
+    this.sessions?.refresh(email);
   }
 }
 

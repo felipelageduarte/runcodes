@@ -143,3 +143,29 @@ describe("AdminUserService.delete", () => {
     expect(repo.deleteByAdmin).toHaveBeenCalledWith("a@x.com");
   });
 });
+
+describe("AdminUserService + sessões (F2)", () => {
+  function makeSessions() {
+    return { revoke: vi.fn().mockResolvedValue(undefined), refresh: vi.fn() };
+  }
+
+  it("mudar tipo ou confirmed revoga a sessão do alvo; só nome não", async () => {
+    const sessions = makeSessions();
+    const service = new AdminUserService(makeRepo(), makeAuth(), sessions);
+
+    await service.update("a@x.com", { name: "B" });
+    expect(sessions.revoke).not.toHaveBeenCalled();
+
+    await service.update("a@x.com", { type: 0 });
+    await service.update("a@x.com", { confirmed: false });
+    expect(sessions.revoke).toHaveBeenCalledTimes(2);
+    expect(sessions.revoke).toHaveBeenCalledWith("a@x.com");
+  });
+
+  it("excluir tira o usuário do cache de sessão", async () => {
+    const sessions = makeSessions();
+    const service = new AdminUserService(makeRepo(), makeAuth(), sessions);
+    await service.delete("a@x.com", "admin@x.com", "pw");
+    expect(sessions.refresh).toHaveBeenCalledWith("a@x.com");
+  });
+});

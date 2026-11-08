@@ -2,7 +2,7 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { AuthService } from "../../services/auth.service.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
-import { SESSION_COOKIE_NAME } from "../middleware/requireAuth.js";
+import { SESSION_COOKIE_NAME, extractToken } from "../middleware/requireAuth.js";
 
 const loginSchema = z.object({
   // Not .email(): legacy rows (e.g. "admin@admin") predate strict
@@ -35,6 +35,25 @@ export function createAuthRouter(authService: AuthService, requireAuth: RequestH
       // token — see docs/frontend/security.md). The token is still
       // returned in the body too, for API clients/scripts/tests that
       // authenticate via the Authorization header instead.
+      res.cookie(SESSION_COOKIE_NAME, result.token, {
+        ...cookieOptions(),
+        maxAge: SESSION_COOKIE_MAX_AGE_MS,
+      });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Renova um JWT curto (1 h) sem pedir senha: aceita o token atual mesmo
+  // expirado (janela de 7 dias), relê o usuário e rejeita `tv` divergente
+  // (ver AuthService.refresh). Não passa pelo requireAuth de propósito —
+  // ele recusaria o token expirado antes de chegar aqui.
+  router.post("/refresh", async (req, res, next) => {
+    try {
+      const token = extractToken(req);
+      if (!token) return res.status(401).json({ error: "missing_token" });
+      const result = await authService.refresh(token);
       res.cookie(SESSION_COOKIE_NAME, result.token, {
         ...cookieOptions(),
         maxAge: SESSION_COOKIE_MAX_AGE_MS,

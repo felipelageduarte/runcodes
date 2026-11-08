@@ -1096,3 +1096,64 @@ describe("exercise attachments (files and compilation files)", () => {
     expect(listRes.body.map((f: { id: number }) => f.id)).not.toContain(exerciseFileId);
   });
 });
+
+describe("sessão revogável (F2)", () => {
+  const email = `itest-demote-${RUN_ID}@example.com`;
+
+  beforeAll(async () => {
+    const passwordHash = await bcrypt.hash(TEST_PASSWORD, 4);
+    await container.prisma.user.create({
+      data: { email, name: "ITest Demote", password: passwordHash, type: 3, confirmed: true, universityId: 1 },
+    });
+  });
+
+  it("rebaixar um admin invalida a sessão dele na hora (tv divergente)", async () => {
+    const victimToken = await login(email);
+    const before = await request(app).get("/api/admin/users").set("Authorization", `Bearer ${victimToken}`);
+    expect(before.status).toBe(200);
+
+    const adminToken = await login(emails.admin);
+    const demote = await request(app)
+      .put(`/api/admin/users/${encodeURIComponent(email)}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ type: 0 });
+    expect(demote.status).toBe(200);
+
+    const after = await request(app).get("/api/admin/users").set("Authorization", `Bearer ${victimToken}`);
+    expect(after.status).toBe(401);
+    expect(after.body).toEqual({ error: "session_revoked" });
+
+    // Refresh com o token antigo também é recusado; login novo volta a funcionar como aluno.
+    const refresh = await request(app).post("/api/auth/refresh").set("Authorization", `Bearer ${victimToken}`);
+    expect(refresh.status).toBe(401);
+    const fresh = await login(email);
+    const me = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${fresh}`);
+    expect(me.body.type).toBe(0);
+  });
+
+  it("POST /api/auth/refresh devolve um token novo com o papel atual", async () => {
+    const token = await login(emails.student);
+    const res = await request(app).post("/api/auth/refresh").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    expect(res.body.user.email).toBe(emails.student);
+    expect(res.headers["set-cookie"]?.[0]).toMatch(/^token=/);
+  });
+
+  it("mutação com cookie de sessão sem Origin conhecida é barrada (CSRF)", async () => {
+    const token = await login(emails.student);
+    const noOrigin = await request(app).post("/api/auth/logout").set("Cookie", `token=${token}`);
+    expect(noOrigin.status).toBe(403);
+    const badOrigin = await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", `token=${token}`)
+      .set("Origin", "https://evil.example");
+    expect(badOrigin.status).toBe(403);
+    const ok = await request(app)
+      .post("/api/auth/logout")
+      .set("Cookie", `token=${token}`)
+      .set("Origin", env.APP_BASE_URL)
+      .set("X-Requested-With", "runcodes-web");
+    expect(ok.status).toBe(204);
+  });
+});
