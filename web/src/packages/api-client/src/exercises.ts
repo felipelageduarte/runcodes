@@ -1,4 +1,4 @@
-import { apiFetch } from "./http";
+import { apiFetch, apiBase } from "./http";
 
 export interface AllowedFile {
   id: number;
@@ -113,8 +113,7 @@ export function getParticipantCommits(
 }
 
 export function exportSubmissionsZipUrl(exerciseId: number): string {
-  const base = import.meta.env.VITE_API_URL ?? "/api";
-  return `${base}/exercises/${exerciseId}/export-submissions.zip`;
+  return `${apiBase()}/exercises/${exerciseId}/export-submissions.zip`;
 }
 
 export interface ExerciseCasesTableRow {
