@@ -1,6 +1,6 @@
 # Especificação SDD: Onda 1, correções obrigatórias antes do primeiro aluno real
 
-**Status:** PROPOSTA, aguardando respostas das perguntas da seção 11 (Felipe). Fases independentes podem começar antes; a ordem sugerida está na seção 5.
+**Status:** PROPOSTA, aguardando respostas das perguntas da seção 11 e 13.1 (Felipe). Sessão de origem arquivada em 2026-11-08; retomar pela seção 13. Fases independentes podem começar antes; a ordem sugerida está na seção 5.
 **Data:** 2026-11-08
 **Origem:** revisão completa de 2026-11-07 (`docs/reviews/2026-11-07-revisao.md`, Top 1 a 8, §7 "Agora"). Sete itens de severidade alta, esforço S-M, que a revisão coloca como condição para abrir o sistema a alunos. A auditoria de outubro do sandbox (`compiler-sandbox/docs/security-audit-2026-10.md`) já pedia dois deles (R3 e R15) e nenhum foi feito.
 **Executor previsto:** sessões Claude Code posteriores, uma por fase, cada uma com PR próprio. Onde a spec diz **DECISÃO DO EXECUTOR**, a sessão escolhe e registra no commit; onde diz **VERIFICAR**, confirma no código antes de implementar. Números de linha valem para `main` em `7da880d`.
@@ -273,3 +273,49 @@ Entra nesta onda como fase própria, independente das demais.
 **Aceite:** 20 logins errados seguidos contra uma conta real em produção: a partir do 6º, 429; e-mail de alerta não é exigido nesta onda.
 
 **Esforço:** S (1 dia).
+
+---
+
+## 13. Handoff para a próxima sessão (estado em 2026-11-08)
+
+Esta seção existe porque a sessão que escreveu a spec foi arquivada antes das respostas. A próxima sessão começa por aqui.
+
+### 13.1 Pendências do Felipe (bloqueiam fases)
+
+| # | Pergunta | Bloqueia | Resposta |
+|---|---|---|---|
+| Q1 | Quais linguagens precisam funcionar na validação? Só C/C++, ou também Python/Java? | F1, F3 | _pendente_ |
+| Q2 | Há push no `ghcr.io/runcodes-icmc`? Se não, imagens vão para GHCR da conta `felipelageduarte` ou ECR, e `IMAGE_FORMAT` muda. | F3 | _pendente_ |
+| Q3 | A t4g.small fica? Define o teto de memória por container e se Java cabe. | F1 | _pendente_ |
+| Q4 | Aceita a migration `007` com coluna `attempts` em `commits`? | F5 | _pendente_ |
+| Q5 | Merge do PR 18 (esta spec). | tudo | _pendente_ |
+
+### 13.2 Perguntas da revisão que só o dono responde (`docs/reviews/2026-11-07-revisao.md` §6)
+
+Não bloqueiam a onda 1, mas mudam a severidade de itens dela e da onda 2:
+
+- Haverá alunos menores de 18 anos? O que `users.identifier` guarda (matrícula, CPF)? Define a política de privacidade (onda 2, LGPD).
+- Os `.in` e as saídas de testes fechados são mostrados ao aluno (`show_user_output`)? Define a gravidade de F2 e F3.
+- `/data/exec` está no mesmo volume que o banco e o `data-root` do Docker? Se sim, encher disco derruba o banco (reforça F1 `fsize`).
+- Qual o uso real do Redis na API (cache, fila do JPlag)? Define credenciais por serviço na onda 2.
+- Volume esperado de submissões por turma e pico de prazo: define se executor separado compensa algum dia.
+- Cost Explorer por tag `Project` para confirmar os ~US$ 26/mês; `df -h /data` para avaliar encolher o volume de 40 GB.
+- Quantos usuários ainda têm hash SHA-1 (`length(password)=40`): consulta ao banco, leitura, ainda não feita.
+
+### 13.3 Pendências operacionais fora desta spec (já conhecidas, não esquecer)
+
+- **Organização GitHub:** não se cria via `gh` (API só em Enterprise Server). Criar pela web em github.com/account/organizations/new. Depois: `gh api -X POST repos/felipelageduarte/runcodes/transfer -f new_owner=<org>`; o `sub` do OIDC muda para `repo:<org>/runcodes:...` e o trust das roles em `infra/terraform/ci-github.tf` precisa de ajuste **antes** do primeiro deploy pós-transferência; ruleset, secrets e Dependabot vão junto ou se recriam. Vale uma seção em `infra/docs/segregacao.md`.
+- **`admin@admin`:** apagado da produção em 2026-11-07, mas o seed do repo `database` recria em todo init novo do volume (e um restore antigo traz de volta). Conferir `SELECT email FROM users` após qualquer recriação. Registrado no `CLAUDE.md`.
+- **SMTP:** adiado por decisão do dono; admin cria usuários à mão. Antes de abrir ao público: SMTP real, confirmação de e-mail e reset de senha.
+- **Alarme `cpu-credits-low`:** disparou uma vez durante build no host. Se repetir em uso normal, t4g.medium ou build de imagens no CI (onda 2).
+- **Restore do SeaweedFS:** nunca ensaiado (`infra/docs/segregacao.md`). Onda 2.
+- **web em zod 3** com gate `npm audit` em `critical`: migrar para zod 4 (onda 3).
+- **Professor de teste:** o Felipe disse "done" no passo de criar o primeiro professor, mas o banco só tinha os dois admins. Confirmar se a criação pelo painel falhou (possível bug) ou se não foi feita.
+- **Perfil do Claude:** lições desta semana ainda não commitadas em `~/.claude/claude-config` (repo do perfil, fora deste repo).
+
+### 13.4 Como retomar
+
+1. Ler esta spec inteira e o §2 (contexto auditado) para não redescobrir.
+2. Preencher 13.1 e commitar.
+3. Começar por F1 e F2 (independentes das respostas de Q2 e Q4; Q1 e Q3 só definem os números de F1, que têm default conservador).
+4. Uma fase por sessão, um PR por fase, merge pelo Felipe.
