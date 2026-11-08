@@ -28,6 +28,7 @@ import { createPublicExercisesRouter } from "./http/routes/public-exercises.rout
 import { createMarketplaceRouter } from "./http/routes/marketplace.routes.js";
 import { createGradesRouter } from "./http/routes/grades.routes.js";
 import { createLogsRouter } from "./http/routes/logs.routes.js";
+import { createAuditRouter } from "./http/routes/audit.routes.js";
 import { createPipelineRouter } from "./http/routes/pipeline.routes.js";
 import { createDbAdminRouter } from "./http/routes/db-admin.routes.js";
 import { createExerciseAttachmentRouters } from "./http/routes/exercise-attachment.routes.js";
@@ -132,6 +133,7 @@ export function buildApp(container: Container) {
     createExerciseExportRouter(services.exerciseExport, middleware.requireAuth),
   );
   app.use("/api/admin/logs", createLogsRouter(services.log, middleware.requireAuth));
+  app.use("/api/admin/audit", createAuditRouter(services.audit, middleware.requireAuth));
   app.use("/api/admin/pipeline", createPipelineRouter(services.pipeline, middleware.requireAuth));
   app.use("/api/admin/db", createDbAdminRouter(services.dbAdmin, middleware.requireAuth));
   app.use("/api/exercises/:exerciseId/files", exerciseFilesByExercise);
