@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { PipelineService } from "../../services/pipeline.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const activeQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -10,7 +9,7 @@ const activeQuerySchema = z.object({
 
 export function createPipelineRouter(pipelineService: PipelineService, requireAuth: RequestHandler) {
   const router = Router();
-  router.use(requireAuth, requireMinType(UserType.ADMIN));
+  router.use(requireAuth, requirePermission("admin.pipeline:manage"));
 
   router.get("/stats", async (_req, res, next) => {
     try {

@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { QuestionService } from "../../services/question.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const createSchema = z.object({
   title: z.string().min(1),
@@ -36,7 +35,7 @@ export function createQuestionsRouter(questionService: QuestionService, requireA
     }
   });
 
-  router.post("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.post("/", requireAuth, requirePermission("admin.questions:manage"), async (req, res, next) => {
     try {
       res.status(201).json(await questionService.create(createSchema.parse(req.body)));
     } catch (err) {
@@ -44,7 +43,7 @@ export function createQuestionsRouter(questionService: QuestionService, requireA
     }
   });
 
-  router.put("/:id", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.put("/:id", requireAuth, requirePermission("admin.questions:manage"), async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });
@@ -54,7 +53,7 @@ export function createQuestionsRouter(questionService: QuestionService, requireA
     }
   });
 
-  router.delete("/:id", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.delete("/:id", requireAuth, requirePermission("admin.questions:manage"), async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });

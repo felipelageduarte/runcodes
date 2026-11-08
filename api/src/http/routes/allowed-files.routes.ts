@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { AllowedFileService } from "../../services/allowed-file.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const listQuerySchema = z.object({
   compilable: z.coerce.boolean().optional(),
@@ -42,7 +41,7 @@ export function createAllowedFilesRouter(allowedFileService: AllowedFileService,
     }
   });
 
-  router.post("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.post("/", requireAuth, requirePermission("admin.allowed-files:manage"), async (req, res, next) => {
     try {
       const input = createSchema.parse(req.body);
       res.status(201).json(await allowedFileService.create(input));
@@ -51,7 +50,7 @@ export function createAllowedFilesRouter(allowedFileService: AllowedFileService,
     }
   });
 
-  router.put("/:id", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.put("/:id", requireAuth, requirePermission("admin.allowed-files:manage"), async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });

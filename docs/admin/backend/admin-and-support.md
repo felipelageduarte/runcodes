@@ -21,6 +21,24 @@ Os módulos menores — administração, notas e o entorno de suporte (tickets, 
 | `GET /api/admin/logs` | Admin | Leitura do log de auditoria |
 | `GET /api/admin/stats/activity` | Admin | Volume de submissões da plataforma inteira (hoje/ontem/7 dias + tendência de 28 dias) — ver abaixo |
 
+### Gate por permissão (catálogo)
+
+Toda rota administrativa declara uma permissão `recurso:ação` com `requirePermission("chave")` (`src/http/middleware/requirePermission.ts`); o nível mínimo de `UserType` vem do catálogo `src/http/admin-permissions.ts`, a única fonte de verdade (decisão Q2 da spec `admin-e-separacao-front`: catálogo no código, sem matriz editável). `requireMinType(n)` não existe mais.
+
+| Chave | Nível | Rotas |
+|---|---|---|
+| `admin.users:manage` | Admin | `/api/admin/users/*` |
+| `admin.stats:read` | Admin | `GET /api/admin/stats/activity` |
+| `admin.logs:read` | Admin | `GET /api/admin/logs`, `/stats` |
+| `admin.pipeline:manage` | Admin | `/api/admin/pipeline/*` |
+| `admin.db:query` | Admin (F5 passa a Developer) | `/api/admin/db/*` |
+| `admin.docs:read` | Admin | `/docs/admin-docs/*` |
+| `admin.universities:manage`, `admin.courses:manage`, `admin.exercises:read`, `admin.allowed-files:manage`, `admin.questions:manage`, `admin.messages:manage` | Admin | mutações (e listagens admin) de cada recurso |
+| `offerings:create`, `courses:search` | Professor | `POST /api/offerings`, `GET /api/courses/search/mine` |
+| `admin.audit:read`, `admin.overview:read` | Admin | reservadas para F1 (auditoria) e F4 (painel) |
+
+**Teste estrutural** (`src/http/admin-permissions.test.ts`): monta o app de verdade, varre o router do Express e falha se (a) uma rota sob `/api/admin*` ou `/docs/admin-docs` não tiver `requirePermission`, (b) uma permissão usada não estiver no catálogo, (c) uma chave do catálogo não proteger rota nenhuma sem estar na lista `RESERVED_FOR_LATER_PHASES`. Rota admin nova: escolher (ou criar) a chave no catálogo, copiar para `web/src/packages/shared/src/adminPermissions.ts` (o teste de contrato `admin-permissions.contract.test.ts` compara as duas) e usar `requirePermission`. O menu do web (`app/navigation.ts`) lê o mesmo catálogo.
+
 ## Notas, stats e exports
 
 Todos staff/admin-only (mesmo nível de acesso dos painéis de professor no legado).

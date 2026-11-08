@@ -2,8 +2,7 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { CourseService } from "../../services/course.service.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const listQuerySchema = z.object({
   university: z.coerce.number().int().optional(),
@@ -25,7 +24,7 @@ export function createCoursesRouter(courseService: CourseService, requireAuth: R
   const router = Router();
 
   // Admin-only global catalog, mirrors CoursesController::index/view.
-  router.get("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.get("/", requireAuth, requirePermission("admin.courses:manage"), async (req, res, next) => {
     try {
       const q = listQuerySchema.parse(req.query);
       res.json(await courseService.list(q));
@@ -35,7 +34,7 @@ export function createCoursesRouter(courseService: CourseService, requireAuth: R
   });
 
   // Admin-only — mirrors CoursesController::add() (single-course form, not the batch textarea).
-  router.post("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.post("/", requireAuth, requirePermission("admin.courses:manage"), async (req, res, next) => {
     try {
       const input = createSchema.parse(req.body);
       const course = await courseService.create(input);
@@ -45,7 +44,7 @@ export function createCoursesRouter(courseService: CourseService, requireAuth: R
     }
   });
 
-  router.get("/:id", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.get("/:id", requireAuth, requirePermission("admin.courses:manage"), async (req, res, next) => {
     try {
       res.json(await courseService.getById(Number(req.params.id)));
     } catch (err) {
@@ -58,7 +57,7 @@ export function createCoursesRouter(courseService: CourseService, requireAuth: R
   router.get(
     "/search/mine",
     requireAuth,
-    requireMinType(UserType.PROFESSOR),
+    requirePermission("courses:search"),
     async (req: AuthedRequest, res, next) => {
       try {
         const { q } = searchQuerySchema.parse(req.query);

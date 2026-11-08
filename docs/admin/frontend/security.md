@@ -13,6 +13,18 @@ A autorização de verdade sempre vive no `runcodes-api` (cada service checa pap
 
 `SameSite=Lax`, não `Strict` como planejado originalmente: a classificação de "same-site" do browser ignora porta e subdomínio (só olha o domínio registrável) — `localhost:5173`↔`localhost:3000` em dev e `app.run.codes`↔`api.run.codes` em produção são o mesmo "site", então `Lax` já cobre o caso de uso sem a fricção extra de `Strict` (que bloqueia até navegação cross-site comum).
 
+### Sessão curta com renovação transparente (F2)
+
+O JWT dura 1 h; o cookie, 7 dias. `apiFetch` (`packages/api-client/src/http.ts`) trata um `401` tentando **uma** vez `POST /api/auth/refresh` (renovação compartilhada entre requests concorrentes) e repetindo a chamada; se o refresh falha (sessão revogada: senha trocada, papel alterado, conta desconfirmada), o `401` original sobe e o guard manda para `/entrar`. Login, logout e o próprio refresh nunca disparam renovação. Detalhes do lado da API em [backend/auth.md](../backend/auth.md#sessão-revogável-f2-da-spec-admin-e-separacao-front).
+
+### Anti-CSRF: `X-Requested-With` + `Origin`
+
+Como a sessão é cookie `SameSite=Lax`, um `POST` iniciado por navegação de outro site ainda levaria o cookie. A API só aceita mutação com cookie quando o `Origin` está na lista (`APP_BASE_URL`, `APP_ALLOWED_ORIGINS`) **e** o request traz `X-Requested-With: runcodes-web`, cabeçalho que um formulário cross-site não consegue adicionar. O `apiFetch` é o único lugar que precisa mandá-lo (F0). Enquanto o front em produção não mandar, a API roda com `CSRF_REQUIRE_HEADER=false` (só `Origin`); ver a flag em `api/src/lib/env.ts`.
+
+### Menu lê o catálogo de permissões
+
+`app/navigation.ts` declara, por item da seção Administração, a permissão (`admin.users:manage`, ...) que a tela exige na API; o nível mínimo vem de `@runcodes/shared` (`adminPermissions.ts`, cópia do catálogo da API com teste de contrato). Continua sendo UX: a checagem real é `requirePermission` no servidor.
+
 ## XSS via conteúdo gerado por usuário
 
 Dois pontos de risco real, ambos já existentes como *dado* no backend, novos como *superfície renderizada*:

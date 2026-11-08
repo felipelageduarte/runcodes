@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { UniversityService } from "../../services/university.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const createSchema = z.object({
   abbreviation: z.string().min(2).max(15),
@@ -36,7 +35,7 @@ export function createUniversitiesRouter(universityService: UniversityService, r
     }
   });
 
-  router.post("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.post("/", requireAuth, requirePermission("admin.universities:manage"), async (req, res, next) => {
     try {
       const input = createSchema.parse(req.body);
       res.status(201).json(await universityService.create(input));
@@ -45,7 +44,7 @@ export function createUniversitiesRouter(universityService: UniversityService, r
     }
   });
 
-  router.put("/:id", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.put("/:id", requireAuth, requirePermission("admin.universities:manage"), async (req, res, next) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid_id" });

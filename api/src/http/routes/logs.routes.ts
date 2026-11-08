@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { LogService } from "../../services/log.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const filterSchema = {
   userEmail: z.string().optional(),
@@ -22,7 +21,7 @@ const statsQuerySchema = z.object(filterSchema);
 export function createLogsRouter(logService: LogService, requireAuth: RequestHandler) {
   const router = Router();
 
-  router.get("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.get("/", requireAuth, requirePermission("admin.logs:read"), async (req, res, next) => {
     try {
       const q = listQuerySchema.parse(req.query);
       res.json(await logService.list(q));
@@ -31,7 +30,7 @@ export function createLogsRouter(logService: LogService, requireAuth: RequestHan
     }
   });
 
-  router.get("/stats", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.get("/stats", requireAuth, requirePermission("admin.logs:read"), async (req, res, next) => {
     try {
       const q = statsQuerySchema.parse(req.query);
       res.json(await logService.stats(q));

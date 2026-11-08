@@ -2,8 +2,7 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { MessageService } from "../../services/message.service.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const sendSchema = z.object({
   audience: z.enum(["students", "staff", "admins", "all"]),
@@ -20,7 +19,7 @@ export function createMessagesRouter(messageService: MessageService, requireAuth
   const router = Router();
 
   // Admin-only — mirrors MessagesController::sendMail().
-  router.post("/", requireAuth, requireMinType(UserType.ADMIN), async (req: AuthedRequest, res, next) => {
+  router.post("/", requireAuth, requirePermission("admin.messages:manage"), async (req: AuthedRequest, res, next) => {
     try {
       const input = sendSchema.parse(req.body);
       const message = await messageService.send(req.user!, input);
@@ -30,7 +29,7 @@ export function createMessagesRouter(messageService: MessageService, requireAuth
     }
   });
 
-  router.get("/", requireAuth, requireMinType(UserType.ADMIN), async (req: AuthedRequest, res, next) => {
+  router.get("/", requireAuth, requirePermission("admin.messages:manage"), async (req: AuthedRequest, res, next) => {
     try {
       const { page, pageSize } = listQuerySchema.parse(req.query);
       res.json(await messageService.list(page, pageSize, req.user!));

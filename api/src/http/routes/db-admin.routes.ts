@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { DbAdminService } from "../../services/db-admin.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const querySchema = z.object({
   sql: z.string().min(1),
@@ -11,7 +10,7 @@ const querySchema = z.object({
 
 export function createDbAdminRouter(dbAdminService: DbAdminService, requireAuth: RequestHandler) {
   const router = Router();
-  router.use(requireAuth, requireMinType(UserType.ADMIN));
+  router.use(requireAuth, requirePermission("admin.db:query"));
 
   router.get("/health", async (_req, res, next) => {
     try {

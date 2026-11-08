@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { AdminUserService } from "../../services/admin-user.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
 
 const listQuerySchema = z.object({
@@ -37,7 +36,7 @@ const createSchema = z.object({
 /** Admin-only account management — mirrors UsersController::index/view/edit. */
 export function createAdminUsersRouter(adminUserService: AdminUserService, requireAuth: RequestHandler) {
   const router = Router();
-  router.use(requireAuth, requireMinType(UserType.ADMIN));
+  router.use(requireAuth, requirePermission("admin.users:manage"));
 
   router.get("/", async (req, res, next) => {
     try {
