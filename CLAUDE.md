@@ -18,7 +18,7 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
 - Acesso à instância por SSM (sem SSH). Banco de produção: leitura por padrão, pela instância
   (`docker compose exec database psql`); escrita só com pedido explícito.
 - Pausar, mover de conta e desligar: `infra/docs/segregacao.md`.
-- Revisões completas (`/revisao`) em `docs/reviews/`; a mais recente lista o que falta antes de abrir ao público.
+- Revisões completas (`/revisao`) em `docs/reviews/`; specs SDD em `docs/specs/`. Antes de abrir ao público: `docs/specs/onda-1-antes-de-abrir.md`.
 
 ## Testes (o que o CI roda)
 
