@@ -28,7 +28,9 @@
       "@runcodes/shared": ["./src/packages/shared/src/index.ts"],
       "@runcodes/shared/*": ["./src/packages/shared/src/*"],
       "@runcodes/editor": ["./src/packages/editor/src/index.ts"],
-      "@runcodes/editor/*": ["./src/packages/editor/src/*"]
+      "@runcodes/editor/*": ["./src/packages/editor/src/*"],
+      "@runcodes/support": ["./src/packages/support/src/index.ts"],
+      "@runcodes/support/*": ["./src/packages/support/src/*"]
     },
 
     /* Linting */

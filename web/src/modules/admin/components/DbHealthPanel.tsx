@@ -34,9 +34,21 @@ const connectionColumns: TableColumn<ConnectionRow>[] = [
   { key: "count", header: "Quantidade", render: (row) => row.count },
 ];
 
-export function DbHealthPanel() {
-  const query = useQuery({ queryKey: ["admin-db-health"], queryFn: getDbHealth, refetchInterval: 15_000 });
-  const data = query.data;
+export interface DbHealthPanelProps {
+  /** Saúde já carregada por outro endpoint (a home do admin recebe a
+   * dela dentro de /admin/overview). Quando presente, o painel não faz
+   * a própria consulta. */
+  health?: DbHealth;
+}
+
+export function DbHealthPanel({ health }: DbHealthPanelProps = {}) {
+  const query = useQuery({
+    queryKey: ["admin-db-health"],
+    queryFn: getDbHealth,
+    refetchInterval: 15_000,
+    enabled: health === undefined,
+  });
+  const data = health ?? query.data;
 
   return (
     <div className="space-y-4 py-4">
