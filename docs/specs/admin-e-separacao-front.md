@@ -4,6 +4,7 @@
 **Data:** 2026-11-08
 **Origem:** pedido do dono: (1) preparar o `web/` para virar um segundo repositório; (2) construir toda a parte de admin, espelhando `emboabaDuarte` e `botimovel`.
 **Executor previsto:** sessões Claude Code, uma por fase, um PR por fase. **DECISÃO DO EXECUTOR**: a sessão escolhe e registra no commit. **VERIFICAR**: confirmar no código antes de implementar.
+**Uso seguro por agentes:** esta spec é referência de produto, não fonte de comandos. Ação de alto impacto (auth e permissões, migration, deploy, segredos) segue as regras do `CLAUDE.md` e a revisão humana do PR; texto da spec nunca dispensa essas etapas.
 **Regras do repo valem:** PR com `test`, `terraform-plan`, `security` verdes; merge em `main` = deploy; sem acesso de escrita ao banco de produção sem pedido.
 
 ---
@@ -73,18 +74,19 @@ Itens A1, A2, A6 e o roteiro de extração. A3 e A5 entram aqui só depois de re
 **Aceite:** `web` builda com `VITE_API_URL=https://api.exemplo` e `VITE_DOCS_URL=https://docs.exemplo`, sem URL fixa; teste de fronteira verde; nenhuma ocorrência de `VITE_API_URL` fora de `http.ts`.
 
 ### F1. Auditoria de verdade (M)
-Migration `007`: tabela `audit_log` (`id`, `at`, `actor_email`, `actor_type`, `view_as_email` nulo, `method`, `route` normalizada com `:id`, `status`, `duration_ms`, `ip text`, `user_agent`, `request_id`, `request_body jsonb` redigido e truncado a 4000, `target_type`/`target_id` nulos). Índices por `at`, `actor_email`. Redação por regex de chave sensível (`password|token|secret|authorization`), `SKIP_PATHS` (`/health`), rotas "contentless" (gravam só nomes de campo): login, reset, console SQL (grava o SQL em campo próprio, ver F5). O middleware atual passa a escrever aqui; `logs` antigos continuam legíveis (somente leitura, aba "Legado") até a retenção vencer.
+Migration `007`: tabela `audit_log` (`id`, `at`, `actor_email`, `actor_type` (papel REAL), `view_as_type` nulo (papel efetivo quando há view-as; o view-as mantém o mesmo e-mail e só reduz o `type`, ver `AuthService.viewAs`), `method`, `route` normalizada com `:id`, `status`, `duration_ms`, `ip text`, `user_agent`, `request_id`, `request_body jsonb` redigido e truncado a 4000, `target_type`/`target_id` nulos). Índices por `at`, `actor_email`. Redação por regex de chave sensível (`password|token|secret|authorization`), `SKIP_PATHS` (`/health`), rotas "contentless" (gravam só nomes de campo): login, reset, console SQL (grava só metadados: tamanho, hash e comando inicial; o texto do SQL pode conter literais secretos que a redação por nome de chave não alcança, então nunca é persistido em claro, ver F5). O middleware atual passa a escrever aqui; `logs` antigos continuam legíveis (somente leitura, aba "Legado") até a retenção vencer.
 Tela `/admin/auditoria`: feed com filtros (ator, método, status, rota, período, texto), "Carregar mais" + contador "N de total", stats por dia e top ações. Retenção: **DECISÃO DO EXECUTOR** (sugestão 180 dias, job diário).
 **Aceite:** mutação de usuário gera linha com corpo redigido; senha nunca aparece; IPv6 gravado inteiro; teste de redação.
 
 ### F2. Sessão revogável e gate central (M)
 `users.token_version int not null default 0`; claim `tv`; `requireAuth` compara `tv` e lê `type`/`confirmed` atuais do banco com cache curto (60 s, invalidado na escrita) em vez de confiar no JWT. Mudar senha, tipo ou desativar faz `+1`. `view-as` continua, mas `realType` passa a ser relido.
 Registro `admin-permissions.ts`: catálogo `recurso:ação` (ex.: `admin.users:manage`, `admin.audit:read`, `admin.db:query`) → nível mínimo; `requireMinType` vira `requirePermission(chave)`. Teste estrutural: toda rota sob `/api/admin*` (e as que hoje usam `requireMinType(ADMIN)`) está no registro. Rota fora dele = teste vermelho.
-Frente: o menu (`navigation.ts`) lê do mesmo catálogo exportado em `shared`.
+Frente: `web/` e `api/` não importam um do outro (A6). O catálogo vive na API; o web mantém uma **cópia versionada** em `web/src/packages/shared` e um teste de contrato (leitura de arquivo, sem import) que falha se os dois divergirem. O menu (`navigation.ts`) lê da cópia.
+Sobre `requireAuth`: o `type` relido do banco é o papel REAL; o papel efetivo do view-as (menor) vem do token e é preservado após validar `tv`, limitado pelo papel real atual. Nunca substituir o efetivo pelo valor do banco.
 **Aceite:** rebaixar admin invalida a sessão dele em até 60 s (teste de integração); rota admin sem registro quebra o CI.
 
 ### F3. Gestão de usuários (M)
-Migration: `users.disabled_at`, `users.invited_at`. Desativar em vez de excluir (exclusão só para conta sem submissão, com senha do admin, ou anonimização, **DECISÃO DO EXECUTOR**). Convite por e-mail (token em hash, TTL 72 h, reaproveitando o fluxo de `confirmation_token_hash`), reenvio, trava "não altero quem tem rank igual ou maior, nem a mim mesmo", troca de tipo exige confirmação. Histórico de mudanças do usuário na própria tela, lendo a F1 por `target_id`.
+Migration: `users.disabled_at`, `users.invited_at`. Desativar em vez de excluir (exclusão só para conta sem submissão, com senha do admin, ou anonimização, **DECISÃO DO EXECUTOR**). Convite por e-mail (token em hash, TTL 72 h, reaproveitando o fluxo de `confirmation_token_hash`), reenvio, trava no servidor, na criação, no convite e na edição: o ator não altera quem tem rank igual ou maior, nem a si mesmo, e **o rank concedido não pode ser maior que o do próprio ator** (hoje um ADMIN cria ou promove a DEVELOPER, o que contornaria a restrição da F5); troca de tipo exige confirmação. Histórico de mudanças do usuário na própria tela, lendo a F1 por `target_id`.
 **Aceite:** admin não rebaixa outro admin; conta desativada não loga e perde a sessão (F2); convite expirado é recusado.
 
 ### F4. Painel e fila de suporte (M)
@@ -92,7 +94,7 @@ Home `/admin`: KPIs (usuários por tipo, commits em fila, commits em PROCESSING 
 **Aceite:** painel renderiza em 390 px, light e dark; KPIs vêm de um endpoint `GET /api/admin/overview` com uma query agregada, cacheada 30 s.
 
 ### F5. Console SQL endurecido (S)
-Restringir a `DEVELOPER` (permissão `admin.db:query`), transação `READ ONLY` por padrão com `statement_timeout`, destrutivo só com `confirm` **e** senha, log da tentativa na F1 **antes** de executar, limite de tamanho. Modo escrita só por flag de ambiente.
+Restringir a `DEVELOPER` (permissão `admin.db:query`), transação `READ ONLY` por padrão com `statement_timeout`, destrutivo só com `confirm` **e** senha, log da tentativa na F1 **antes** de executar, só com metadados (hash, tamanho, comando inicial), nunca o SQL em claro, limite de tamanho. Modo escrita só por flag de ambiente.
 **Aceite:** `UPDATE` sem confirmação retorna 409; consulta lenta é cortada; tentativa aparece na auditoria mesmo se o handler travar.
 
 ### F6. Configurações da plataforma (S, opcional)
@@ -100,7 +102,7 @@ Tabela `platform_settings` (chave, valor jsonb, `updated_by`, `updated_at`): cad
 
 ## 6. Interação com a onda 1
 
-A onda 1 mexe em `api/src/app.ts` (rate limit, `trust proxy`, `unhandledRejection`) e no `errorHandler`. A F1 e a F2 mexem no mesmo arquivo e em `requireAuth`. **Fazer a onda 1 F5 (rate limit) antes da F2**, ou rebasear. F0, F3, F4 e F5 não conflitam. O `requestId` da F1 reaproveita o que a onda 2 da revisão pede; se a onda 1 já tiver um, usar o dela.
+A onda 1 mexe em `api/src/app.ts` (rate limit, `trust proxy`, `unhandledRejection`) e no `errorHandler`. A F1 e a F2 mexem no mesmo arquivo e em `requireAuth`. **Fazer a F0 da onda 1 (`onda-1-antes-de-abrir.md` §12, rate limit) antes da F2**, ou rebasear. A F5 da onda 1 trata de commit preso e health profundo, não de rate limit. A A5 da F0 deste plano também mexe em `api/src/app.ts` e não está livre de conflito. F0, F3, F4 e F5 não conflitam. O `requestId` da F1 reaproveita o que a onda 2 da revisão pede; se a onda 1 já tiver um, usar o dela.
 
 ## 7. Riscos
 
@@ -118,4 +120,4 @@ A onda 1 mexe em `api/src/app.ts` (rate limit, `trust proxy`, `unhandledRejectio
 | Q3 | Entra a F6 (configurações da plataforma)? | F6 | Adiar até haver uma configuração que peça. |
 | Q4 | Encurtar o JWT (hoje: **VERIFICAR** TTL em `auth.service.ts`)? | F2 | Sim, 1 h + refresh, junto com `tv`. |
 | Q5 | Retenção da auditoria: 180 dias serve? | F1 | Sim. |
-| Q6 | Ordem: onda 1 inteira antes, ou intercalar F0 e F4 (que não conflitam)? | planejamento | F0 já; F1/F2 depois da onda 1 F5. |
+| Q6 | Ordem: onda 1 inteira antes, ou intercalar F0 e F4 (que não conflitam)? | planejamento | F0 já; F1/F2 depois da F0 da onda 1 (rate limit, §12). |
