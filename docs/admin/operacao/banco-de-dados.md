@@ -34,7 +34,8 @@ O repo `database` é a fonte única de verdade do schema, compartilhado por `ser
 | `public_exercises` / `questions` | Marketplace/catálogo público e FAQ |
 | `plagiarism_runs` | Execuções de detecção de plágio (provider, status, resultado jsonb) |
 | `tickets` / `messages` / `alerts` | Suporte, broadcast de email, avisos |
-| `logs` / `mail_logs` / `blacklist_mails` | Auditoria e email |
+| `audit_log` | Trilha de auditoria de requisições (migration 007, retenção 180 dias) |
+| `logs` / `mail_logs` / `blacklist_mails` | Auditoria legada (somente leitura) e email |
 | `ganglia` / `disk_reports` / `droplets` / `jail_status` / `cria_*` | Integrações legadas de infraestrutura — confirmar uso real antes de depender delas em código novo |
 
 ## Regra de ouro pra mudança de schema
