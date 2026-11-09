@@ -15,6 +15,7 @@ export default defineConfig({
       "@runcodes/auth": fileURLToPath(new URL("./src/packages/auth/src", import.meta.url)),
       "@runcodes/shared": fileURLToPath(new URL("./src/packages/shared/src", import.meta.url)),
       "@runcodes/editor": fileURLToPath(new URL("./src/packages/editor/src", import.meta.url)),
+      "@runcodes/support": fileURLToPath(new URL("./src/packages/support/src", import.meta.url)),
     },
   },
   server: {

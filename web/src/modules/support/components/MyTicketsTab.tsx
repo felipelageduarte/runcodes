@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { listMyTickets, TicketStatus } from "@runcodes/api-client";
 import { Badge, Button, Card, CardContent, EmptyState, Skeleton } from "@runcodes/ui";
-import { ticketPriorityLabels, ticketTypeLabels } from "../lib/ticketLabels";
+import { ticketPriorityLabels, ticketTypeLabels } from "@runcodes/support";
 import { NewTicketDialog } from "./NewTicketDialog";
 
 export function MyTicketsTab() {

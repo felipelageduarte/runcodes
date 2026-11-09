@@ -22,6 +22,27 @@ Os módulos menores — administração, notas e o entorno de suporte (tickets, 
 | `GET /api/admin/audit/stats` | Admin | KPIs, top ações, top usuários e série diária dos últimos `days` (até 90) |
 | `GET /api/admin/logs` | Admin | Tabela `logs` legada, somente leitura (aba "Logs (legado)") |
 | `GET /api/admin/stats/activity` | Admin | Volume de submissões da plataforma inteira (hoje/ontem/7 dias + tendência de 28 dias) — ver abaixo |
+| `GET /api/admin/overview` | Admin | KPIs da home `/admin` — ver [Painel](#painel-get-apiadminoverview) |
+
+### Painel (`GET /api/admin/overview`)
+
+Alimenta a home do admin (spec `docs/specs/admin-e-separacao-front.md`, F4). Uma única `SELECT` com
+subconsultas escalares (`admin-overview.repository.ts`) devolve, numa ida ao banco:
+
+| Campo | Regra |
+|---|---|
+| `usersByType[]` | `users` agrupado por `type` |
+| `commitsQueued` | `commits.status = IN_QUEUE` (ainda não pego pelo compilador) |
+| `commitsStuck` | `status IN (COMPILING, RUNNING)` e `coalesce(compilation_started, commit_time)` mais velho que `stuckMinutes` |
+| `compilationErrors24h` | `status = ERROR` nas últimas 24 h (erro do código do aluno) |
+| `serverErrors24h` | `status = SERVER_ERROR` nas últimas 24 h (falha do pipeline) |
+| `ticketsOpen` | `tickets.status = OPEN` |
+| `alertsActive` | `alerts.valid >= current_date`, mesma regra do banner |
+| `database` | `DbAdminService.health()` reaproveitado; se falhar vira `{ ok: false, error }` sem derrubar os contadores |
+
+Query string: `stuckMinutes` (inteiro, 1 a 1440, default 15). O serviço (`AdminOverviewService`) cacheia a
+resposta em memória por **30 s por valor de `stuckMinutes`**; `generatedAt` diz de quando são os números.
+Gate: `requireMinType(ADMIN)` até a F2 trocar pelo catálogo de permissões.
 
 ## Notas, stats e exports
 

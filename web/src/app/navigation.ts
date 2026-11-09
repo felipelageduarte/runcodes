@@ -12,6 +12,9 @@ import {
   Workflow,
   Database,
   GraduationCap,
+  Gauge,
+  LifeBuoy,
+  Megaphone,
 } from "lucide-react";
 import { UserType } from "@runcodes/shared";
 
@@ -21,6 +24,9 @@ export interface NavItem {
   icon: typeof LayoutDashboard;
   /** Omit for "any authenticated user". */
   minType?: number;
+  /** Ativo só na rota exata (NavLink `end`) — pra item pai como /admin,
+   * que senão acende junto com toda sub-rota. */
+  end?: boolean;
 }
 
 export interface NavSection {
@@ -46,11 +52,14 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Administração",
     minType: UserType.ADMIN,
     items: [
+      { to: "/admin", label: "Visão geral", icon: Gauge, end: true },
       { to: "/admin/universidades", label: "Instituições", icon: Building2 },
       { to: "/admin/cursos", label: "Disciplinas", icon: BookOpen },
       { to: "/admin/oferecimentos", label: "Oferecimentos", icon: GraduationCap },
       { to: "/admin/usuarios", label: "Usuários", icon: Users },
       { to: "/admin/arquivos", label: "Tipos de arquivo", icon: FileCog },
+      { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
+      { to: "/admin/avisos", label: "Avisos", icon: Megaphone },
       { to: "/admin/mensagens", label: "Mensagens", icon: MessageSquare },
       { to: "/admin/auditoria", label: "Auditoria", icon: ShieldCheck },
       { to: "/admin/logs", label: "Logs (legado)", icon: ScrollText },

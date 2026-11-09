@@ -32,7 +32,7 @@ function SidebarLink({ item }: { item: NavItem }) {
   return (
     <NavLink
       to={item.to}
-      end={item.to === "/"}
+      end={item.end ?? item.to === "/"}
       aria-label={item.label}
       title={item.label}
       className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground"
