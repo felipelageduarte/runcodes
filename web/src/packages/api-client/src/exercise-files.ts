@@ -1,4 +1,4 @@
-import { apiFetch } from "./http";
+import { apiFetch, apiBase } from "./http";
 
 export interface AttachmentRecord {
   id: number;
@@ -14,8 +14,7 @@ export function listExerciseFiles(exerciseId: number): Promise<AttachmentRecord[
  * browser manda o cookie de sessão automaticamente num <a href> normal,
  * não precisa de fetch+blob. */
 export function exerciseFileDownloadUrl(attachmentId: number): string {
-  const base = import.meta.env.VITE_API_URL ?? "/api";
-  return `${base}/exercise-files/${attachmentId}/download`;
+  return `${apiBase()}/exercise-files/${attachmentId}/download`;
 }
 
 /** Staff/admin only no backend (exercise-attachment.service.ts). */
