@@ -1,4 +1,4 @@
-import { apiFetch } from "./http";
+import { apiFetch, apiBase } from "./http";
 import type { CommitRecord } from "./commits";
 import type { EnrollmentRecord } from "./enrollments";
 
@@ -157,8 +157,7 @@ export function getGrades(offeringId: number): Promise<GradesView> {
 }
 
 export function gradesExportCsvUrl(offeringId: number): string {
-  const base = import.meta.env.VITE_API_URL ?? "/api";
-  return `${base}/offerings/${offeringId}/grades/export.csv`;
+  return `${apiBase()}/offerings/${offeringId}/grades/export.csv`;
 }
 
 export interface OfferingExerciseStats {
