@@ -1,4 +1,4 @@
-import { apiFetch } from "./http";
+import { apiFetch, apiBase } from "./http";
 
 /** Arquivos usados na compilação (headers, makefiles de apoio) — mesma
  * forma de exercise-files, router genérico montado em outro path
@@ -20,8 +20,7 @@ export function uploadCompilationFile(exerciseId: number, file: File): Promise<C
 }
 
 export function compilationFileDownloadUrl(fileId: number): string {
-  const base = import.meta.env.VITE_API_URL ?? "/api";
-  return `${base}/compilation-files/${fileId}/download`;
+  return `${apiBase()}/compilation-files/${fileId}/download`;
 }
 
 export function deleteCompilationFile(fileId: number): Promise<void> {
