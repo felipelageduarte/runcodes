@@ -1,4 +1,19 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
+/** Única leitura de `VITE_API_URL` no app (teste de fronteira em
+ * src/test/boundary.test.ts garante isso). Sem a variável o front assume
+ * que a API está no mesmo host, em `/api` (proxy do Vite em dev, Caddy em
+ * produção). Com ela, aceita origem externa, ex. `https://api.exemplo`. */
+export function apiBase(): string {
+  const raw = import.meta.env.VITE_API_URL;
+  return raw && raw.trim() !== "" ? raw.replace(/\/+$/, "") : "/api";
+}
+
+/** Métodos que mudam estado. Toda chamada com um deles leva
+ * `X-Requested-With`: a API (fase F2 da spec admin-e-separacao-front)
+ * passa a exigir o cabeçalho em mutação como barreira anti-CSRF, porque
+ * um formulário HTML cross-site não consegue enviá-lo. */
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+export const REQUESTED_WITH_HEADER = "X-Requested-With";
+export const REQUESTED_WITH_VALUE = "runcodes-web";
 
 /** Mirrors the shape every error in runcodes-api's domain/errors.ts
  * serializes to — `code` is the discriminable part the UI branches on
@@ -30,14 +45,20 @@ export interface ApiFetchOptions extends RequestInit {
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
   const { raw, headers, body, ...rest } = options;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const method = (rest.method ?? "GET").toUpperCase();
+  const csrfHeaders = MUTATING_METHODS.has(method)
+    ? { [REQUESTED_WITH_HEADER]: REQUESTED_WITH_VALUE }
+    : undefined;
+
+  const res = await fetch(`${apiBase()}${path}`, {
     ...rest,
     credentials: "include",
     body,
     headers: raw
-      ? headers
+      ? { ...csrfHeaders, ...headers }
       : {
           "Content-Type": "application/json",
+          ...csrfHeaders,
           ...headers,
         },
   });

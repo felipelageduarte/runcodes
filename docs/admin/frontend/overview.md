@@ -43,13 +43,14 @@ runcodes-web/
       student/                 # dashboard do aluno, lista de exercícios, submissão, notas
       professor/                # gestão de turma, exercícios, casos de teste, stats/csv, plágio
       marketplace/              # catálogo de exercícios públicos entre professores
-      admin/                    # universidades, allowed-files, usuários, logs
+      admin/                    # visão geral (KPIs), universidades, allowed-files, usuários, logs, tickets, avisos
     packages/                   # bibliotecas internas — importáveis por qualquer module, nunca o inverso (dentro do mesmo repo por ora — ver nota abaixo)
       ui/                       # design system: Button, Card, Table, Modal, Toast, Skeleton...
       editor/                   # integração Monaco — usado por student e professor como componente, não como rota
       api-client/               # 1 arquivo por recurso da API (auth.ts, exercises.ts, commits.ts...)
       auth/                     # AuthProvider, useSession, token storage — única fonte de verdade de "quem é o usuário"
       shared/                   # hooks/componentes usados por 2+ módulos de produto sem ser design system puro (não é "utils" genérico)
+      support/                  # fila de tickets e avisos (tabs + dialogs + rótulos) — navegados por `support` (/suporte) e `admin` (/admin/tickets, /admin/avisos)
     lib/                        # utilidades puras sem estado (formatters, date, csv parse client-side se precisar)
     test/                       # setup de testes, mocks (msw), fixtures compartilhadas
   e2e/                          # Playwright, fora de src (não faz parte do bundle)
@@ -57,7 +58,7 @@ runcodes-web/
 
 **Regra de fronteira, sem exceção**: se a pasta não tem rota própria registrada no shell, ela é `packages/`, não `modules/` — mesmo que o conteúdo seja específico de produto (`editor` só existe nesse produto, mas não é navegado, é importado). Foi exatamente misturar os dois que gerou a primeira versão deste documento ter `editor/`/`shared/` dentro de `modules/` e ao mesmo tempo dizer "módulo nunca importa componente interno de outro módulo" — contradição corrigida aqui. Um módulo de produto (`student`, `professor`, `marketplace`, `admin`, `auth`) só importa de `packages/*`, nunca de outro `modules/*`; quando um fluxo precisa continuar em outro módulo (ex. depois de adotar um exercício no marketplace, editar casos de teste é tela do `professor`), a transição é uma navegação de rota, não um import de componente — ver [marketplace.md](./marketplace.md#fronteira-de-responsabilidade-no-frontend-módulo-marketplace).
 
-`packages/*` vivem dentro do mesmo repo (não são pacotes npm publicados) — usamos path aliases do TypeScript (`@runcodes/ui`, `@runcodes/editor`, `@runcodes/api-client`, `@runcodes/auth`, `@runcodes/shared`) pra impor a fronteira de import sem o overhead operacional de um monorepo multi-pacote (Turborepo/Nx) que a escala atual do projeto não justifica. Se um dia esses pacotes precisarem de versionamento/release independente (ex. compartilhar o design system com outro produto), a extração é mecânica — a fronteira já existe.
+`packages/*` vivem dentro do mesmo repo (não são pacotes npm publicados) — usamos path aliases do TypeScript (`@runcodes/ui`, `@runcodes/editor`, `@runcodes/api-client`, `@runcodes/auth`, `@runcodes/shared`, `@runcodes/support`) pra impor a fronteira de import sem o overhead operacional de um monorepo multi-pacote (Turborepo/Nx) que a escala atual do projeto não justifica. Se um dia esses pacotes precisarem de versionamento/release independente (ex. compartilhar o design system com outro produto), a extração é mecânica — a fronteira já existe.
 
 ## Stack completa
 

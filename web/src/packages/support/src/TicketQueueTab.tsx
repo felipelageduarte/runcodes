@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listTickets, TicketStatus, type TicketRecord } from "@runcodes/api-client";
 import { Badge, Button, EmptyState, Skeleton, Table, type TableColumn } from "@runcodes/ui";
-import { ticketPriorityLabels, ticketTypeLabels } from "../lib/ticketLabels";
+import { ticketPriorityLabels, ticketTypeLabels } from "./ticketLabels";
 import { TicketEditDialog } from "./TicketEditDialog";
 
 const PAGE_SIZE = 20;

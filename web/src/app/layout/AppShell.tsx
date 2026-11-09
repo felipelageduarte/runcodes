@@ -18,6 +18,7 @@ import { ViewAsBar } from "./ViewAsBar";
 import { ViewAsMenu } from "./ViewAsMenu";
 import { AlertsBanner } from "./AlertsBanner";
 import { ServerClock } from "./ServerClock";
+import { docsUrl } from "../../config";
 
 function initials(name: string | undefined): string {
   if (!name) return "?";
@@ -31,7 +32,7 @@ function SidebarLink({ item }: { item: NavItem }) {
   return (
     <NavLink
       to={item.to}
-      end={item.to === "/"}
+      end={item.end ?? item.to === "/"}
       aria-label={item.label}
       title={item.label}
       className="relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-muted transition-colors hover:text-sidebar-foreground"
@@ -120,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="mx-1 h-6 w-px bg-sidebar-border" />
             <ViewAsMenu collapsedLabel />
             <a
-              href="/docs/manual/intro/"
+              href={docsUrl("/manual/intro/")}
               target="_blank"
               rel="noreferrer"
               aria-label="Manual do usuário"

@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useSession } from "@runcodes/auth";
 import { UserType } from "@runcodes/shared";
 import { PageContainer, PageHeader, Tabs, tabButtonId, tabPanelId } from "@runcodes/ui";
+import { AlertsTab, TicketQueueTab } from "@runcodes/support";
 import { MyTicketsTab } from "./components/MyTicketsTab";
-import { TicketQueueTab } from "./components/TicketQueueTab";
-import { AlertsTab } from "./components/AlertsTab";
 import { FaqTab } from "./components/FaqTab";
 
 type TabKey = "meus" | "fila" | "avisos" | "faq";

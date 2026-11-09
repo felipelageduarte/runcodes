@@ -1,4 +1,4 @@
-import { apiFetch } from "./http";
+import { apiFetch, apiBase } from "./http";
 
 /** Metadata only — o backend nunca devolve o texto de input/output no
  * GET (ExerciseCaseService.listForExercise), só flags/limites/hashes. */
@@ -96,8 +96,7 @@ export function removeAllExerciseCases(exerciseId: number): Promise<{ count: num
 /** Zip dos inputs/outputs — staff vê tudo, aluno só o que tem
  * `showInput`/`showExpectedOutput` marcado. */
 export function exerciseCasesDownloadUrl(exerciseId: number): string {
-  const base = import.meta.env.VITE_API_URL ?? "/api";
-  return `${base}/exercises/${exerciseId}/cases/download.zip`;
+  return `${apiBase()}/exercises/${exerciseId}/cases/download.zip`;
 }
 
 export interface ExerciseCaseFileRecord {
@@ -121,8 +120,7 @@ export function uploadExerciseCaseFile(exerciseCaseId: number, file: File): Prom
 }
 
 export function exerciseCaseFileDownloadUrl(fileId: number): string {
-  const base = import.meta.env.VITE_API_URL ?? "/api";
-  return `${base}/exercise-case-files/${fileId}/download`;
+  return `${apiBase()}/exercise-case-files/${fileId}/download`;
 }
 
 export function deleteExerciseCaseFile(fileId: number): Promise<void> {

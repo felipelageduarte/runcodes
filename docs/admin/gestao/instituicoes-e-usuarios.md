@@ -7,6 +7,17 @@ sidebar_position: 1
 
 Tarefas do painel administrativo (requer `type >= 3`). As rotas de API correspondentes estão detalhadas em [admin-and-support](../backend/admin-and-support.md).
 
+## Visão geral (`/admin`)
+
+A home do admin mostra, antes de qualquer aba, o que um operador precisa saber: commits na fila, commits
+presos em compilação/execução há mais de N minutos (seletor de 5 a 60 min, default 15), erros de
+compilação e do servidor nas últimas 24 h, contas por tipo, tickets abertos, avisos ativos, o volume de
+submissões (hoje/ontem/7 dias) e a saúde do banco (conexões, tamanho, uptime). Os números vêm de
+`GET /api/admin/overview`, cacheado 30 s no servidor; o rodapé diz a hora da leitura e tem "Atualizar".
+Quando não há nada na fila, nenhum commit preso e nenhum erro do servidor, a tela diz "Pipeline em dia".
+Commit preso é o sinal de container travado: o detalhe por commit fica em Pipeline
+([troubleshooting](../troubleshooting.md)).
+
 ## Universidades (instituições)
 
 O sistema é multi-tenant por universidade: toda conta e toda turma pertencem a uma. Regras que derivam disso:
@@ -40,6 +51,6 @@ Painel admin → Mensagens: envia email pra uma audiência por papel (`students`
 
 ## Suporte (tickets) e avisos
 
-- **Tickets**: qualquer autenticado abre; a fila global é gerenciada por assistente+ (`type >= 1`) — resolver, fechar, responder.
-- **Avisos (alerts)**: publicados por staff+, aparecem como banner pra todos os usuários logados. Publicação exige staff (no legado qualquer autenticado conseguia — corrigido na migração).
+- **Tickets**: qualquer autenticado abre; a fila global é gerenciada por assistente+ (`type >= 1`) — resolver, fechar, responder. Staff usa a aba "Fila" em `/suporte`; o admin tem a mesma fila em **Administração → Tickets** (`/admin/tickets`).
+- **Avisos (alerts)**: publicados por staff+, aparecem como banner pra todos os usuários logados. Publicação exige staff (no legado qualquer autenticado conseguia — corrigido na migração). Admin gerencia em **Administração → Avisos** (`/admin/avisos`); staff, na aba "Avisos" de `/suporte`.
 - **FAQ (questions)**: catálogo editado por admin, leitura pública.
