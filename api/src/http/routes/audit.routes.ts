@@ -5,8 +5,7 @@ import {
   AUDIT_STATS_MAX_DAYS,
   type AuditService,
 } from "../../services/audit.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const feedQuerySchema = z.object({
   actor: z.string().trim().min(1).optional(),
@@ -29,12 +28,12 @@ const statsQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(AUDIT_STATS_MAX_DAYS).default(7),
 });
 
-/** `GET /api/admin/audit/feed` e `GET /api/admin/audit/stats`. Admin-only
- * (dado sensível: request de toda a plataforma). A F2 troca o gate por
- * `requirePermission("admin.audit:read")`. */
+/** `GET /api/admin/audit/feed` e `GET /api/admin/audit/stats`. Permissão
+ * `admin.audit:read` do catálogo (dado sensível: request de toda a
+ * plataforma). */
 export function createAuditRouter(auditService: AuditService, requireAuth: RequestHandler) {
   const router = Router();
-  router.use(requireAuth, requireMinType(UserType.ADMIN));
+  router.use(requireAuth, requirePermission("admin.audit:read"));
 
   router.get("/feed", async (req, res, next) => {
     try {

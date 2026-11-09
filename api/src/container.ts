@@ -67,6 +67,8 @@ import { MessageService } from "./services/message.service.js";
 
 import { createRequireAuth } from "./http/middleware/requireAuth.js";
 import { createAuditLog } from "./http/middleware/auditLog.js";
+import { createCsrfGuard, allowedOriginsFrom } from "./http/middleware/csrfGuard.js";
+import { SessionRevocation, SessionStateCache } from "./lib/session-state.js";
 
 /**
  * The composition root: the one place that knows concrete
@@ -134,6 +136,12 @@ export function buildContainer() {
     password: env.SMTP_PASSWORD,
   });
 
+  // Estado de sessão (tipo, confirmado, token_version) relido do banco com
+  // cache de 60 s; os services que mexem em senha/tipo/confirmação chamam
+  // `sessions.revoke`/`refresh` para invalidar na hora.
+  const sessionStateCache = new SessionStateCache(repositories.users);
+  const sessions = new SessionRevocation(repositories.users, sessionStateCache);
+
   const authService = new AuthService(
     repositories.users,
     env.JWT_SECRET,
@@ -145,7 +153,7 @@ export function buildContainer() {
 
   const services = {
     auth: authService,
-    user: new UserService(repositories.users, emailSender, env.APP_BASE_URL, env.LEGACY_PASSWORD_SALT),
+    user: new UserService(repositories.users, emailSender, env.APP_BASE_URL, env.LEGACY_PASSWORD_SALT, sessions),
     enrollment: new EnrollmentService(
       repositories.enrollments,
       repositories.offerings,
@@ -207,7 +215,7 @@ export function buildContainer() {
     ),
     university: new UniversityService(repositories.universities),
     allowedFile: new AllowedFileService(repositories.allowedFiles),
-    adminUser: new AdminUserService(repositories.users, authService),
+    adminUser: new AdminUserService(repositories.users, authService, sessions),
     commitCaseResult: new CommitCaseResultService(
       repositories.commits,
       repositories.exercises,
@@ -271,9 +279,12 @@ export function buildContainer() {
     ),
   };
 
+  const allowedOrigins = allowedOriginsFrom(env.APP_BASE_URL, env.APP_ALLOWED_ORIGINS);
+
   const middleware = {
-    requireAuth: createRequireAuth(env.JWT_SECRET),
+    requireAuth: createRequireAuth(env.JWT_SECRET, sessionStateCache),
     auditLog: createAuditLog(repositories.audit),
+    csrfGuard: createCsrfGuard({ allowedOrigins, requireHeader: env.CSRF_REQUIRE_HEADER }),
   };
 
   return {
@@ -281,6 +292,8 @@ export function buildContainer() {
     repositories,
     services,
     middleware,
+    sessions,
+    allowedOrigins,
     plagiarismQueue,
     async close() {
       await plagiarismQueue.close();

@@ -2,8 +2,7 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import type { ExerciseService } from "../../services/exercise.service.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const listQuerySchema = z.object({
   university: z.coerce.number().int().optional(),
@@ -25,7 +24,7 @@ export function createExercisesRouter(exerciseService: ExerciseService, requireA
   const router = Router();
 
   // Admin-only global catalog, mirrors ExercisesController::index().
-  router.get("/", requireAuth, requireMinType(UserType.ADMIN), async (req, res, next) => {
+  router.get("/", requireAuth, requirePermission("admin.exercises:read"), async (req, res, next) => {
     try {
       const q = listQuerySchema.parse(req.query);
       const status = q.status as 1 | 2 | 3 | undefined;

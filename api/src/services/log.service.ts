@@ -1,6 +1,6 @@
 import type { LogRepository, LogListFilter } from "../repositories/log.repository.js";
 
-/** Admin-only read access enforced at the route layer (requireMinType). */
+/** Admin-only read access enforced at the route layer (requirePermission("admin.logs:read")). */
 export class LogService {
   constructor(private readonly logs: LogRepository) {}
 

@@ -302,6 +302,7 @@ function makeUserRecord(overrides: Partial<UserRecord> = {}): UserRecord {
     universityId: 1,
     confirmed: true,
     identifier: null,
+    tokenVersion: 0,
     ...overrides,
   };
 }
@@ -394,5 +395,37 @@ describe("UserService.changePassword", () => {
     await service.changePassword("a@x.com", "correct horse", "newpassword1");
 
     expect(repo.updatePassword).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("UserService + sessões (F2)", () => {
+  it("trocar ou redefinir a senha revoga as sessões anteriores", async () => {
+    const sessions = { revoke: vi.fn().mockResolvedValue(undefined), refresh: vi.fn() };
+    const repo = makeRepo(null, {
+      email: "a@x.com",
+      resetTokenHash: createHash("sha256").update("tok").digest("hex"),
+      resetTokenExpiresAt: new Date(Date.now() + 60_000),
+    });
+    const currentHash = await bcrypt.hash("correct-password", 4);
+    repo.findByEmail = vi.fn().mockResolvedValue(makeUserRecord({ password: currentHash }));
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL, SALT, sessions);
+
+    await service.changePassword("a@x.com", "correct-password", "newpassword1");
+    await service.resetPassword("a@x.com", "tok", "newpassword1");
+    expect(sessions.revoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("confirmar a conta só força releitura do estado de sessão", async () => {
+    const sessions = { revoke: vi.fn(), refresh: vi.fn() };
+    const repo = makeRepo({
+      email: "a@x.com",
+      confirmed: false,
+      confirmationTokenHash: createHash("sha256").update("tok").digest("hex"),
+      confirmationTokenExpiresAt: new Date(Date.now() + 60_000),
+    });
+    const service = new UserService(repo, makeEmailSender(), APP_BASE_URL, SALT, sessions);
+    await service.confirm("a@x.com", "tok");
+    expect(sessions.refresh).toHaveBeenCalledWith("a@x.com");
+    expect(sessions.revoke).not.toHaveBeenCalled();
   });
 });

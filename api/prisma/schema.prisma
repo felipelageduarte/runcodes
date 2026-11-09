@@ -21,7 +21,8 @@ model User {
   confirmation_token_expires_at DateTime?         @db.Timestamp(6)
   reset_token_hash              String?           @db.VarChar(64)
   reset_token_expires_at        DateTime?         @db.Timestamp(6)
-  alerts                        alerts[]
+  token_version                 Int               @default(0)
+  alerts                       alerts[]
   commits                       commits[]
   enrollments                   enrollments[]
   plagiarism_runs               plagiarism_runs[]

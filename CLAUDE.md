@@ -74,6 +74,16 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   após qualquer init novo do banco (recriação do volume, self-heal do `remote-deploy.sh`), conferir
   `SELECT email FROM users` e apagar o `admin@admin` antes de abrir ao público; restore de backup antigo
   também o traz de volta.
+- 2026-11-08 (F2 da spec admin): `requireAuth` relê `type`/`confirmed`/`token_version` do banco (cache 60 s) e
+  o JWT dura 1 h com `POST /api/auth/refresh`; rota admin usa `requirePermission("chave")` do catálogo
+  `api/src/http/admin-permissions.ts` (cópia em `web/src/packages/shared/src/adminPermissions.ts`), e o
+  teste estrutural `admin-permissions.test.ts` quebra se uma rota sob `/api/admin*` ficar sem permissão.
+  Decisões do executor: migration numerada `008` porque a F1 usa `007` em paralelo (o `migrate.sh` aplica por
+  nome; lacuna não importa); token sem claim `tv` vale `tv = 0` (ninguém relogou no deploy); anti-CSRF exige
+  `Origin` conhecida sempre e `X-Requested-With: runcodes-web` só com `CSRF_REQUIRE_HEADER=true`, default
+  `false` até a F0 (que manda o cabeçalho) chegar à `main`. Regra: ao ligar a flag, remover a flag; rota
+  admin nova sem chave no catálogo (e na cópia do web) não passa no CI.
+
 - 2026-11-08: o review do Copilot no PR da spec do admin (`admin-e-separacao-front.md`) achou 6 defeitos de
   texto: reler `type` do banco apagaria o papel reduzido do view-as (restauraria admin), `view_as_email`
   não existe (view-as mantém o e-mail e só reduz `type`), catálogo de permissões importado entre `api` e

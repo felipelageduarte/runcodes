@@ -9,7 +9,7 @@ import { NotFoundError } from "../domain/errors.js";
 /** Mirrors AllowedFilesController — admin catalog of languages/file types
  * exercises can be configured to accept. Read is open to any
  * authenticated user (populating an exercise-creation form); writes are
- * admin-only, enforced at the route layer via requireMinType. */
+ * admin-only, enforced at the route layer via requirePermission("admin.allowed-files:manage"). */
 export class AllowedFileService {
   constructor(private readonly allowedFiles: AllowedFileRepository) {}
 

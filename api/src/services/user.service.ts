@@ -2,6 +2,7 @@ import { randomBytes, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { UserRepository, ProfilePatch } from "../repositories/user.repository.js";
 import type { EmailSender } from "../repositories/email-sender.js";
+import type { SessionRevoker } from "../lib/session-state.js";
 import { hashLegacyPassword, isLegacyHash } from "../lib/legacyPassword.js";
 import { ConflictError, ValidationError, NotFoundError, UnauthorizedError } from "../domain/errors.js";
 
@@ -29,6 +30,7 @@ export class UserService {
     private readonly emailSender: EmailSender,
     private readonly appBaseUrl: string,
     private readonly legacyPasswordSalt: string,
+    private readonly sessions?: SessionRevoker,
   ) {}
 
   /**
@@ -79,6 +81,7 @@ export class UserService {
     }
 
     await this.users.confirm(email);
+    this.sessions?.refresh(email);
   }
 
   /** Mirrors UsersController::sendConfirmationEmail(). */
@@ -138,6 +141,8 @@ export class UserService {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await this.users.resetPassword(email, passwordHash);
+    // Quem tinha a senha antiga (ou um token roubado) perde a sessão.
+    await this.sessions?.revoke(email);
   }
 
   /** Mirrors UsersController::profile()'s "Atualizar Dados Pessoais"
@@ -172,6 +177,9 @@ export class UserService {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await this.users.updatePassword(email, passwordHash);
+    // Derruba as outras sessões; a atual renova em POST /api/auth/refresh
+    // só se o cliente logar de novo (o `tv` do token em uso ficou para trás).
+    await this.sessions?.revoke(email);
   }
 
   private async sendConfirmationEmail(email: string, confirmationToken: string): Promise<void> {

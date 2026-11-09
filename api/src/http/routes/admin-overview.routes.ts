@@ -1,8 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 import { AdminOverviewService, DEFAULT_STUCK_MINUTES } from "../../services/admin-overview.service.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const querySchema = z.object({
   /** Minutos em COMPILING/RUNNING a partir dos quais um commit conta
@@ -10,11 +9,11 @@ const querySchema = z.object({
   stuckMinutes: z.coerce.number().int().min(1).max(1440).default(DEFAULT_STUCK_MINUTES),
 });
 
-/** GET /api/admin/overview — KPIs da home do admin. ADMIN+ por
- * `requireMinType`; a F2 troca pelo `requirePermission` do catálogo. */
+/** GET /api/admin/overview — KPIs da home do admin. Permissão
+ * `admin.overview:read` do catálogo. */
 export function createAdminOverviewRouter(overviewService: AdminOverviewService, requireAuth: RequestHandler) {
   const router = Router();
-  router.use(requireAuth, requireMinType(UserType.ADMIN));
+  router.use(requireAuth, requirePermission("admin.overview:read"));
 
   router.get("/", async (req, res, next) => {
     try {

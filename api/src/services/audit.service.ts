@@ -5,8 +5,8 @@ export const AUDIT_STATS_MAX_DAYS = 90;
 /** Retenção da trilha (spec F1, Q5): 180 dias. */
 export const AUDIT_RETENTION_DAYS = 180;
 
-/** Leitura admin-only, imposta na rota (requireMinType; a F2 troca por
- * permissão `admin.audit:read`). A escrita é do middleware auditLog. */
+/** Leitura admin-only, imposta na rota pela permissão `admin.audit:read`
+ * do catálogo. A escrita é do middleware auditLog. */
 export class AuditService {
   constructor(private readonly audit: AuditRepository) {}
 

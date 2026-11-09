@@ -2,6 +2,7 @@ export * from "./theme";
 export * from "./useTheme";
 export * from "./useServerClock";
 export * from "./userType";
+export * from "./adminPermissions";
 export * from "./commitStatus";
 export * from "./exerciseType";
 export * from "./deadline";

@@ -4,8 +4,7 @@ import type { OfferingService } from "../../services/offering.service.js";
 import type { OfferingMembershipService } from "../../services/offering-membership.service.js";
 import { EnrollmentRole } from "../../repositories/enrollment.repository.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
-import { requireMinType } from "../middleware/requireMinType.js";
-import { UserType } from "../../lib/constants.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 const listQuerySchema = z.object({
   closed: z.coerce.boolean().default(false),
@@ -57,7 +56,7 @@ export function createOfferingsRouter(
   });
 
   // Professor+ opens a new turma — mirrors OfferingsController::add().
-  router.post("/", requireAuth, requireMinType(UserType.PROFESSOR), async (req: AuthedRequest, res, next) => {
+  router.post("/", requireAuth, requirePermission("offerings:create"), async (req: AuthedRequest, res, next) => {
     try {
       const input = createSchema.parse(req.body);
       const offering = await offeringService.create(req.user!, input);

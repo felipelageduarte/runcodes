@@ -17,6 +17,7 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
     universityId: 1,
     confirmed: true,
     identifier: null,
+    tokenVersion: 0,
     ...overrides,
   };
 }
@@ -210,5 +211,74 @@ describe("AuthService.stopViewAs", () => {
     await expect(auth.stopViewAs({ email: "a@example.com", type: 0 })).rejects.toMatchObject({
       code: "not_viewing_as",
     });
+  });
+});
+
+describe("AuthService token claims (F2)", () => {
+  it("assina `tv` com a token_version atual do usuário, no login e no view-as", async () => {
+    const bcryptHash = await bcrypt.hash("correct horse", 4);
+    const users = makeUsersRepo(makeUser({ password: bcryptHash, type: 3, tokenVersion: 7 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    const login = await auth.login("a@example.com", "correct horse");
+    expect(jwt.decode(login.token)).toMatchObject({ sub: "a@example.com", type: 3, tv: 7 });
+
+    const viewAs = await auth.viewAs({ email: "a@example.com", type: 3 }, 0);
+    expect(jwt.decode(viewAs.token)).toMatchObject({ type: 0, realType: 3, tv: 7 });
+  });
+});
+
+describe("AuthService.refresh", () => {
+  function expiredToken(claims: Record<string, unknown>, secret = "secret", expiredAgoSec = 60) {
+    const now = Math.floor(Date.now() / 1000);
+    return jwt.sign({ ...claims, iat: now - 3600 - expiredAgoSec, exp: now - expiredAgoSec }, secret, {
+      subject: "a@example.com",
+    });
+  }
+
+  it("troca um token expirado há pouco por um novo com o papel atual do banco", async () => {
+    const users = makeUsersRepo(makeUser({ type: 2, tokenVersion: 1 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    const result = await auth.refresh(expiredToken({ type: 3, tv: 1 }));
+    expect(result.user).toEqual({ email: "a@example.com", name: "A", type: 2, viewAs: null });
+    expect(jwt.decode(result.token)).toMatchObject({ type: 2, tv: 1 });
+    expect(() => jwt.verify(result.token, "secret")).not.toThrow();
+  });
+
+  it("rejeita `tv` divergente (senha/tipo mudaram depois da emissão)", async () => {
+    const users = makeUsersRepo(makeUser({ tokenVersion: 2 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.refresh(expiredToken({ type: 0, tv: 1 }))).rejects.toMatchObject({ code: "session_revoked" });
+  });
+
+  it("rejeita token fora da janela de 7 dias, assinatura errada, conta sumida ou desconfirmada", async () => {
+    const auth = new AuthService(makeUsersRepo(makeUser()), "secret", "1h", SALT);
+    const eightDays = 8 * 24 * 3600;
+    await expect(auth.refresh(expiredToken({ type: 0, tv: 0 }, "secret", eightDays))).rejects.toMatchObject({
+      code: "session_expired",
+    });
+    await expect(auth.refresh(expiredToken({ type: 0, tv: 0 }, "other"))).rejects.toMatchObject({ code: "invalid_token" });
+
+    const gone = new AuthService(makeUsersRepo(null), "secret", "1h", SALT);
+    await expect(gone.refresh(expiredToken({ type: 0, tv: 0 }))).rejects.toMatchObject({ code: "invalid_token" });
+
+    const unconfirmed = new AuthService(makeUsersRepo(makeUser({ confirmed: false })), "secret", "1h", SALT);
+    await expect(unconfirmed.refresh(expiredToken({ type: 0, tv: 0 }))).rejects.toMatchObject({
+      code: "account_not_confirmed",
+    });
+  });
+
+  it("preserva o view-as enquanto o papel real continuar acima do papel visto", async () => {
+    const users = makeUsersRepo(makeUser({ type: 3 }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    const kept = await auth.refresh(expiredToken({ type: 0, realType: 3, tv: 0 }));
+    expect(kept.user).toMatchObject({ type: 0, viewAs: { active: true, realType: 3 } });
+
+    const demoted = new AuthService(makeUsersRepo(makeUser({ type: 0 })), "secret", "1h", SALT);
+    const dropped = await demoted.refresh(expiredToken({ type: 0, realType: 3, tv: 0 }));
+    expect(dropped.user).toMatchObject({ type: 0, viewAs: null });
   });
 });

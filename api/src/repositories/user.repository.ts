@@ -1,4 +1,32 @@
 import type { PrismaClient } from "@prisma/client";
+import type { SessionState, SessionStateSource, TokenVersionStore } from "../lib/session-state.js";
+
+const USER_SELECT = {
+  email: true,
+  name: true,
+  password: true,
+  type: true,
+  universityId: true,
+  confirmed: true,
+  identifier: true,
+  token_version: true,
+} as const;
+
+type UserRow = {
+  email: string;
+  name: string;
+  password: string;
+  type: number;
+  universityId: number | null;
+  confirmed: boolean | null;
+  identifier: string | null;
+  token_version: number;
+};
+
+function toRecord(row: UserRow): UserRecord {
+  const { token_version, ...rest } = row;
+  return { ...rest, confirmed: row.confirmed ?? false, tokenVersion: token_version };
+}
 
 export interface UserRecord {
   email: string;
@@ -8,6 +36,8 @@ export interface UserRecord {
   universityId: number | null;
   confirmed: boolean;
   identifier: string | null;
+  /** Versão da sessão (claim `tv` do JWT); ver lib/session-state.ts. */
+  tokenVersion: number;
 }
 
 export interface UserConfirmationRecord {
@@ -66,8 +96,12 @@ export interface NewUserByAdmin {
 // Interface-first: services depend on this contract, never on PrismaClient
 // directly, so the persistence technology can change without touching
 // business logic (and so services are trivially mockable in tests).
-export interface UserRepository {
+export interface UserRepository extends SessionStateSource, TokenVersionStore {
   findByEmail(email: string): Promise<UserRecord | null>;
+  /** Só o que o requireAuth confere a cada request (ver session-state.ts). */
+  findSessionState(email: string): Promise<SessionState | null>;
+  /** `token_version + 1`: derruba todo JWT emitido antes. */
+  bumpTokenVersion(email: string): Promise<void>;
   updatePassword(email: string, passwordHash: string): Promise<void>;
   existsByEmail(email: string): Promise<boolean>;
   create(input: NewUser): Promise<void>;
@@ -102,23 +136,28 @@ export class PrismaUserRepository implements UserRepository {
   async findByEmail(email: string): Promise<UserRecord | null> {
     const row = await this.prisma.user.findUnique({
       where: { email },
-      select: {
-        email: true,
-        name: true,
-        password: true,
-        type: true,
-        universityId: true,
-        confirmed: true,
-        identifier: true,
-      },
+      select: USER_SELECT,
     });
     if (!row) return null;
-    return { ...row, confirmed: row.confirmed ?? false };
+    return toRecord(row);
   }
 
   async updatePassword(email: string, passwordHash: string): Promise<void> {
     await this.prisma.user.update({ where: { email }, data: { password: passwordHash } });
   }
+  async findSessionState(email: string): Promise<SessionState | null> {
+    const row = await this.prisma.user.findUnique({
+      where: { email },
+      select: { type: true, confirmed: true, token_version: true },
+    });
+    if (!row) return null;
+    return { type: row.type, confirmed: row.confirmed ?? false, tokenVersion: row.token_version };
+  }
+
+  async bumpTokenVersion(email: string): Promise<void> {
+    await this.prisma.user.updateMany({ where: { email }, data: { token_version: { increment: 1 } } });
+  }
+
 
   async existsByEmail(email: string): Promise<boolean> {
     const count = await this.prisma.user.count({ where: { email } });
@@ -209,18 +248,10 @@ export class PrismaUserRepository implements UserRepository {
         orderBy: { name: "asc" },
         skip: (filter.page - 1) * filter.pageSize,
         take: filter.pageSize,
-        select: {
-          email: true,
-          name: true,
-          password: true,
-          type: true,
-          universityId: true,
-          confirmed: true,
-          identifier: true,
-        },
+        select: USER_SELECT,
       }),
     ]);
-    return { total, users: rows.map((r) => ({ ...r, confirmed: r.confirmed ?? false })) };
+    return { total, users: rows.map(toRecord) };
   }
 
   async listConfirmedEmailsByTypeRange(minType: number, maxType?: number): Promise<string[]> {
@@ -244,17 +275,9 @@ export class PrismaUserRepository implements UserRepository {
           ...(patch.confirmed !== undefined ? { confirmed: patch.confirmed } : {}),
           ...(patch.universityId !== undefined ? { universityId: patch.universityId } : {}),
         },
-        select: {
-          email: true,
-          name: true,
-          password: true,
-          type: true,
-          universityId: true,
-          confirmed: true,
-          identifier: true,
-        },
+        select: USER_SELECT,
       });
-      return { ...row, confirmed: row.confirmed ?? false };
+      return toRecord(row);
     } catch {
       return null;
     }
@@ -271,17 +294,9 @@ export class PrismaUserRepository implements UserRepository {
         confirmed: true,
         universityId: input.universityId,
       },
-      select: {
-        email: true,
-        name: true,
-        password: true,
-        type: true,
-        universityId: true,
-        confirmed: true,
-        identifier: true,
-      },
+      select: USER_SELECT,
     });
-    return { ...row, confirmed: row.confirmed ?? false };
+    return toRecord(row);
   }
 
   async deleteByAdmin(email: string): Promise<boolean> {
@@ -302,17 +317,9 @@ export class PrismaUserRepository implements UserRepository {
           ...(patch.universityId !== undefined ? { universityId: patch.universityId } : {}),
           ...(patch.identifier !== undefined ? { identifier: patch.identifier } : {}),
         },
-        select: {
-          email: true,
-          name: true,
-          password: true,
-          type: true,
-          universityId: true,
-          confirmed: true,
-          identifier: true,
-        },
+        select: USER_SELECT,
       });
-      return { ...row, confirmed: row.confirmed ?? false };
+      return toRecord(row);
     } catch {
       return null;
     }

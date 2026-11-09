@@ -1,6 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import type { StatsService } from "../../services/stats.service.js";
 import type { AuthedRequest } from "../middleware/requireAuth.js";
+import { requirePermission } from "../middleware/requirePermission.js";
 
 export function createExerciseStatsRouter(statsService: StatsService, requireAuth: RequestHandler) {
   const router = Router({ mergeParams: true });
@@ -43,7 +44,7 @@ export function createExerciseStatsRouter(statsService: StatsService, requireAut
 export function createAdminStatsRouter(statsService: StatsService, requireAuth: RequestHandler) {
   const router = Router();
 
-  router.get("/activity", requireAuth, async (req: AuthedRequest, res, next) => {
+  router.get("/activity", requireAuth, requirePermission("admin.stats:read"), async (req: AuthedRequest, res, next) => {
     try {
       res.json(await statsService.getPlatformActivity(req.user!));
     } catch (err) {

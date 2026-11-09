@@ -4,6 +4,13 @@ import type { UserRepository } from "../repositories/user.repository.js";
 import { hashLegacyPassword, isLegacyHash } from "../lib/legacyPassword.js";
 import { UnauthorizedError, ForbiddenError, ValidationError } from "../domain/errors.js";
 import type { Requester } from "./offering.service.js";
+import { tokenVersionOf, type SessionTokenPayload } from "../http/middleware/requireAuth.js";
+
+/** Janela em que um token já expirado ainda pode ser trocado por um novo
+ * em POST /api/auth/refresh (o cookie de sessão dura 7 dias; o JWT, 1 h).
+ * Dentro dela a renovação exige `tv` igual ao do banco e conta confirmada;
+ * fora dela, login de novo. */
+export const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface SessionUser {
   email: string;
@@ -27,6 +34,15 @@ export class AuthService {
     private readonly jwtExpiresIn: string,
     private readonly legacyPasswordSalt: string,
   ) {}
+
+  private sign(user: { email: string; tokenVersion: number }, type: number, realType?: number): string {
+    const claims: Omit<SessionTokenPayload, "sub"> & { tv: number } = { type, tv: user.tokenVersion };
+    if (realType !== undefined) claims.realType = realType;
+    return jwt.sign(claims, this.jwtSecret, {
+      subject: user.email,
+      expiresIn: this.jwtExpiresIn as jwt.SignOptions["expiresIn"],
+    });
+  }
 
   /** Shared by login and any reauthentication flow (e.g. confirming a
    * destructive admin action) — same legacy-sha1-vs-bcrypt check, no
@@ -59,14 +75,13 @@ export class AuthService {
 
     // Transparent migration: once a legacy sha1 hash is verified, replace
     // it with bcrypt so every subsequent login skips the legacy path.
+    // A rehash não incrementa token_version: é a mesma senha, não uma troca.
     if (isLegacyHash(user.password)) {
       const rehashed = await bcrypt.hash(password, 12);
       await this.users.updatePassword(email, rehashed);
     }
 
-    const token = jwt.sign({ sub: user.email, type: user.type }, this.jwtSecret, {
-      expiresIn: this.jwtExpiresIn as jwt.SignOptions["expiresIn"],
-    });
+    const token = this.sign(user, user.type);
     return { token, user: { email: user.email, name: user.name, type: user.type, viewAs: null } };
   }
 
@@ -110,9 +125,7 @@ export class AuthService {
     const user = await this.users.findByEmail(requester.email);
     if (!user) throw new UnauthorizedError("Invalid credentials", "invalid_credentials");
 
-    const token = jwt.sign({ sub: user.email, type: targetType, realType }, this.jwtSecret, {
-      expiresIn: this.jwtExpiresIn as jwt.SignOptions["expiresIn"],
-    });
+    const token = this.sign(user, targetType, realType);
     return {
       token,
       user: { email: user.email, name: user.name, type: targetType, viewAs: { active: true, realType } },
@@ -129,9 +142,45 @@ export class AuthService {
     const user = await this.users.findByEmail(requester.email);
     if (!user) throw new UnauthorizedError("Invalid credentials", "invalid_credentials");
 
-    const token = jwt.sign({ sub: user.email, type: requester.realType }, this.jwtSecret, {
-      expiresIn: this.jwtExpiresIn as jwt.SignOptions["expiresIn"],
-    });
+    const token = this.sign(user, requester.realType);
     return { token, user: { email: user.email, name: user.name, type: requester.realType, viewAs: null } };
+  }
+
+  /** Backs POST /api/auth/refresh. Aceita o token corrente mesmo expirado
+   * (dentro de REFRESH_WINDOW_MS desde a expiração), relê o usuário e só
+   * emite um novo se `tv` bate com o banco e a conta segue confirmada —
+   * é aqui que a revogação por token_version pega quem tinha token antigo.
+   * Preserva o view-as (papel pedido, limitado pelo papel real atual). */
+  async refresh(rawToken: string): Promise<AuthTokens> {
+    let payload: SessionTokenPayload & { exp?: number };
+    try {
+      payload = jwt.verify(rawToken, this.jwtSecret, { ignoreExpiration: true }) as typeof payload;
+    } catch {
+      throw new UnauthorizedError("Invalid token", "invalid_token");
+    }
+    const expiredAt = (payload.exp ?? 0) * 1000;
+    if (!payload.exp || Date.now() - expiredAt > REFRESH_WINDOW_MS) {
+      throw new UnauthorizedError("Session expired", "session_expired");
+    }
+
+    const user = await this.users.findByEmail(payload.sub);
+    if (!user) throw new UnauthorizedError("Invalid token", "invalid_token");
+    if (user.tokenVersion !== tokenVersionOf(payload)) {
+      throw new UnauthorizedError("Session revoked", "session_revoked");
+    }
+    if (!user.confirmed) throw new ForbiddenError("Account email not confirmed yet", "account_not_confirmed");
+
+    const viewingAs = payload.realType !== undefined && payload.type < user.type;
+    const type = viewingAs ? payload.type : user.type;
+    const token = this.sign(user, type, viewingAs ? user.type : undefined);
+    return {
+      token,
+      user: {
+        email: user.email,
+        name: user.name,
+        type,
+        viewAs: viewingAs ? { active: true, realType: user.type } : null,
+      },
+    };
   }
 }
