@@ -17,7 +17,7 @@ import {
   Textarea,
   toast,
 } from "@runcodes/ui";
-import { ticketPriorityLabels, ticketTypeLabels } from "../lib/ticketLabels";
+import { ticketPriorityLabels, ticketTypeLabels } from "./ticketLabels";
 
 const schema = z.object({
   type: z.coerce.number().int().min(0).max(3),

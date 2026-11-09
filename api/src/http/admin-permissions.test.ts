@@ -15,7 +15,8 @@ const ADMIN_PREFIXES = ["/api/admin", "/docs/admin-docs"];
 
 /** Chaves do catálogo reservadas para fases que ainda não montaram rota
  * (F1 auditoria, F4 painel). Tirar daqui quando a rota existir. */
-const RESERVED_FOR_LATER_PHASES: AdminPermission[] = ["admin.overview:read"];
+/** Chaves do catálogo que ainda não protegem rota nenhuma (fases futuras). */
+const RESERVED_FOR_LATER_PHASES: AdminPermission[] = [];
 
 interface MountedRoute {
   method: string;
@@ -173,6 +174,7 @@ describe("catálogo de permissões admin", () => {
       "GET /api/admin/audit/feed": "admin.audit:read",
       "GET /api/admin/audit/stats": "admin.audit:read",
       "GET /api/admin/stats/activity": "admin.stats:read",
+      "GET /api/admin/overview": "admin.overview:read",
       "USE /docs/admin-docs": "admin.docs:read",
     };
     const byKey = new Map(routes.map((r) => [`${r.method} ${r.path}`, r.permission]));

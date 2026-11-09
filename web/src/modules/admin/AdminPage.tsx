@@ -1,8 +1,8 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { PageContainer, PageHeader } from "@runcodes/ui";
-import { PlatformActivityPanel } from "./components/PlatformActivityPanel";
 
 const SECTION_TITLES: Record<string, string> = {
+  "": "Visão geral",
   universidades: "Instituições",
   cursos: "Disciplinas",
   oferecimentos: "Oferecimentos",
@@ -13,6 +13,9 @@ const SECTION_TITLES: Record<string, string> = {
   mensagens: "Mensagens",
   pipeline: "Pipeline",
   banco: "Banco de dados",
+  documentacao: "Documentação",
+  tickets: "Tickets",
+  avisos: "Avisos",
 };
 
 export function AdminPage() {
@@ -23,9 +26,6 @@ export function AdminPage() {
   return (
     <PageContainer width="wide">
       <PageHeader eyebrow="Administração" title={title} />
-      <div className="mb-6">
-        <PlatformActivityPanel />
-      </div>
       <Outlet />
     </PageContainer>
   );

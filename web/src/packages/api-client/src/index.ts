@@ -18,6 +18,7 @@ export * from "./logs";
 export * from "./audit";
 export * from "./pipeline";
 export * from "./db-admin";
+export * from "./admin-overview";
 export * from "./tickets";
 export * from "./alerts";
 export * from "./questions";

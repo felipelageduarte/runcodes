@@ -22,6 +22,27 @@ Os módulos menores — administração, notas e o entorno de suporte (tickets, 
 | `GET /api/admin/audit/stats` | Admin | KPIs, top ações, top usuários e série diária dos últimos `days` (até 90) |
 | `GET /api/admin/logs` | Admin | Tabela `logs` legada, somente leitura (aba "Logs (legado)") |
 | `GET /api/admin/stats/activity` | Admin | Volume de submissões da plataforma inteira (hoje/ontem/7 dias + tendência de 28 dias) — ver abaixo |
+| `GET /api/admin/overview` | Admin | KPIs da home `/admin` — ver [Painel](#painel-get-apiadminoverview) |
+
+### Painel (`GET /api/admin/overview`)
+
+Alimenta a home do admin (spec `docs/specs/admin-e-separacao-front.md`, F4). Uma única `SELECT` com
+subconsultas escalares (`admin-overview.repository.ts`) devolve, numa ida ao banco:
+
+| Campo | Regra |
+|---|---|
+| `usersByType[]` | `users` agrupado por `type` |
+| `commitsQueued` | `commits.status = IN_QUEUE` (ainda não pego pelo compilador) |
+| `commitsStuck` | `status IN (COMPILING, RUNNING)` e `coalesce(compilation_started, commit_time)` mais velho que `stuckMinutes` |
+| `compilationErrors24h` | `status = ERROR` nas últimas 24 h (erro do código do aluno) |
+| `serverErrors24h` | `status = SERVER_ERROR` nas últimas 24 h (falha do pipeline) |
+| `ticketsOpen` | `tickets.status = OPEN` |
+| `alertsActive` | `alerts.valid >= current_date`, mesma regra do banner |
+| `database` | `DbAdminService.health()` reaproveitado; se falhar vira `{ ok: false, error }` sem derrubar os contadores |
+
+Query string: `stuckMinutes` (inteiro, 1 a 1440, default 15). O serviço (`AdminOverviewService`) cacheia a
+resposta em memória por **30 s por valor de `stuckMinutes`**; `generatedAt` diz de quando são os números.
+Gate: `requireMinType(ADMIN)` até a F2 trocar pelo catálogo de permissões.
 
 ### Gate por permissão (catálogo)
 
@@ -38,7 +59,7 @@ Toda rota administrativa declara uma permissão `recurso:ação` com `requirePer
 | `admin.universities:manage`, `admin.courses:manage`, `admin.exercises:read`, `admin.allowed-files:manage`, `admin.questions:manage`, `admin.messages:manage` | Admin | mutações (e listagens admin) de cada recurso |
 | `offerings:create`, `courses:search` | Professor | `POST /api/offerings`, `GET /api/courses/search/mine` |
 | `admin.audit:read` | Admin | `GET /api/admin/audit/{feed,stats}` (F1) |
-| `admin.overview:read` | Admin | reservada para F4 (painel) |
+| `admin.overview:read` | Admin | `GET /api/admin/overview` (F4) |
 
 **Teste estrutural** (`src/http/admin-permissions.test.ts`): monta o app de verdade, varre o router do Express e falha se (a) uma rota sob `/api/admin*` ou `/docs/admin-docs` não tiver `requirePermission`, (b) uma permissão usada não estiver no catálogo, (c) uma chave do catálogo não proteger rota nenhuma sem estar na lista `RESERVED_FOR_LATER_PHASES`. Rota admin nova: escolher (ou criar) a chave no catálogo, copiar para `web/src/packages/shared/src/adminPermissions.ts` (o teste de contrato `admin-permissions.contract.test.ts` compara as duas) e usar `requirePermission`. O menu do web (`app/navigation.ts`) lê o mesmo catálogo.
 

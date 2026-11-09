@@ -5,11 +5,15 @@ import { NAV_SECTIONS, navItemMinType, visibleNavSections } from "./navigation";
 describe("navigation lê o catálogo de permissões", () => {
   const adminItems = NAV_SECTIONS.find((s) => s.id === "admin")!.items;
 
-  it("todo item da seção Administração declara uma permissão do catálogo", () => {
+  it("todo item da seção Administração declara permissão do catálogo ou minType explícito", () => {
     for (const item of adminItems) {
-      expect(item.permission, item.to).toBeDefined();
-      expect(item.permission! in ADMIN_PERMISSIONS, item.permission).toBe(true);
-      expect(navItemMinType(item)).toBe(ADMIN_PERMISSIONS[item.permission!]);
+      if (item.permission === undefined) {
+        // Tela cuja API faz gate por papel no service (tickets, avisos), não pelo catálogo.
+        expect(item.minType, item.to).toBeGreaterThanOrEqual(UserType.ADMIN);
+        continue;
+      }
+      expect(item.permission in ADMIN_PERMISSIONS, item.permission).toBe(true);
+      expect(navItemMinType(item)).toBe(ADMIN_PERMISSIONS[item.permission]);
     }
   });
 
