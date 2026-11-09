@@ -74,3 +74,11 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   após qualquer init novo do banco (recriação do volume, self-heal do `remote-deploy.sh`), conferir
   `SELECT email FROM users` e apagar o `admin@admin` antes de abrir ao público; restore de backup antigo
   também o traz de volta.
+- 2026-11-08: o review do Copilot no PR da spec do admin (`admin-e-separacao-front.md`) achou 6 defeitos de
+  texto: reler `type` do banco apagaria o papel reduzido do view-as (restauraria admin), `view_as_email`
+  não existe (view-as mantém o e-mail e só reduz `type`), catálogo de permissões importado entre `api` e
+  `web` quebraria a fronteira da extração, ADMIN podia conceder rank maior que o próprio, SQL do console
+  persistido em claro vazaria literais, e a referência "onda 1 F5" era a F0 (§12). Causa: spec escrita
+  sem ler `AuthService.viewAs` nem conferir a numeração da outra spec. Regra: spec de auth lê o código
+  que emite o token antes de desenhar a revisão de sessão; referência a fase/seção de outra spec se
+  confere com `grep`; leia os comentários do PR da spec antes de disparar as sessões de implementação.
