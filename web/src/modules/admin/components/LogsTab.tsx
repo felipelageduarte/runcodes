@@ -118,6 +118,10 @@ export function LogsTab() {
 
   return (
     <div className="space-y-4 py-4">
+      <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+        Tabela legada <code>logs</code>, somente leitura: desde a migration 007 as requisições vão para a
+        trilha de auditoria (menu Auditoria). Este histórico fica até a retenção vencer.
+      </p>
       <div className="grid grid-cols-3 gap-3">
         <StatCard
           icon={<ScrollText className="size-5" />}
