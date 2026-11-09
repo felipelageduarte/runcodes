@@ -15,6 +15,7 @@ export * from "./marketplace";
 export * from "./universities";
 export * from "./admin-users";
 export * from "./logs";
+export * from "./audit";
 export * from "./pipeline";
 export * from "./db-admin";
 export * from "./tickets";

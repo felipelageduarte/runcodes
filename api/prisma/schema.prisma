@@ -32,6 +32,29 @@ model User {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model audit_log {
+  id           BigInt   @id @default(autoincrement())
+  at           DateTime @default(now()) @db.Timestamptz(6)
+  actor_email  String?  @db.VarChar(255)
+  actor_type   Int?
+  view_as_type Int?
+  method       String   @db.VarChar(10)
+  path         String
+  route        String
+  status       Int
+  duration_ms  Int?
+  ip           String?
+  user_agent   String?
+  request_id   String?
+  request_body Json?
+  target_type  String?
+  target_id    String?
+
+  @@index([at(sort: Desc)], map: "idx_audit_log_at")
+  @@index([actor_email, at(sort: Desc)], map: "idx_audit_log_actor_email")
+  @@index([route, at(sort: Desc)], map: "idx_audit_log_route")
+}
+
 model alerts {
   id          Int        @id(map: "pk_alerts") @default(autoincrement())
   type        Int

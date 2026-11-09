@@ -13,6 +13,8 @@ import { S3StorageRepository } from "./repositories/storage.repository.js";
 import { DolosProvider } from "./repositories/dolos-provider.js";
 import { JPlagProvider } from "./repositories/jplag-provider.js";
 import { PlagiarismWorkerService } from "./services/plagiarism-worker.service.js";
+import { PrismaAuditRepository } from "./repositories/audit.repository.js";
+import { AuditService, AUDIT_RETENTION_DAYS } from "./services/audit.service.js";
 
 /**
  * Entry point for the plagiarism worker — a separate deployable process
@@ -52,9 +54,27 @@ const worker = new Worker<PlagiarismJobData>(
 );
 
 worker.on("ready", () => console.log("plagiarism worker ready"));
+
+// Retenção da trilha de auditoria (spec F1, Q5: 180 dias). Vive aqui, e não
+// num SQL do migrate.sh, porque o migrate só roda no deploy e a tabela cresce
+// todo dia; este processo já é o único job de fundo da API. Roda na subida e
+// depois uma vez por dia; falha vira log de erro, nunca derruba o worker.
+const auditService = new AuditService(new PrismaAuditRepository(prisma));
+async function purgeAuditLog() {
+  try {
+    const removed = await auditService.purgeExpired();
+    if (removed > 0) console.log(`audit_log: ${removed} linha(s) com mais de ${AUDIT_RETENTION_DAYS} dias removida(s)`);
+  } catch (err) {
+    console.error("audit_log: falha na retenção", err);
+  }
+}
+void purgeAuditLog();
+const auditRetentionTimer = setInterval(purgeAuditLog, 24 * 60 * 60 * 1000);
+auditRetentionTimer.unref();
 worker.on("failed", (job, err) => console.error(`plagiarism job ${job?.id} failed`, err));
 
 async function shutdown() {
+  clearInterval(auditRetentionTimer);
   await worker.close();
   await prisma.$disconnect();
   process.exit(0);
