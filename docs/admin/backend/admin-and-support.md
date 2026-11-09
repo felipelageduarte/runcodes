@@ -18,7 +18,9 @@ Os módulos menores — administração, notas e o entorno de suporte (tickets, 
 | `GET/PUT /api/admin/users` | Admin | Listar (com filtros) e editar conta de qualquer usuário — resposta nunca inclui o hash de senha |
 | `POST /api/admin/users` | Admin | Cria conta já confirmada, sem round-trip de email — mirrors `UsersController::insert()`. Fechado na [Fase 10](../frontend/roadmap.md#fase-10--gestão-de-turma-avançada-) |
 | `DELETE /api/admin/users/:email` | Admin | Hard delete, cascata via FK (matrículas/commits somem junto) — mirrors `UsersController::delete()`. Sem como desfazer |
-| `GET /api/admin/logs` | Admin | Leitura do log de auditoria |
+| `GET /api/admin/audit/feed` | Admin | Trilha de auditoria (`audit_log`): filtros `actor`, `method`, `status`, `route`, `since`, `until`, `q`; `limit` até 200, `offset`, `total` |
+| `GET /api/admin/audit/stats` | Admin | KPIs, top ações, top usuários e série diária dos últimos `days` (até 90) |
+| `GET /api/admin/logs` | Admin | Tabela `logs` legada, somente leitura (aba "Logs (legado)") |
 | `GET /api/admin/stats/activity` | Admin | Volume de submissões da plataforma inteira (hoje/ontem/7 dias + tendência de 28 dias) — ver abaixo |
 
 ## Notas, stats e exports
@@ -45,11 +47,20 @@ O zip é a única diferença estrutural do legado: o `getAllScoresZipped()` mont
 
 ## Log de auditoria (escrita)
 
-`http/middleware/auditLog.ts`, montado globalmente em `app.ts`. Mirrors `Log::register()` — que o legado chama manualmente de ~60 pontos nos controllers — mas de um único lugar: toda requisição mutante (`POST`/`PUT`/`PATCH`/`DELETE`) autenticada gera uma linha de log depois da resposta ser enviada, independente do resultado (uma ação negada também é relevante pra auditoria).
+`http/middleware/auditLog.ts`, montado globalmente em `app.ts`, antes dos routers. Desde a migration `007_audit_log.sql` (spec SDD `docs/specs/admin-e-separacao-front.md`, fase F1) grava na tabela `audit_log` **toda requisição** que chega à API (leitura inclusive: quem consultou dado pessoal também interessa), uma linha por resposta, no evento `finish`, independente do resultado (401/403 também são relevantes). Única exceção: `SKIP_PATHS` (`/api/health`).
 
-Essa é a diferença de design chave vs. o legado: um service não tem contexto HTTP, então replicar `Log::register()` chamada-por-chamada significaria espalhar a preocupação de logging em cada método de cada service — o tipo de acoplamento ad-hoc que essa migração está evitando. Um middleware HTTP único resolve isso sem tocar em nenhum service, e cobre toda rota de mutação automaticamente, inclusive as que forem criadas depois.
+Cada linha tem: ator (`actor_email`, `actor_type` = tipo real da conta), `view_as_type` quando o admin está em "ver como", método, `path` e `route` normalizada (`/offerings/12/members/a@x.com` vira `/offerings/:id/members/:email`), status, `duration_ms`, `ip` em `text` (IPv6 inteiro; a `logs` legada truncava em 15 caracteres), `user_agent`, `request_id` (reaproveita `X-Request-Id` do proxy ou gera um UUID, devolvido no cabeçalho da resposta) e `request_body` em `jsonb`.
 
-Trade-off, dito sem rodeios: a mensagem perde a prosa do legado (`"Enrolled in the offering #5"`) e vira `"POST /api/enrollments -> 201"` — mesmo who/what/when/result, menos narrativa.
+Regras do corpo:
+
+- **Redação**: toda chave que casa com `/password|token|secret|authorization|senha/i` vira `"[redacted]"`, em qualquer profundidade, antes de qualquer outra coisa.
+- **Truncamento**: acima de 4000 caracteres de JSON, grava `{ truncated, size, preview }`.
+- **Rotas contentless** (`CONTENTLESS_PATHS`: login, confirmação, pedido e reset de senha, `POST /api/admin/db/query`): só os nomes dos campos, nunca os valores. O SQL do console ganha campo próprio na F5.
+- `GET`: só a query string (redigida), sem corpo.
+
+Falha ao gravar nunca derruba a requisição (`catch` vazio, de propósito). Retenção: 180 dias (Q5 da spec), apagados pelo `worker.ts` na subida e a cada 24 h (`AuditService.purgeExpired`). Decisão: o job vive no worker, e não num SQL do `migrate.sh`, porque o migrate só roda no deploy.
+
+Por que um middleware e não `Log::register()` chamada-por-chamada como no legado: um service não tem contexto HTTP; um ponto único cobre toda rota automaticamente, inclusive as criadas depois. A tabela `logs` legada fica somente leitura até vencer a retenção.
 
 ## Tickets (suporte)
 

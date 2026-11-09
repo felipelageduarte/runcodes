@@ -22,6 +22,7 @@ import { PrismaAlertRepository } from "./repositories/alert.repository.js";
 import { PrismaQuestionRepository } from "./repositories/question.repository.js";
 import { PrismaPublicExerciseRepository } from "./repositories/public-exercise.repository.js";
 import { PrismaLogRepository } from "./repositories/log.repository.js";
+import { PrismaAuditRepository } from "./repositories/audit.repository.js";
 import { PrismaPipelineRepository } from "./repositories/pipeline.repository.js";
 import { PrismaDbAdminRepository } from "./repositories/db-admin.repository.js";
 import { PrismaExerciseFileRepository } from "./repositories/exercise-file.repository.js";
@@ -54,6 +55,7 @@ import { GradesService } from "./services/grades.service.js";
 import { StatsService } from "./services/stats.service.js";
 import { ExerciseExportService } from "./services/exercise-export.service.js";
 import { LogService } from "./services/log.service.js";
+import { AuditService } from "./services/audit.service.js";
 import { PipelineService } from "./services/pipeline.service.js";
 import { DbAdminService } from "./services/db-admin.service.js";
 import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
@@ -103,6 +105,7 @@ export function buildContainer() {
     questions: new PrismaQuestionRepository(prisma),
     publicExercises: new PrismaPublicExerciseRepository(prisma),
     logs: new PrismaLogRepository(prisma),
+    audit: new PrismaAuditRepository(prisma),
     pipeline: new PrismaPipelineRepository(prisma),
     dbAdmin: new PrismaDbAdminRepository(prisma),
     exerciseFiles: new PrismaExerciseFileRepository(prisma),
@@ -236,6 +239,7 @@ export function buildContainer() {
       repositories.users,
     ),
     log: new LogService(repositories.logs),
+    audit: new AuditService(repositories.audit),
     pipeline: new PipelineService(repositories.pipeline),
     dbAdmin: new DbAdminService(repositories.dbAdmin),
     exerciseFile: new ExerciseAttachmentService(
@@ -263,7 +267,7 @@ export function buildContainer() {
 
   const middleware = {
     requireAuth: createRequireAuth(env.JWT_SECRET),
-    auditLog: createAuditLog(repositories.logs),
+    auditLog: createAuditLog(repositories.audit),
   };
 
   return {
