@@ -119,7 +119,7 @@ export class UserService {
     const link = `${this.appBaseUrl}/reset-password?email=${encodeURIComponent(email)}&token=${resetToken}`;
     await this.emailSender.send({
       to: email,
-      subject: "run.codes — redefinição de senha",
+      subject: "runcodes.sh — redefinição de senha",
       text: `Para redefinir sua senha, acesse: ${link}\n\nSe você não solicitou isso, ignore este email. O link expira em 1 hora.`,
       html: `<p>Para redefinir sua senha, acesse: <a href="${link}">${link}</a></p><p>Se você não solicitou isso, ignore este email. O link expira em 1 hora.</p>`,
     });
@@ -186,7 +186,7 @@ export class UserService {
     const link = `${this.appBaseUrl}/confirm?email=${encodeURIComponent(email)}&token=${confirmationToken}`;
     await this.emailSender.send({
       to: email,
-      subject: "run.codes — confirme seu cadastro",
+      subject: "runcodes.sh — confirme seu cadastro",
       text: `Para confirmar seu cadastro, acesse: ${link}\n\nO link expira em 24 horas.`,
       html: `<p>Para confirmar seu cadastro, acesse: <a href="${link}">${link}</a></p><p>O link expira em 24 horas.</p>`,
     });

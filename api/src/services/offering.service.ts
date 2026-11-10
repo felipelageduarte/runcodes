@@ -222,7 +222,7 @@ export class OfferingService {
       recipients.map((to) =>
         this.emailSender.send({
           to,
-          subject: `[run.codes - ${course?.title ?? "turma"}] ${input.subject}`,
+          subject: `[runcodes.sh - ${course?.title ?? "turma"}] ${input.subject}`,
           text: input.message,
         }),
       ),
