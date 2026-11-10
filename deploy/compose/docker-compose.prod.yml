@@ -82,7 +82,7 @@ services:
       SMTP_SECURE: ${RC_SMTP_SECURE:-true}
       SMTP_USER: ${RC_SMTP_USER}
       SMTP_PASSWORD: ${RC_SMTP_PASSWORD}
-      SMTP_FROM: ${RC_SMTP_FROM:-run.codes <no-reply@run.codes>}
+      SMTP_FROM: ${RC_SMTP_FROM:-runcodes.sh <no-reply@run.codes>}
       APP_BASE_URL: ${RC_PUBLIC_URL:-https://${RC_APP_DOMAIN}}
       APP_ALLOWED_ORIGINS: ${RC_APP_ALLOWED_ORIGINS:-}
       DOCS_DIST_DIR: /docs-dist

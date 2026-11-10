@@ -3,8 +3,8 @@ import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
-  title: "run.codes",
-  tagline: "Documentação do run.codes — manual do usuário e documentação técnica",
+  title: "runcodes.sh",
+  tagline: "Documentação do runcodes.sh — manual do usuário e documentação técnica",
   favicon: "img/favicon.ico",
 
   // NOTE: `v4: true` (and the rspack/SWC "faster" pipeline it pulls in) has
@@ -83,7 +83,7 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: "run.codes docs",
+      title: "runcodes.sh docs",
       logo: {
         alt: "run.codes",
         src: "img/logo.svg",

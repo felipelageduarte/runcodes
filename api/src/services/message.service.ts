@@ -62,7 +62,7 @@ export class MessageService {
     // targeted, not how many actually went through.
     await Promise.allSettled(
       recipients.map((to) =>
-        this.emailSender.send({ to, subject: `[run.codes] ${input.subject}`, text: input.message }),
+        this.emailSender.send({ to, subject: `[runcodes.sh] ${input.subject}`, text: input.message }),
       ),
     );
 

@@ -24,7 +24,7 @@ const schema = z.object({
     .transform((v) => v === "true"),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
-  SMTP_FROM: z.string().default("run.codes <no-reply@run.codes>"),
+  SMTP_FROM: z.string().default("runcodes.sh <no-reply@run.codes>"),
   APP_BASE_URL: z.string().default("http://localhost:5173"),
   // Origens extras aceitas no CORS e na checagem anti-CSRF de `Origin`
   // (lista separada por vírgula); APP_BASE_URL entra sempre.

@@ -31,6 +31,13 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
 
 ## Achados
 
+- 2026-11-10: o front saiu deste repo para `RunCodes-sh/web` (S3 + CloudFront próprio). `web/` aqui
+  está congelado até ser removido: tela nova vai para o repo novo; a API aceita a origem dele por
+  `APP_ALLOWED_ORIGINS` (SSM). A marca passou a ser `runcodes.sh` (logo `[runcodes].sh`).
+- 2026-11-08: a `main` exige threads de review resolvidas e branch atualizada com a `main`; isso travou
+  o PR 19 e obrigou a atualizar cada branch depois de cada merge. Regra: mergear PRs em série, um por
+  vez, atualizando a branch por merge de `origin/main` (nunca rebase com force push) e resolvendo as
+  threads antes de pedir o merge.
 - 2026-11-06: semgrep apontou `api/Dockerfile` rodando como root; agora `USER node` (worker volta a
   root só para o apt). Causa: imagem base sem `USER`. Regra: container de aplicação sempre não-root.
 - 2026-11-06: `*.tfvars` está sob regra de leitura negada no ambiente do dono; o stack usa só defaults

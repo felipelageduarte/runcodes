@@ -72,7 +72,7 @@ describe("MessageService.send", () => {
     expect(repos.users.listConfirmedEmailsByTypeRange).toHaveBeenCalledWith(UserType.ASSISTANT, UserType.ADMIN - 1);
     expect(repos.emailSender.send).toHaveBeenCalledTimes(2);
     expect(repos.emailSender.send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "a@x.com", subject: "[run.codes] Manutenção" }),
+      expect.objectContaining({ to: "a@x.com", subject: "[runcodes.sh] Manutenção" }),
     );
   });
 
