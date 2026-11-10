@@ -78,6 +78,10 @@ além dele mora aqui.
   `/runcodes/prod/APP_ALLOWED_ORIGINS` (lista separada por vírgula, `cloudfront.tf`), que a instância
   lê como `RC_APP_ALLOWED_ORIGINS` e a API aplica no CORS e na checagem de `Origin`. Sem isso, login e
   toda mutação vindos do domínio novo recebem 403.
+- **Console SQL em modo escrita**: desligado por padrão. Para ligar, criar o parâmetro
+  `/runcodes/prod/DB_CONSOLE_WRITE_ENABLED` = `true` pelo Terraform (vira `RC_DB_CONSOLE_WRITE_ENABLED` na
+  instância) e refazer o deploy. Mesmo ligado, escrita pede conta `DEVELOPER`, confirmação e senha. Desligar
+  depois do uso.
 
 ## Alarmes (SNS `runcodes-alerts`, e-mail)
 

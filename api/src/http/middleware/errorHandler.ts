@@ -1,11 +1,14 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
-import { AppError } from "../../domain/errors.js";
+import { AppError, SqlConsoleError } from "../../domain/errors.js";
 
 // Single place that maps errors to HTTP responses. Services/repositories
 // throw typed domain errors or let Zod throw on bad input; routes never
 // need an instanceof chain — they just call next(err) and this handles it.
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+  if (err instanceof SqlConsoleError) {
+    return res.status(err.status).json({ error: err.code, detail: err.detail });
+  }
   if (err instanceof AppError) {
     return res.status(err.status).json({ error: err.code });
   }

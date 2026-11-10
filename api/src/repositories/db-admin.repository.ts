@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { SqlConsoleError } from "../domain/errors.js";
 
 export interface DbHealth {
   connections: number;
@@ -34,14 +35,21 @@ export interface DbSchema {
 }
 
 export type QueryResult =
-  | { kind: "rows"; columns: string[]; rows: Record<string, unknown>[] }
+  | { kind: "rows"; columns: string[]; rows: Record<string, unknown>[]; rowCount: number; truncated: boolean }
   | { kind: "mutation"; rowsAffected: number };
+
+export interface SelectLimits {
+  timeoutMs: number;
+  maxRows: number;
+}
 
 export interface DbAdminRepository {
   health(): Promise<DbHealth>;
   schema(): Promise<DbSchema>;
-  runSelect(sql: string): Promise<QueryResult>;
-  runMutation(sql: string): Promise<QueryResult>;
+  /** Roda em transação `READ ONLY` com `statement_timeout`: escrita falha
+   * no banco, seja qual for o texto do comando. */
+  runSelect(sql: string, limits: SelectLimits): Promise<QueryResult>;
+  runMutation(sql: string, limits: { timeoutMs: number }): Promise<QueryResult>;
 }
 
 /** Reads `public` schema metadata straight from Postgres catalogs
@@ -140,14 +148,63 @@ export class PrismaDbAdminRepository implements DbAdminRepository {
     return { tables: [...tables.values()], foreignKeys };
   }
 
-  async runSelect(sql: string): Promise<QueryResult> {
-    const rows = await this.prisma.$queryRawUnsafe<Record<string, unknown>[]>(sql);
+  async runSelect(sql: string, { timeoutMs, maxRows }: SelectLimits): Promise<QueryResult> {
+    const rows = await this.inTransaction(timeoutMs, true, (tx) =>
+      tx.$queryRawUnsafe<Record<string, unknown>[]>(sql),
+    );
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-    return { kind: "rows", columns, rows };
+    return {
+      kind: "rows",
+      columns,
+      rows: rows.slice(0, maxRows),
+      rowCount: rows.length,
+      truncated: rows.length > maxRows,
+    };
   }
 
-  async runMutation(sql: string): Promise<QueryResult> {
-    const rowsAffected = await this.prisma.$executeRawUnsafe(sql);
+  async runMutation(sql: string, { timeoutMs }: { timeoutMs: number }): Promise<QueryResult> {
+    const rowsAffected = await this.inTransaction(timeoutMs, false, (tx) => tx.$executeRawUnsafe(sql));
     return { kind: "mutation", rowsAffected };
   }
+
+  /** `SET TRANSACTION READ ONLY` precisa ser o primeiro comando da
+   * transação; `SET LOCAL` morre com ela, então o timeout não vaza para a
+   * conexão devolvida ao pool. */
+  private async inTransaction<T>(
+    timeoutMs: number,
+    readOnly: boolean,
+    run: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    const ms = Math.max(1, Math.trunc(timeoutMs));
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          if (readOnly) await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+          await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = ${ms}`);
+          return run(tx);
+        },
+        { timeout: ms + 5000, maxWait: 5000 },
+      );
+    } catch (err) {
+      throw toSqlConsoleError(err);
+    }
+  }
+}
+
+const PG_QUERY_CANCELED = "57014";
+
+/** Erro do Postgres vira 422 com a mensagem do banco; o resto (conexão,
+ * bug) segue como veio e termina em 500 sem detalhe. */
+export function toSqlConsoleError(err: unknown): unknown {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return err;
+  const meta = (err.meta ?? {}) as { code?: unknown; message?: unknown };
+  const detail = typeof meta.message === "string" ? meta.message : err.message;
+  if (meta.code === PG_QUERY_CANCELED || /statement timeout/i.test(detail)) {
+    return new SqlConsoleError("query_timeout", "Consulta cancelada: passou do tempo limite");
+  }
+  // P2028: a transação interativa do Prisma estourou o próprio prazo.
+  if (err.code === "P2028") {
+    return new SqlConsoleError("query_timeout", "Consulta cancelada: passou do tempo limite");
+  }
+  return new SqlConsoleError("sql_error", detail.slice(0, 2000));
 }

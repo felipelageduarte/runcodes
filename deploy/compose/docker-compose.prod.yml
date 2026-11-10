@@ -85,6 +85,7 @@ services:
       SMTP_FROM: ${RC_SMTP_FROM:-runcodes.sh <no-reply@run.codes>}
       APP_BASE_URL: ${RC_PUBLIC_URL:-https://${RC_APP_DOMAIN}}
       APP_ALLOWED_ORIGINS: ${RC_APP_ALLOWED_ORIGINS:-}
+      DB_CONSOLE_WRITE_ENABLED: ${RC_DB_CONSOLE_WRITE_ENABLED:-false}
       DOCS_DIST_DIR: /docs-dist
     volumes:
       - docs-dist:/docs-dist:ro

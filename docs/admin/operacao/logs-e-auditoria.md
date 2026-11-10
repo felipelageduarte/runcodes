@@ -29,7 +29,7 @@ O que procurar em investigações comuns:
 | Quem baniu/desmatriculou? | `POST .../members/:email/ban` / `DELETE .../members/:email` (o e-mail real fica em `path`) |
 | Quem publicou o aviso? | `POST /api/alerts` |
 | Quem olhou a lista de usuários? | `GET /api/admin/users` com `actor_email` |
-| Quem rodou SQL no console? | `POST /api/admin/db/query` (só os nomes dos campos até a F5) |
+| Quem rodou SQL no console? | `POST /api/admin/db/query`: a linha com `status = 102` é a tentativa, gravada antes de executar, com tipo de comando, tamanho e se houve confirmação (nunca o SQL). A linha com o mesmo `request_id` traz o resultado. |
 
 ## Atividade global da plataforma
 

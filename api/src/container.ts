@@ -149,7 +149,11 @@ export function buildContainer() {
     env.LEGACY_PASSWORD_SALT,
   );
 
-  const dbAdminService = new DbAdminService(repositories.dbAdmin);
+  const dbAdminService = new DbAdminService(repositories.dbAdmin, {
+    audit: repositories.audit,
+    verifyPassword: (email, password) => authService.verifyPassword(email, password),
+    writeEnabled: env.DB_CONSOLE_WRITE_ENABLED,
+  });
 
   const services = {
     auth: authService,
