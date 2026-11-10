@@ -100,6 +100,16 @@ resource "aws_ssm_parameter" "public_url" {
   value = "https://${aws_cloudfront_distribution.app.domain_name}"
 }
 
+# Origens extras aceitas no CORS e na checagem anti-CSRF de Origin da API (vira
+# APP_ALLOWED_ORIGINS via RC_APP_ALLOWED_ORIGINS). O front em d1m71uoprnvjm9.cloudfront.net
+# (repositório RunCodes-sh/web) chama /api pelo próprio host e envia
+# Origin: https://d1m71uoprnvjm9.cloudfront.net.
+resource "aws_ssm_parameter" "app_allowed_origins" {
+  name  = "/${var.project}/prod/APP_ALLOWED_ORIGINS"
+  type  = "SecureString"
+  value = "https://d1m71uoprnvjm9.cloudfront.net"
+}
+
 resource "aws_ssm_parameter" "origin_verify" {
   name  = "/${var.project}/prod/ORIGIN_VERIFY"
   type  = "SecureString"
