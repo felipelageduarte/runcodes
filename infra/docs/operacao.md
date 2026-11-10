@@ -73,7 +73,7 @@ além dele mora aqui.
 - **Domínio próprio**: ACM em us-east-1, `aliases` e `viewer_certificate` no CloudFront, registro
   Route53, e `PUBLIC_URL` no SSM. Com certificado próprio dá para subir `minimum_protocol_version`
   para TLSv1.2 e religar os checks CKV_AWS_174/CKV2_AWS_42 no `.checkov.yaml`.
-- **Front em outro domínio** (hoje `runcodes.sh`, repositório `RunCodes-sh/web`, CloudFront próprio que
+- **Front em outro domínio** (hoje `d1m71uoprnvjm9.cloudfront.net`, repositório `RunCodes-sh/web`, CloudFront próprio que
   encaminha `/api/*` e `/docs/*` a esta distribuição): a origem precisa estar em
   `/runcodes/prod/APP_ALLOWED_ORIGINS` (lista separada por vírgula, `cloudfront.tf`), que a instância
   lê como `RC_APP_ALLOWED_ORIGINS` e a API aplica no CORS e na checagem de `Origin`. Sem isso, login e

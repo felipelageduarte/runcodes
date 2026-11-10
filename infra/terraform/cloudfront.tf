@@ -101,13 +101,13 @@ resource "aws_ssm_parameter" "public_url" {
 }
 
 # Origens extras aceitas no CORS e na checagem anti-CSRF de Origin da API (vira
-# APP_ALLOWED_ORIGINS via RC_APP_ALLOWED_ORIGINS). O front em runcodes.sh
+# APP_ALLOWED_ORIGINS via RC_APP_ALLOWED_ORIGINS). O front em d1m71uoprnvjm9.cloudfront.net
 # (repositório RunCodes-sh/web) chama /api pelo próprio host e envia
-# Origin: https://runcodes.sh.
+# Origin: https://d1m71uoprnvjm9.cloudfront.net.
 resource "aws_ssm_parameter" "app_allowed_origins" {
   name  = "/${var.project}/prod/APP_ALLOWED_ORIGINS"
   type  = "SecureString"
-  value = "https://runcodes.sh,https://www.runcodes.sh"
+  value = "https://d1m71uoprnvjm9.cloudfront.net"
 }
 
 resource "aws_ssm_parameter" "origin_verify" {
