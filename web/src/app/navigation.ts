@@ -69,7 +69,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { to: "/admin/auditoria", label: "Auditoria", icon: ShieldCheck, permission: "admin.audit:read" },
       { to: "/admin/logs", label: "Logs (legado)", icon: ScrollText, permission: "admin.logs:read" },
       { to: "/admin/pipeline", label: "Pipeline", icon: Workflow, permission: "admin.pipeline:manage" },
-      { to: "/admin/banco", label: "Banco de dados", icon: Database, permission: "admin.db:query" },
+      { to: "/admin/banco", label: "Banco de dados", icon: Database, permission: "admin.db:read" },
       { to: "/admin/documentacao", label: "Documentação", icon: BookMarked, permission: "admin.docs:read" },
     ],
   },
