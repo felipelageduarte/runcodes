@@ -47,3 +47,16 @@ export class ValidationError extends AppError {
     super(message, code);
   }
 }
+
+/** Erro devolvido pelo Postgres ao console SQL do admin. É o único erro de
+ * domínio que leva `detail` ao cliente: quem roda o console (DEVELOPER)
+ * precisa da mensagem do banco para corrigir a query. */
+export class SqlConsoleError extends AppError {
+  readonly status = 422;
+  constructor(
+    code: "sql_error" | "query_timeout",
+    readonly detail: string,
+  ) {
+    super(detail, code);
+  }
+}

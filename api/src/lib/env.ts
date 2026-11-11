@@ -36,6 +36,12 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  // Console SQL do admin (spec admin-e-separacao-front, F5): sem esta flag
+  // em `true`, o console só lê; INSERT/UPDATE/DDL são recusados.
+  DB_CONSOLE_WRITE_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
   // Build estático do runcodes-docs (Docusaurus, baseUrl /docs/) — servido
   // pela própria API em /docs: o manual é público, /docs/admin-docs exige
   // sessão de admin (o cookie httpOnly já autentica o iframe do painel).

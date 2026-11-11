@@ -54,7 +54,8 @@ Toda rota administrativa declara uma permissão `recurso:ação` com `requirePer
 | `admin.stats:read` | Admin | `GET /api/admin/stats/activity` |
 | `admin.logs:read` | Admin | `GET /api/admin/logs`, `/stats` |
 | `admin.pipeline:manage` | Admin | `/api/admin/pipeline/*` |
-| `admin.db:query` | Admin (F5 passa a Developer) | `/api/admin/db/*` |
+| `admin.db:read` | Admin | `GET /api/admin/db/health`, `/schema` (saúde e ERD) |
+| `admin.db:query` | Developer | `GET /api/admin/db/console`, `POST /api/admin/db/query` (console SQL) |
 | `admin.docs:read` | Admin | `/docs/admin-docs/*` |
 | `admin.universities:manage`, `admin.courses:manage`, `admin.exercises:read`, `admin.allowed-files:manage`, `admin.questions:manage`, `admin.messages:manage` | Admin | mutações (e listagens admin) de cada recurso |
 | `offerings:create`, `courses:search` | Professor | `POST /api/offerings`, `GET /api/courses/search/mine` |
@@ -95,7 +96,7 @@ Regras do corpo:
 
 - **Redação**: toda chave que casa com `/password|token|secret|authorization|senha/i` vira `"[redacted]"`, em qualquer profundidade, antes de qualquer outra coisa.
 - **Truncamento**: acima de 4000 caracteres de JSON, grava `{ truncated, size, preview }`.
-- **Rotas contentless** (`CONTENTLESS_PATHS`: login, confirmação, pedido e reset de senha, `POST /api/admin/db/query`): só os nomes dos campos, nunca os valores. O SQL do console ganha campo próprio na F5.
+- **Rotas contentless** (`CONTENTLESS_PATHS`: login, confirmação, pedido e reset de senha, `POST /api/admin/db/query`): só os nomes dos campos, nunca os valores. O console SQL grava, além disso, uma linha própria **antes** de executar (ver "Console SQL" abaixo).
 - `GET`: só a query string (redigida), sem corpo.
 
 Falha ao gravar nunca derruba a requisição (`catch` vazio, de propósito). Retenção: 180 dias (Q5 da spec), apagados pelo `worker.ts` na subida e a cada 24 h (`AuditService.purgeExpired`). Decisão: o job vive no worker, e não num SQL do `migrate.sh`, porque o migrate só roda no deploy.
@@ -157,3 +158,16 @@ GET  /api/messages?page=&pageSize=   (histórico, admin-only)
 | `all` | `>= STUDENT` (sem teto) | todo mundo confirmado |
 
 Envio é best-effort por destinatário (`Promise.allSettled`) — um endereço inválido não derruba o broadcast inteiro. Histórico fica na tabela `messages` legada, reaproveitada em vez de criar uma nova: migração `006_add_broadcast_fields_to_messages.sql` adiciona `sender_email`/`sent_at`/`recipient_count` (o legado só gravava o conteúdo, nunca quem mandou nem quando — isso vivia só no log de auditoria separado).
+
+## Console SQL
+
+`POST /api/admin/db/query` (`db-admin.service.ts`), spec `admin-e-separacao-front` F5. Regras, na ordem em que valem:
+
+1. **Só `DEVELOPER`** (`admin.db:query`). Developer em "ver como" admin perde o acesso, porque o gate usa o tipo efetivo.
+2. **Auditoria antes de executar**: uma linha em `audit_log` com `status = 102`, `target_type = 'sql_console'` e `request_body.sqlConsole` só com metadados (`keyword`, `class`, `statements`, `chars`, `confirm`, `passwordProvided`, `writeEnabled`). Nunca o SQL nem literais. Se essa gravação falha, o comando não roda. O resultado fica na linha normal da requisição, com o mesmo `request_id`.
+3. **Limites**: 10 000 caracteres (`query_too_long`), um comando por vez (`multiple_statements`), no máximo 1000 linhas devolvidas (`truncated: true` e `rowCount` com o total).
+4. **Leitura por padrão**: tudo que não começa por palavra-chave de escrita roda em transação `READ ONLY` com `statement_timeout` de 5 s. A classificação por palavra-chave não é a barreira: um `DELETE` atrás de comentário ou dentro de CTE cai no modo leitura e o Postgres recusa.
+5. **Escrita**: exige `DB_CONSOLE_WRITE_ENABLED=true` no ambiente (senão 403 `write_mode_disabled`), `confirm: true` **e** a senha de quem executa (sem um dos dois, 409 `requires_confirmation`; senha errada, 401 `invalid_current_password`). Timeout de 30 s.
+6. **Erros do banco** voltam como 422 `sql_error` com `detail` (mensagem do Postgres); consulta cortada pelo timeout, 422 `query_timeout`. É a única rota que devolve detalhe de erro, e só para `DEVELOPER`.
+
+`GET /api/admin/db/console` devolve `writeEnabled` e os limites, para a tela saber se oferece o modo escrita.

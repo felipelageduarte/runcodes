@@ -93,6 +93,8 @@ Home `/admin`: KPIs (usuários por tipo, commits em fila, commits em PROCESSING 
 **Aceite:** painel renderiza em 390 px, light e dark; KPIs vêm de um endpoint `GET /api/admin/overview` com uma query agregada, cacheada 30 s.
 
 ### F5. Console SQL endurecido (S)
+**Entregue em 2026-11-10** (API neste repositório; tela em `RunCodes-sh/web`). Saúde e ERD ficaram em permissão própria (`admin.db:read`, admin), para não tirar do admin o que é só leitura de catálogo.
+
 Restringir a `DEVELOPER` (permissão `admin.db:query`), transação `READ ONLY` por padrão com `statement_timeout`, destrutivo só com `confirm` **e** senha, log da tentativa na F1 **antes** de executar contendo apenas metadados (por exemplo, classes e quantidade de statements, tamanho e confirmação), nunca SQL bruto ou literais, limite de tamanho. Modo escrita só por flag de ambiente.
 **Aceite:** `UPDATE` sem confirmação retorna 409; consulta lenta é cortada; tentativa aparece na auditoria mesmo se o handler travar.
 
