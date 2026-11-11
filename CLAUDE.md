@@ -31,6 +31,11 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
 
 ## Achados
 
+- 2026-11-10: mudar o nível de uma chave em `api/src/http/admin-permissions.ts` afeta o menu dos dois
+  fronts (`web/` congelado aqui e `RunCodes-sh/web`): `git grep` da chave em `web/src` antes do commit e
+  PR par no repo do front. Causa: `admin.db:query` virou DEVELOPER e o teste de navegação do `web/`
+  quebrou no CI (PR #27). O console SQL é só DEVELOPER, leitura por padrão; escrita pede
+  `DB_CONSOLE_WRITE_ENABLED`, confirmação e senha.
 - 2026-11-10: o front saiu deste repo para `RunCodes-sh/web` (S3 + CloudFront próprio). `web/` aqui
   está congelado até ser removido: tela nova vai para o repo novo; a API aceita a origem dele por
   `APP_ALLOWED_ORIGINS` (SSM). A marca passou a ser `runcodes.sh` (logo `[runcodes].sh`).
