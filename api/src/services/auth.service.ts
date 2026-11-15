@@ -73,6 +73,10 @@ export class AuthService {
       throw new ForbiddenError("Account email not confirmed yet", "account_not_confirmed");
     }
 
+    if (user.disabledAt) {
+      throw new ForbiddenError("Account disabled by an administrator", "account_disabled");
+    }
+
     // Transparent migration: once a legacy sha1 hash is verified, replace
     // it with bcrypt so every subsequent login skips the legacy path.
     // A rehash não incrementa token_version: é a mesma senha, não uma troca.
@@ -169,6 +173,7 @@ export class AuthService {
       throw new UnauthorizedError("Session revoked", "session_revoked");
     }
     if (!user.confirmed) throw new ForbiddenError("Account email not confirmed yet", "account_not_confirmed");
+    if (user.disabledAt) throw new ForbiddenError("Account disabled by an administrator", "account_disabled");
 
     const viewingAs = payload.realType !== undefined && payload.type < user.type;
     const type = viewingAs ? payload.type : user.type;

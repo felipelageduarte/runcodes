@@ -18,6 +18,8 @@ function makeUser(overrides: Partial<UserRecord> = {}): UserRecord {
     confirmed: true,
     identifier: null,
     tokenVersion: 0,
+    disabledAt: null,
+    invitedAt: null,
     ...overrides,
   };
 }
@@ -107,6 +109,33 @@ describe("AuthService.login", () => {
     await expect(auth.login("a@example.com", "wrong")).rejects.toMatchObject({
       code: "invalid_credentials",
     });
+  });
+});
+
+describe("conta desativada (A3)", () => {
+  it("login com senha certa de conta desativada dá account_disabled, sem token nem rehash", async () => {
+    const legacyHash = hashLegacyPassword(SALT, "correct horse");
+    const users = makeUsersRepo(makeUser({ password: legacyHash, disabledAt: new Date() }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.login("a@example.com", "correct horse")).rejects.toMatchObject({ code: "account_disabled" });
+    expect(users.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it("senha errada de conta desativada continua invalid_credentials (não revela o estado)", async () => {
+    const bcryptHash = await bcrypt.hash("correct horse", 4);
+    const users = makeUsersRepo(makeUser({ password: bcryptHash, disabledAt: new Date() }));
+    const auth = new AuthService(users, "secret", "1h", SALT);
+
+    await expect(auth.login("a@example.com", "wrong")).rejects.toMatchObject({ code: "invalid_credentials" });
+  });
+
+  it("refresh de conta desativada é recusado", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = jwt.sign({ type: 0, tv: 0, iat: now - 3660, exp: now - 60 }, "secret", { subject: "a@example.com" });
+    const auth = new AuthService(makeUsersRepo(makeUser({ disabledAt: new Date() })), "secret", "1h", SALT);
+
+    await expect(auth.refresh(token)).rejects.toMatchObject({ code: "account_disabled" });
   });
 });
 

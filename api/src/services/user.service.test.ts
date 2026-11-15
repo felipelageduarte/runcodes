@@ -429,3 +429,65 @@ describe("UserService + sessões (F2)", () => {
     expect(sessions.revoke).not.toHaveBeenCalled();
   });
 });
+
+describe("convite (A3)", () => {
+  const TOKEN = "t".repeat(64);
+  function invited(overrides: Partial<UserConfirmationRecord> = {}): UserConfirmationRecord {
+    return {
+      email: "guest@x.com",
+      confirmed: false,
+      invitedAt: new Date(),
+      confirmationTokenHash: hashToken(TOKEN),
+      confirmationTokenExpiresAt: new Date(Date.now() + 60_000),
+      ...overrides,
+    } as UserConfirmationRecord;
+  }
+
+  function build(state: UserConfirmationRecord | null) {
+    const repo = makeRepo(state);
+    (repo as unknown as { acceptInvite: unknown }).acceptInvite = vi.fn().mockResolvedValue(undefined);
+    const sessions = { revoke: vi.fn(), refresh: vi.fn() };
+    return { repo, sessions, service: new UserService(repo, makeEmailSender(), APP_BASE_URL, SALT, sessions) };
+  }
+
+  it("aceita com token certo: grava a senha em bcrypt e relê a sessão", async () => {
+    const { repo, sessions, service } = build(invited());
+    await service.acceptInvite("guest@x.com", TOKEN, "minha-senha-1");
+
+    const [email, hash] = (repo as unknown as { acceptInvite: ReturnType<typeof vi.fn> }).acceptInvite.mock.calls[0];
+    expect(email).toBe("guest@x.com");
+    expect(await bcrypt.compare("minha-senha-1", hash)).toBe(true);
+    expect(sessions.refresh).toHaveBeenCalledWith("guest@x.com");
+  });
+
+  it("recusa convite expirado", async () => {
+    const { repo, service } = build(invited({ confirmationTokenExpiresAt: new Date(Date.now() - 1) }));
+    await expect(service.acceptInvite("guest@x.com", TOKEN, "minha-senha-1")).rejects.toMatchObject({
+      code: "invite_expired",
+    });
+    expect((repo as unknown as { acceptInvite: ReturnType<typeof vi.fn> }).acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("recusa token errado, conta que não veio de convite e usuário inexistente com a mesma mensagem", async () => {
+    for (const state of [invited({ confirmationTokenHash: hashToken("outro") }), invited({ invitedAt: null }), null]) {
+      const { repo, service } = build(state);
+      await expect(service.acceptInvite("guest@x.com", TOKEN, "minha-senha-1")).rejects.toMatchObject({
+        code: "invalid_invite_token",
+      });
+      expect((repo as unknown as { acceptInvite: ReturnType<typeof vi.fn> }).acceptInvite).not.toHaveBeenCalled();
+    }
+  });
+
+  it("recusa convite já aceito", async () => {
+    const { service } = build(invited({ confirmed: true }));
+    await expect(service.acceptInvite("guest@x.com", TOKEN, "minha-senha-1")).rejects.toThrow(ConflictError);
+  });
+
+  it("o link de confirmação comum não ativa conta convidada (senão ficaria sem senha dela)", async () => {
+    const { repo, service } = build(invited());
+    await expect(service.confirm("guest@x.com", TOKEN)).rejects.toMatchObject({ code: "use_accept_invite" });
+    await expect(service.resendConfirmation("guest@x.com")).rejects.toMatchObject({ code: "use_accept_invite" });
+    expect(repo.confirm).not.toHaveBeenCalled();
+    expect(repo.setConfirmationToken).not.toHaveBeenCalled();
+  });
+});

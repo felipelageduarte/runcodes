@@ -35,6 +35,11 @@ export interface AuditFeedFilter {
   since?: Date;
   until?: Date;
   q?: string;
+  /** Alvo da ação (ex.: `user` + e-mail), gravado pelo auditLog. */
+  targetType?: string;
+  targetId?: string;
+  /** Só escritas (tudo menos GET/HEAD): histórico de mudanças. */
+  mutationsOnly?: boolean;
   limit: number;
   offset: number;
 }
@@ -188,6 +193,9 @@ function buildWhere(filter: AuditFeedFilter): Prisma.audit_logWhereInput {
   if (filter.route) and.push({ route: { contains: filter.route, mode: "insensitive" } });
   if (filter.since) and.push({ at: { gte: filter.since } });
   if (filter.until) and.push({ at: { lte: filter.until } });
+  if (filter.targetType) and.push({ target_type: filter.targetType });
+  if (filter.targetId) and.push({ target_id: filter.targetId });
+  if (filter.mutationsOnly) and.push({ method: { notIn: ["GET", "HEAD"] } });
   if (filter.q) {
     const contains = { contains: filter.q, mode: "insensitive" as const };
     and.push({

@@ -14,6 +14,7 @@ export const CONTENTLESS_PATHS = new Set([
   "/api/users/request-password-reset",
   "/api/users/reset-password",
   "/api/users/confirm",
+  "/api/users/accept-invite",
   "/api/admin/db/query",
 ]);
 
@@ -61,6 +62,21 @@ export function normalizeRoute(path: string): string {
       return seg;
     })
     .join("/");
+}
+
+/** Alvo da ação para o histórico por registro. Rotas `/api/admin/users/:email…`
+ * têm o e-mail no caminho; criação e convite (e-mail só no corpo) o handler
+ * informa em `res.locals.auditTarget`. */
+export function deriveTarget(path: string): { type: string; id: string } | null {
+  const m = /^\/api\/admin\/users\/([^/]+)/.exec(path);
+  if (!m) return null;
+  try {
+    const id = decodeURIComponent(m[1]);
+    // `/invite` e afins não são e-mails: só segmento com "@" é alvo.
+    return id.includes("@") ? { type: "user", id } : null;
+  } catch {
+    return null;
+  }
 }
 
 function pathOf(req: AuthedRequest): string {
@@ -125,6 +141,7 @@ export function createAuditLog(audit: AuditRepository) {
         const user = req.user;
         const viewingAs = user?.realType !== undefined && user.realType !== user.type;
         const rawUa = req.headers["user-agent"];
+        const target = (res.locals?.auditTarget as { type: string; id: string } | undefined) ?? deriveTarget(path);
         audit
           .create({
             actorEmail: user?.email ?? null,
@@ -139,6 +156,8 @@ export function createAuditLog(audit: AuditRepository) {
             userAgent: typeof rawUa === "string" ? rawUa.slice(0, 1000) : null,
             requestId,
             requestBody: buildRequestBody(req, path),
+            targetType: target?.type ?? null,
+            targetId: target?.id ?? null,
           })
           .catch(() => {}); // auditoria nunca é motivo de falha da requisição
       } catch {

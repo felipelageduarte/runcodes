@@ -1,21 +1,13 @@
-import { randomBytes, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { UserRepository, ProfilePatch } from "../repositories/user.repository.js";
 import type { EmailSender } from "../repositories/email-sender.js";
 import type { SessionRevoker } from "../lib/session-state.js";
+import { generateToken, hashToken } from "../lib/tokens.js";
 import { hashLegacyPassword, isLegacyHash } from "../lib/legacyPassword.js";
 import { ConflictError, ValidationError, NotFoundError, UnauthorizedError } from "../domain/errors.js";
 
 const CONFIRMATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function generateToken(): string {
-  return randomBytes(32).toString("hex");
-}
 
 export interface SignupInput {
   email: string;
@@ -69,6 +61,10 @@ export class UserService {
     const state = await this.users.findConfirmationState(email);
     if (!state) throw new NotFoundError("User not found");
     if (state.confirmed) return; // idempotent: confirming twice is a no-op, not an error
+    // Conta de convite nasce sem senha própria: só o aceite (acceptInvite) a confirma.
+    if (state.invitedAt) {
+      throw new ValidationError("This account was invited: accept the invite instead", "use_accept_invite");
+    }
 
     if (!state.confirmationTokenHash || !state.confirmationTokenExpiresAt) {
       throw new ValidationError("No pending confirmation for this account", "no_pending_confirmation");
@@ -84,12 +80,36 @@ export class UserService {
     this.sessions?.refresh(email);
   }
 
+  /** A3: o convidado escolhe a senha com o token de 72 h do e-mail. Mesmas
+   * recusas do `confirm` (expirado, inválido), mais: só vale para conta
+   * convidada e ainda pendente. Não devolve sessão: o convidado faz login. */
+  async acceptInvite(email: string, token: string, password: string): Promise<void> {
+    const state = await this.users.findConfirmationState(email);
+    if (!state || !state.invitedAt) throw new ValidationError("Invalid invite", "invalid_invite_token");
+    if (state.confirmed) throw new ConflictError("This invite was already accepted", "invite_already_accepted");
+    if (!state.confirmationTokenHash || !state.confirmationTokenExpiresAt) {
+      throw new ValidationError("Invalid invite", "invalid_invite_token");
+    }
+    if (state.confirmationTokenExpiresAt < new Date()) {
+      throw new ValidationError("Invite has expired: ask an admin to resend it", "invite_expired");
+    }
+    if (hashToken(token) !== state.confirmationTokenHash) {
+      throw new ValidationError("Invalid invite", "invalid_invite_token");
+    }
+
+    await this.users.acceptInvite(email, await bcrypt.hash(password, 12));
+    this.sessions?.refresh(email);
+  }
+
   /** Mirrors UsersController::sendConfirmationEmail(). */
   async resendConfirmation(email: string): Promise<void> {
     const state = await this.users.findConfirmationState(email);
     if (!state) throw new NotFoundError("User not found");
     if (state.confirmed) {
       throw new ConflictError("This account is already confirmed", "already_confirmed");
+    }
+    if (state.invitedAt) {
+      throw new ValidationError("This account was invited: ask an admin to resend the invite", "use_accept_invite");
     }
 
     const confirmationToken = generateToken();

@@ -15,7 +15,7 @@ const ADMIN = "admin@x.com";
  * depois do cache; `now` avança para simular o TTL de 60 s. */
 function harness() {
   const db = new Map<string, SessionState>();
-  db.set(ADMIN, { type: UserType.ADMIN, confirmed: true, tokenVersion: 0 });
+  db.set(ADMIN, { type: UserType.ADMIN, confirmed: true, tokenVersion: 0, disabled: false });
   let now = 1_000_000;
   const source = {
     reads: 0,
@@ -68,6 +68,19 @@ describe("requireAuth", () => {
     const viaBearer = await request(h.app).get("/me").set("Authorization", `Bearer ${token}`);
     expect(viaCookie.status).toBe(200);
     expect(viaBearer.body).toEqual({ email: ADMIN, type: UserType.ADMIN });
+  });
+
+  it("conta desativada perde a sessão com account_disabled, mesmo com `tv` igual", async () => {
+    const token = sign({ type: UserType.ADMIN, tv: 0 });
+    expect((await request(h.app).get("/admin").set("Authorization", `Bearer ${token}`)).status).toBe(200);
+
+    // O que AdminUserService.disable faz: grava disabled_at e chama sessions.revoke.
+    h.db.get(ADMIN)!.disabled = true;
+    h.sessions.refresh(ADMIN);
+
+    const res = await request(h.app).get("/admin").set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "account_disabled" });
   });
 
   it("rejeita `tv` divergente com session_revoked", async () => {

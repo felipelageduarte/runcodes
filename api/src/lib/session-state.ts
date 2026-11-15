@@ -4,6 +4,8 @@ export interface SessionState {
   type: number;
   confirmed: boolean;
   tokenVersion: number;
+  /** Conta desativada pelo admin (A3): a sessão deixa de valer. */
+  disabled: boolean;
 }
 
 export interface SessionStateSource {

@@ -19,6 +19,19 @@ const updateSchema = z.object({
   type: z.number().int().min(0).max(4).optional(),
   confirmed: z.boolean().optional(),
   universityId: z.number().int().nullable().optional(),
+  /** Trocar o tipo exige este flag (a tela confirma antes de enviar). */
+  confirmTypeChange: z.boolean().optional(),
+});
+
+const inviteSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+  type: z.number().int().min(0).max(4).default(0),
+  universityId: z.number().int().nullable().default(null),
+});
+
+const historyQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
 const deleteSchema = z.object({
@@ -57,10 +70,21 @@ export function createAdminUsersRouter(adminUserService: AdminUserService, requi
     }
   });
 
-  router.post("/", async (req, res, next) => {
+  router.post("/", async (req: AuthedRequest, res, next) => {
     try {
       const input = createSchema.parse(req.body);
-      res.status(201).json(await adminUserService.create(input));
+      res.locals.auditTarget = { type: "user", id: input.email };
+      res.status(201).json(await adminUserService.create(req.user!, input));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/invite", async (req: AuthedRequest, res, next) => {
+    try {
+      const input = inviteSchema.parse(req.body);
+      res.locals.auditTarget = { type: "user", id: input.email };
+      res.status(201).json(await adminUserService.invite(req.user!, input));
     } catch (err) {
       next(err);
     }
@@ -74,10 +98,43 @@ export function createAdminUsersRouter(adminUserService: AdminUserService, requi
     }
   });
 
-  router.put("/:email", async (req, res, next) => {
+  router.get("/:email/history", async (req, res, next) => {
+    try {
+      const { limit } = historyQuerySchema.parse(req.query);
+      res.json(await adminUserService.history(req.params.email, limit));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.put("/:email", async (req: AuthedRequest, res, next) => {
     try {
       const input = updateSchema.parse(req.body);
-      res.json(await adminUserService.update(req.params.email, input));
+      res.json(await adminUserService.update(req.user!, req.params.email, input));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:email/resend-invite", async (req: AuthedRequest, res, next) => {
+    try {
+      res.json(await adminUserService.resendInvite(req.user!, req.params.email));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:email/disable", async (req: AuthedRequest, res, next) => {
+    try {
+      res.json(await adminUserService.disable(req.user!, req.params.email));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:email/enable", async (req: AuthedRequest, res, next) => {
+    try {
+      res.json(await adminUserService.enable(req.user!, req.params.email));
     } catch (err) {
       next(err);
     }
@@ -86,7 +143,7 @@ export function createAdminUsersRouter(adminUserService: AdminUserService, requi
   router.delete("/:email", async (req: AuthedRequest, res, next) => {
     try {
       const { password } = deleteSchema.parse(req.body);
-      await adminUserService.delete(req.params.email, req.user!.email, password);
+      await adminUserService.delete(req.user!, req.params.email, password);
       res.status(204).send();
     } catch (err) {
       next(err);

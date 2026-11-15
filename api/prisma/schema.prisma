@@ -22,6 +22,8 @@ model User {
   reset_token_hash              String?           @db.VarChar(64)
   reset_token_expires_at        DateTime?         @db.Timestamp(6)
   token_version                 Int               @default(0)
+  disabled_at                   DateTime?         @db.Timestamp(6)
+  invited_at                    DateTime?         @db.Timestamp(6)
   alerts                       alerts[]
   commits                       commits[]
   enrollments                   enrollments[]

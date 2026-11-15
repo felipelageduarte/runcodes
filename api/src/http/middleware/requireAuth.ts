@@ -62,6 +62,7 @@ export function createRequireAuth(jwtSecret: string, sessions: SessionStateSourc
       if (state.tokenVersion !== tokenVersionOf(payload)) {
         return res.status(401).json({ error: "session_revoked" });
       }
+      if (state.disabled) return res.status(401).json({ error: "account_disabled" });
       if (!state.confirmed) return res.status(401).json({ error: "account_not_confirmed" });
 
       // view-as: o papel efetivo é o pedido no token, limitado pelo papel

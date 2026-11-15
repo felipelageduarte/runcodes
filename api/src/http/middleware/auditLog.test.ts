@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { EventEmitter } from "node:events";
-import { createAuditLog, normalizeRoute, redact, safeBody, MAX_BODY_CHARS } from "./auditLog.js";
+import { createAuditLog, deriveTarget, normalizeRoute, redact, safeBody, MAX_BODY_CHARS } from "./auditLog.js";
 import type { AuditRepository, AuditEntry } from "../../repositories/audit.repository.js";
 import type { AuthedRequest } from "./requireAuth.js";
 
@@ -81,6 +81,22 @@ describe("normalizeRoute", () => {
     expect(normalizeRoute("/api/commits/345")).toBe("/api/commits/:id");
     expect(normalizeRoute("/api/offerings/7/members/a%40b.com")).toBe("/api/offerings/:id/members/:email");
     expect(normalizeRoute("/api/admin/users")).toBe("/api/admin/users");
+  });
+});
+
+describe("deriveTarget", () => {
+  it("tira o e-mail alvo das rotas de usuário do admin, decodificado", () => {
+    expect(deriveTarget("/api/admin/users/a%40x.com")).toEqual({ type: "user", id: "a@x.com" });
+    expect(deriveTarget("/api/admin/users/a%40x.com/disable")).toEqual({ type: "user", id: "a@x.com" });
+    expect(deriveTarget("/api/admin/users/a%40x.com/history")).toEqual({ type: "user", id: "a@x.com" });
+  });
+
+  it("não inventa alvo para rotas sem registro nem para a coleção", () => {
+    expect(deriveTarget("/api/admin/users")).toBeNull();
+    expect(deriveTarget("/api/admin/users/invite")).toBeNull();
+    expect(deriveTarget("/api/admin/stats")).toBeNull();
+    expect(deriveTarget("/api/users/me")).toBeNull();
+    expect(deriveTarget("/api/admin/users/%E0%A4%A")).toBeNull(); // percent-encoding inválido
   });
 });
 
