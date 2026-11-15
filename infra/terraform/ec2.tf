@@ -37,6 +37,7 @@ resource "aws_iam_role_policy_attachment" "instance_cwagent" {
 }
 
 data "aws_iam_policy_document" "instance" {
+  # checkov:skip=CKV_AWS_356:ce:Get* e budgets:ViewBudget não aceitam ARN de recurso (só "*"), ação somente leitura
   statement {
     sid     = "ReadWriteOwnParameters"
     actions = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:PutParameter"]
