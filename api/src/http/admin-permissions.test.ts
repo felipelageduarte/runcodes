@@ -175,6 +175,8 @@ describe("catálogo de permissões admin", () => {
       "GET /api/admin/audit/stats": "admin.audit:read",
       "GET /api/admin/stats/activity": "admin.stats:read",
       "GET /api/admin/overview": "admin.overview:read",
+      "GET /api/admin/finops": "admin.finops:view",
+      "POST /api/admin/finops/refresh": "admin.finops:view",
       "USE /docs/admin-docs": "admin.docs:read",
     };
     const byKey = new Map(routes.map((r) => [`${r.method} ${r.path}`, r.permission]));

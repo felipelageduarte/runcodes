@@ -4,6 +4,18 @@ variable "project" {
   default     = "runcodes"
 }
 
+variable "cost_project" {
+  description = "Valor da tag Project (chave de alocação de custo de todo o RunCodes, igual à do RunCodes-sh/web). Não é prefixo de nome: mudar não recria recurso."
+  type        = string
+  default     = "runcodes-sh"
+}
+
+variable "component" {
+  description = "Valor da tag Component (qual serviço do projeto: web no RunCodes-sh/web, api aqui)."
+  type        = string
+  default     = "api"
+}
+
 variable "environment" {
   type    = string
   default = "production"

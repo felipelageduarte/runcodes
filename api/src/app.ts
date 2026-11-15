@@ -32,6 +32,7 @@ import { createAuditRouter } from "./http/routes/audit.routes.js";
 import { createPipelineRouter } from "./http/routes/pipeline.routes.js";
 import { createDbAdminRouter } from "./http/routes/db-admin.routes.js";
 import { createAdminOverviewRouter } from "./http/routes/admin-overview.routes.js";
+import { createFinopsRouter } from "./http/routes/finops.routes.js";
 import { createExerciseAttachmentRouters } from "./http/routes/exercise-attachment.routes.js";
 import {
   createExerciseStatsRouter,
@@ -142,6 +143,7 @@ export function buildApp(container: Container) {
   app.use("/api/admin/pipeline", createPipelineRouter(services.pipeline, middleware.requireAuth));
   app.use("/api/admin/db", createDbAdminRouter(services.dbAdmin, middleware.requireAuth));
   app.use("/api/admin/overview", createAdminOverviewRouter(services.adminOverview, middleware.requireAuth));
+  app.use("/api/admin/finops", createFinopsRouter(services.finops, middleware.requireAuth));
   app.use("/api/exercises/:exerciseId/files", exerciseFilesByExercise);
   app.use("/api/exercise-files", exerciseFilesById);
   app.use("/api/exercises/:exerciseId/compilation-files", compilationFilesByExercise);

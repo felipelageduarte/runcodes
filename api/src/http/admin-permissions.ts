@@ -20,6 +20,7 @@ export const ADMIN_PERMISSIONS = {
   "admin.db:read": UserType.ADMIN,
   "admin.db:query": UserType.DEVELOPER,
   "admin.overview:read": UserType.ADMIN,
+  "admin.finops:view": UserType.ADMIN,
   "admin.docs:read": UserType.ADMIN,
   "admin.universities:manage": UserType.ADMIN,
   "admin.courses:manage": UserType.ADMIN,

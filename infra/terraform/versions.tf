@@ -34,7 +34,8 @@ provider "aws" {
     tags = {
       Application = "runcodes"
       Environment = var.environment
-      Project     = var.project
+      Project     = var.cost_project
+      Component   = var.component
       ManagedBy   = "terraform"
     }
   }
@@ -44,4 +45,14 @@ provider "aws" {
 provider "aws" {
   alias  = "use1"
   region = "us-east-1"
+
+  default_tags {
+    tags = {
+      Application = "runcodes"
+      Environment = var.environment
+      Project     = var.cost_project
+      Component   = var.component
+      ManagedBy   = "terraform"
+    }
+  }
 }

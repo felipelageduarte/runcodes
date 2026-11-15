@@ -56,6 +56,14 @@ data "aws_iam_policy_document" "instance" {
     }
   }
 
+  # Tela FinOps do admin (GET /api/admin/finops): custo e orçamentos, só
+  # leitura. O Cost Explorer não aceita permissão por recurso.
+  statement {
+    sid       = "FinopsReadCost"
+    actions   = ["ce:GetCostAndUsage", "ce:GetCostForecast", "budgets:ViewBudget"]
+    resources = ["*"]
+  }
+
   statement {
     sid       = "BackupBucket"
     actions   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]

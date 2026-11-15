@@ -55,6 +55,7 @@ Toda rota administrativa declara uma permissão `recurso:ação` com `requirePer
 | `admin.logs:read` | Admin | `GET /api/admin/logs`, `/stats` |
 | `admin.pipeline:manage` | Admin | `/api/admin/pipeline/*` |
 | `admin.db:read` | Admin | `GET /api/admin/db/health`, `/schema` (saúde e ERD) |
+| `admin.finops:view` | Admin | `GET /api/admin/finops`, `POST /api/admin/finops/refresh` (custo da AWS) |
 | `admin.db:query` | Developer | `GET /api/admin/db/console`, `POST /api/admin/db/query` (console SQL) |
 | `admin.docs:read` | Admin | `/docs/admin-docs/*` |
 | `admin.universities:manage`, `admin.courses:manage`, `admin.exercises:read`, `admin.allowed-files:manage`, `admin.questions:manage`, `admin.messages:manage` | Admin | mutações (e listagens admin) de cada recurso |
@@ -158,6 +159,10 @@ GET  /api/messages?page=&pageSize=   (histórico, admin-only)
 | `all` | `>= STUDENT` (sem teto) | todo mundo confirmado |
 
 Envio é best-effort por destinatário (`Promise.allSettled`) — um endereço inválido não derruba o broadcast inteiro. Histórico fica na tabela `messages` legada, reaproveitada em vez de criar uma nova: migração `006_add_broadcast_fields_to_messages.sql` adiciona `sender_email`/`sent_at`/`recipient_count` (o legado só gravava o conteúdo, nunca quem mandou nem quando — isso vivia só no log de auditoria separado).
+
+## FinOps
+
+`GET /api/admin/finops` devolve custo do mês, previsão, série diária, custo por serviço e por componente (tag `Component`), orçamentos `runcodes*` e custo por turma ativa (oferta com `end_date` de hoje em diante). Fonte: Cost Explorer filtrado pela tag `Project` (`FINOPS_PROJECT_TAGS`, padrão `runcodes-sh,runcodes`). Cada chamada custa US$ 0,01: o resultado fica 24 h em memória do processo (reinício do container relê) e `POST /api/admin/finops/refresh` só vale uma vez por hora (429 `refresh_too_soon`). Orçamentos só aparecem com `FINOPS_AWS_ACCOUNT_ID`; reais só com `FINOPS_USD_BRL`. A role da instância ganhou `ce:GetCostAndUsage`, `ce:GetCostForecast` e `budgets:ViewBudget` (somente leitura, sem recurso específico).
 
 ## Console SQL
 

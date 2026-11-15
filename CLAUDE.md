@@ -31,6 +31,7 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
 
 ## Achados
 
+- 2026-11-15: tela FinOps lê o Cost Explorer (US$ 0,01 por chamada): cache de 24 h em memória e refresh 1 por hora. Tag `Project` unificada em `runcodes-sh` com `Component=api`; orçamento filtra por `Component`, não por `Project`, porque o front compartilha `Project`. Regra: orçamento por tag compartilhada entre repositórios filtra pela tag que os separa.
 - 2026-11-10: mudar o nível de uma chave em `api/src/http/admin-permissions.ts` afeta o menu dos dois
   fronts (`web/` congelado aqui e `RunCodes-sh/web`): `git grep` da chave em `web/src` antes do commit e
   PR par no repo do front. Causa: `admin.db:query` virou DEVELOPER e o teste de navegação do `web/`

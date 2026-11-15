@@ -26,6 +26,7 @@ import { PrismaAuditRepository } from "./repositories/audit.repository.js";
 import { PrismaPipelineRepository } from "./repositories/pipeline.repository.js";
 import { PrismaDbAdminRepository } from "./repositories/db-admin.repository.js";
 import { PrismaAdminOverviewRepository } from "./repositories/admin-overview.repository.js";
+import { AwsFinopsRepository, PrismaActiveOfferingCounter } from "./repositories/finops.repository.js";
 import { PrismaExerciseFileRepository } from "./repositories/exercise-file.repository.js";
 import { PrismaMessageRepository } from "./repositories/message.repository.js";
 import { PrismaCompilationFileRepository } from "./repositories/compilation-file.repository.js";
@@ -60,6 +61,7 @@ import { AuditService } from "./services/audit.service.js";
 import { PipelineService } from "./services/pipeline.service.js";
 import { DbAdminService } from "./services/db-admin.service.js";
 import { AdminOverviewService } from "./services/admin-overview.service.js";
+import { FinopsService } from "./services/finops.service.js";
 import { ExerciseAttachmentService } from "./services/exercise-attachment.service.js";
 import { MarketplaceStatsService } from "./services/marketplace-stats.service.js";
 import { MarketplaceService } from "./services/marketplace.service.js";
@@ -113,6 +115,11 @@ export function buildContainer() {
     pipeline: new PrismaPipelineRepository(prisma),
     dbAdmin: new PrismaDbAdminRepository(prisma),
     adminOverview: new PrismaAdminOverviewRepository(prisma),
+    activeOfferings: new PrismaActiveOfferingCounter(prisma),
+    finopsAws: AwsFinopsRepository.create({
+      projectTags: env.FINOPS_PROJECT_TAGS.split(",").map((t) => t.trim()).filter(Boolean),
+      accountId: env.FINOPS_AWS_ACCOUNT_ID,
+    }),
     exerciseFiles: new PrismaExerciseFileRepository(prisma),
     compilationFiles: new PrismaCompilationFileRepository(prisma),
     messages: new PrismaMessageRepository(prisma),
@@ -260,6 +267,9 @@ export function buildContainer() {
     pipeline: new PipelineService(repositories.pipeline),
     dbAdmin: dbAdminService,
     adminOverview: new AdminOverviewService(repositories.adminOverview, dbAdminService),
+    finops: new FinopsService(repositories.finopsAws, repositories.activeOfferings, {
+      usdBrlRate: env.FINOPS_USD_BRL,
+    }),
     exerciseFile: new ExerciseAttachmentService(
       repositories.exercises,
       repositories.enrollments,

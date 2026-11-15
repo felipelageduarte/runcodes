@@ -86,6 +86,9 @@ services:
       APP_BASE_URL: ${RC_PUBLIC_URL:-https://${RC_APP_DOMAIN}}
       APP_ALLOWED_ORIGINS: ${RC_APP_ALLOWED_ORIGINS:-}
       DB_CONSOLE_WRITE_ENABLED: ${RC_DB_CONSOLE_WRITE_ENABLED:-false}
+      FINOPS_PROJECT_TAGS: ${RC_FINOPS_PROJECT_TAGS:-runcodes-sh,runcodes}
+      FINOPS_AWS_ACCOUNT_ID: ${RC_FINOPS_AWS_ACCOUNT_ID:-}
+      FINOPS_USD_BRL: ${RC_FINOPS_USD_BRL:-}
       DOCS_DIST_DIR: /docs-dist
     volumes:
       - docs-dist:/docs-dist:ro
