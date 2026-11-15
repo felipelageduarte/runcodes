@@ -15,6 +15,12 @@ const confirmSchema = z.object({
   token: z.string().min(1),
 });
 
+const acceptInviteSchema = z.object({
+  email: z.string().min(1),
+  token: z.string().min(1),
+  password: z.string().min(8),
+});
+
 const emailOnlySchema = z.object({ email: z.string().min(1) });
 
 const resetPasswordSchema = z.object({
@@ -57,6 +63,16 @@ export function createUsersRouter(userService: UserService, requireAuth: Request
       const { email, token } = confirmSchema.parse(req.body);
       await userService.confirm(email, token);
       res.json({ confirmed: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/accept-invite", async (req, res, next) => {
+    try {
+      const { email, token, password } = acceptInviteSchema.parse(req.body);
+      await userService.acceptInvite(email, token, password);
+      res.json({ accepted: true });
     } catch (err) {
       next(err);
     }

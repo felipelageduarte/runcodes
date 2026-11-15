@@ -46,6 +46,18 @@ O legado usa `sha1(salt + email)` como link de confirmação: **determinístico 
 
 Idempotente: confirmar uma conta já confirmada não dá erro. Token errado, expirado, ou inexistente → `422` com código específico (`invalid_confirmation_token`, `confirmation_token_expired`, `no_pending_confirmation`).
 
+## `POST /api/users/accept-invite`
+
+```json
+{ "email": "convidado@usp.br", "token": "a3f9...", "password": "minimo-8-caracteres" }
+```
+
+Aceite do convite criado pelo admin (`POST /api/admin/users/invite`, ver [Admin e suporte](./admin-and-support.md)). Grava a senha (bcrypt), confirma a conta e apaga o token numa só escrita; não devolve sessão, a pessoa faz login. Convite expirado (72 h) → `422 invite_expired` (o admin reenvia); token errado, conta que não veio de convite ou inexistente → `422 invalid_invite_token` (mesma mensagem, não revela qual); já aceito → `409 invite_already_accepted`. O link comum de confirmação (`/confirm`) **não** ativa conta convidada (`use_accept_invite`): ela nasce sem senha própria.
+
+## Conta desativada
+
+O admin desativa em vez de excluir (`disabled_at`). Login com a senha certa de conta desativada → `403 account_disabled` (como `account_not_confirmed`, só aparece a quem provou saber a senha); `requireAuth` e `POST /api/auth/refresh` também recusam, então a sessão corrente cai na hora.
+
 ## Login bloqueado até confirmar
 
 `AuthService.login()` rejeita login de conta não confirmada com `403 account_not_confirmed` — **depois** de validar a senha, não antes. Isso evita vazar "essa conta existe mas não está confirmada" pra quem não sabe a senha: senha errada sempre volta `401 invalid_credentials`, confirmação pendente só aparece pra quem já provou saber a senha certa.

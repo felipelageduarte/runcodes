@@ -226,7 +226,7 @@ export function buildContainer() {
     ),
     university: new UniversityService(repositories.universities),
     allowedFile: new AllowedFileService(repositories.allowedFiles),
-    adminUser: new AdminUserService(repositories.users, authService, sessions),
+    adminUser: new AdminUserService(repositories.users, authService, emailSender, env.APP_BASE_URL, repositories.audit, sessions),
     commitCaseResult: new CommitCaseResultService(
       repositories.commits,
       repositories.exercises,

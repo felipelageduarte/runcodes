@@ -10,6 +10,8 @@ const USER_SELECT = {
   confirmed: true,
   identifier: true,
   token_version: true,
+  disabled_at: true,
+  invited_at: true,
 } as const;
 
 type UserRow = {
@@ -21,11 +23,19 @@ type UserRow = {
   confirmed: boolean | null;
   identifier: string | null;
   token_version: number;
+  disabled_at: Date | null;
+  invited_at: Date | null;
 };
 
 function toRecord(row: UserRow): UserRecord {
-  const { token_version, ...rest } = row;
-  return { ...rest, confirmed: row.confirmed ?? false, tokenVersion: token_version };
+  const { token_version, disabled_at, invited_at, ...rest } = row;
+  return {
+    ...rest,
+    confirmed: row.confirmed ?? false,
+    tokenVersion: token_version,
+    disabledAt: disabled_at,
+    invitedAt: invited_at,
+  };
 }
 
 export interface UserRecord {
@@ -38,11 +48,16 @@ export interface UserRecord {
   identifier: string | null;
   /** Versão da sessão (claim `tv` do JWT); ver lib/session-state.ts. */
   tokenVersion: number;
+  /** Conta desativada pelo admin (A3): não loga e perde a sessão. */
+  disabledAt: Date | null;
+  /** Conta criada por convite do admin; null para cadastro próprio. */
+  invitedAt: Date | null;
 }
 
 export interface UserConfirmationRecord {
   email: string;
   confirmed: boolean;
+  invitedAt: Date | null;
   confirmationTokenHash: string | null;
   confirmationTokenExpiresAt: Date | null;
 }
@@ -85,6 +100,17 @@ export interface ProfilePatch {
   identifier?: string | null;
 }
 
+export interface NewInvitedUser {
+  email: string;
+  name: string;
+  /** Hash de uma senha aleatória descartada: a senha real nasce no aceite. */
+  passwordHash: string;
+  type: number;
+  universityId: number | null;
+  tokenHash: string;
+  tokenExpiresAt: Date;
+}
+
 export interface NewUserByAdmin {
   email: string;
   name: string;
@@ -120,6 +146,16 @@ export interface UserRepository extends SessionStateSource, TokenVersionStore {
   /** Mirrors UsersController::delete() — hard delete, cascades to
    * enrollments/commits/etc via the FK constraints already in place. */
   deleteByAdmin(email: string): Promise<boolean>;
+  /** A3: desativa (`true`) ou reativa (`false`). Quem chama derruba a sessão. */
+  setDisabled(email: string, disabled: boolean): Promise<void>;
+  /** A3: cria conta não confirmada com convite pendente (`invited_at = agora`). */
+  createInvited(input: NewInvitedUser): Promise<UserRecord>;
+  /** A3: novo token de convite (reenvio) e `invited_at = agora`. */
+  renewInvite(email: string, tokenHash: string, expiresAt: Date): Promise<void>;
+  /** A3: aceite do convite: define a senha, confirma e apaga o token numa escrita. */
+  acceptInvite(email: string, passwordHash: string): Promise<void>;
+  /** A3: quantos commits (submissões) a conta tem; exclusão só com zero. */
+  countSubmissions(email: string): Promise<number>;
   /** Self-service only — never `type`/`confirmed`, those stay admin-only.
    * Mirrors UsersController::profile()'s "Atualizar Dados Pessoais" path. */
   updateProfile(email: string, patch: ProfilePatch): Promise<UserRecord | null>;
@@ -148,10 +184,15 @@ export class PrismaUserRepository implements UserRepository {
   async findSessionState(email: string): Promise<SessionState | null> {
     const row = await this.prisma.user.findUnique({
       where: { email },
-      select: { type: true, confirmed: true, token_version: true },
+      select: { type: true, confirmed: true, token_version: true, disabled_at: true },
     });
     if (!row) return null;
-    return { type: row.type, confirmed: row.confirmed ?? false, tokenVersion: row.token_version };
+    return {
+      type: row.type,
+      confirmed: row.confirmed ?? false,
+      tokenVersion: row.token_version,
+      disabled: row.disabled_at !== null,
+    };
   }
 
   async bumpTokenVersion(email: string): Promise<void> {
@@ -183,12 +224,19 @@ export class PrismaUserRepository implements UserRepository {
   async findConfirmationState(email: string): Promise<UserConfirmationRecord | null> {
     const row = await this.prisma.user.findUnique({
       where: { email },
-      select: { email: true, confirmed: true, confirmation_token_hash: true, confirmation_token_expires_at: true },
+      select: {
+        email: true,
+        confirmed: true,
+        invited_at: true,
+        confirmation_token_hash: true,
+        confirmation_token_expires_at: true,
+      },
     });
     if (!row) return null;
     return {
       email: row.email,
       confirmed: row.confirmed ?? false,
+      invitedAt: row.invited_at,
       confirmationTokenHash: row.confirmation_token_hash,
       confirmationTokenExpiresAt: row.confirmation_token_expires_at,
     };
@@ -306,6 +354,52 @@ export class PrismaUserRepository implements UserRepository {
     } catch {
       return false;
     }
+  }
+
+  async setDisabled(email: string, disabled: boolean): Promise<void> {
+    await this.prisma.user.update({ where: { email }, data: { disabled_at: disabled ? new Date() : null } });
+  }
+
+  async createInvited(input: NewInvitedUser): Promise<UserRecord> {
+    const row = await this.prisma.user.create({
+      data: {
+        email: input.email,
+        name: input.name,
+        password: input.passwordHash,
+        type: input.type,
+        source: 0,
+        confirmed: false,
+        universityId: input.universityId,
+        invited_at: new Date(),
+        confirmation_token_hash: input.tokenHash,
+        confirmation_token_expires_at: input.tokenExpiresAt,
+      },
+      select: USER_SELECT,
+    });
+    return toRecord(row);
+  }
+
+  async renewInvite(email: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { email },
+      data: { invited_at: new Date(), confirmation_token_hash: tokenHash, confirmation_token_expires_at: expiresAt },
+    });
+  }
+
+  async acceptInvite(email: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { email },
+      data: {
+        password: passwordHash,
+        confirmed: true,
+        confirmation_token_hash: null,
+        confirmation_token_expires_at: null,
+      },
+    });
+  }
+
+  async countSubmissions(email: string): Promise<number> {
+    return this.prisma.commits.count({ where: { user_email: email } });
   }
 
   async updateProfile(email: string, patch: ProfilePatch): Promise<UserRecord | null> {

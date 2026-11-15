@@ -15,9 +15,16 @@ Os módulos menores — administração, notas e o entorno de suporte (tickets, 
 | `POST/PUT /api/universities` | Admin | Criar/editar — valida abreviação única |
 | `GET /api/allowed-files` | Qualquer autenticado | Catálogo de linguagens/tipos de arquivo aceitos em exercícios |
 | `POST/PUT /api/allowed-files` | Admin | Gerenciar o catálogo |
-| `GET/PUT /api/admin/users` | Admin | Listar (com filtros) e editar conta de qualquer usuário — resposta nunca inclui o hash de senha |
-| `POST /api/admin/users` | Admin | Cria conta já confirmada, sem round-trip de email — mirrors `UsersController::insert()`. Fechado na [Fase 10](../frontend/roadmap.md#fase-10--gestão-de-turma-avançada-) |
-| `DELETE /api/admin/users/:email` | Admin | Hard delete, cascata via FK (matrículas/commits somem junto) — mirrors `UsersController::delete()`. Sem como desfazer |
+| `GET /api/admin/users` · `GET /:email` | Admin | Listar (com filtros) e ver conta. A resposta nunca inclui o hash de senha e traz `status` (`active`, `disabled`, `invited`, `unconfirmed`), `disabledAt` e `invitedAt` |
+| `PUT /api/admin/users/:email` | Admin | Edita nome, tipo, confirmação, instituição. **Trocar o tipo exige `confirmTypeChange: true`** (senão `422 type_change_not_confirmed`) e derruba a sessão do alvo |
+| `POST /api/admin/users` | Admin | Cria conta já confirmada, com senha definida pelo admin, sem round-trip de email — mirrors `UsersController::insert()` |
+| `POST /api/admin/users/invite` | Admin | Convite: cria a conta sem senha utilizável e envia link de **72 h** (token só em hash, reaproveita `confirmation_token_hash`). A pessoa escolhe a senha em `POST /api/users/accept-invite` |
+| `POST /api/admin/users/:email/resend-invite` | Admin | Novo token e novos 72 h para convite ainda não aceito (o link anterior morre) |
+| `POST /api/admin/users/:email/disable` · `/enable` | Admin | Desativa (sem excluir): não loga (`403 account_disabled` no login, `401 account_disabled` na sessão) e perde a sessão na hora (`token_version + 1`). `enable` reativa |
+| `GET /api/admin/users/:email/history` | Admin | Escritas do admin sobre a conta (da trilha de auditoria, por `target_id`; `limit` até 100). Só existe a partir do deploy da A3: linhas antigas não têm alvo gravado |
+| `DELETE /api/admin/users/:email` | Admin | Exclui só conta **sem submissão** (`409 user_has_submissions`: desative em vez de excluir). Exige a senha do próprio admin. Mirrors `UsersController::delete()` |
+
+**Trava de rank (servidor, toda escrita acima):** o ator não altera quem tem rank **igual ou maior** (`403 rank_too_high`), não altera a si mesmo (`403 cannot_manage_self`) e não concede rank maior que o próprio na criação, no convite ou na edição (`403 cannot_grant_higher_rank`). O rank é o efetivo do ator. Admin não rebaixa admin; só DEVELOPER mexe em ADMIN.
 | `GET /api/admin/audit/feed` | Admin | Trilha de auditoria (`audit_log`): filtros `actor`, `method`, `status`, `route`, `since`, `until`, `q`; `limit` até 200, `offset`, `total` |
 | `GET /api/admin/audit/stats` | Admin | KPIs, top ações, top usuários e série diária dos últimos `days` (até 90) |
 | `GET /api/admin/logs` | Admin | Tabela `logs` legada, somente leitura (aba "Logs (legado)") |
