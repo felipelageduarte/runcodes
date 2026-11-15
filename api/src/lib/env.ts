@@ -13,6 +13,12 @@ const schema = z.object({
   S3_REGION: z.string().default("sa-east-1"),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
+  // FinOps (Cost Explorer): valores da tag `Project` do RunCodes (o antigo e o
+  // unificado), conta para ler orçamentos e cotação opcional para o BRL.
+  FINOPS_PROJECT_TAGS: z.string().default("runcodes-sh,runcodes"),
+  FINOPS_AWS_ACCOUNT_ID: z.string().optional(),
+  // O compose repassa "" quando a variável não existe: vazio vale "sem cotação".
+  FINOPS_USD_BRL: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().positive().optional()),
   S3_BUCKET_PREFIX: z.string().default("runcodes"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   JPLAG_JAR_PATH: z.string().default("vendor/jplag/jplag.jar"),

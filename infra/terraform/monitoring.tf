@@ -201,7 +201,9 @@ resource "aws_cloudwatch_metric_alarm" "cf_5xx" {
   alarm_actions = [aws_sns_topic.alerts_use1.arn]
 }
 
-# Orçamento por tag Project (a tag já está ativa como cost allocation tag).
+# Orçamento por tag Component: o RunCodes-sh/web usa a mesma tag Project
+# (`runcodes-sh`) e tem o próprio orçamento por `Component=web`. As duas tags
+# precisam estar ativas como cost allocation tag (infra/docs/operacao.md).
 resource "aws_budgets_budget" "monthly" {
   name         = "${var.project}-monthly"
   budget_type  = "COST"
@@ -211,7 +213,7 @@ resource "aws_budgets_budget" "monthly" {
 
   cost_filter {
     name   = "TagKeyValue"
-    values = [format("user:Project$%s", var.project)]
+    values = [format("user:Component$%s", var.component)]
   }
 
   notification {

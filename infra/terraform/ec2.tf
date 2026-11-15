@@ -37,6 +37,7 @@ resource "aws_iam_role_policy_attachment" "instance_cwagent" {
 }
 
 data "aws_iam_policy_document" "instance" {
+  # checkov:skip=CKV_AWS_356:ce:Get* e budgets:ViewBudget não aceitam ARN de recurso (só "*"), ação somente leitura
   statement {
     sid     = "ReadWriteOwnParameters"
     actions = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:PutParameter"]
@@ -54,6 +55,14 @@ data "aws_iam_policy_document" "instance" {
       variable = "kms:ViaService"
       values   = ["ssm.${var.region}.amazonaws.com"]
     }
+  }
+
+  # Tela FinOps do admin (GET /api/admin/finops): custo e orçamentos, só
+  # leitura. O Cost Explorer não aceita permissão por recurso.
+  statement {
+    sid       = "FinopsReadCost"
+    actions   = ["ce:GetCostAndUsage", "ce:GetCostForecast", "budgets:ViewBudget"]
+    resources = ["*"]
   }
 
   statement {

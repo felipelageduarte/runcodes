@@ -60,3 +60,14 @@ export class SqlConsoleError extends AppError {
     super(detail, code);
   }
 }
+
+export class TooManyRequestsError extends AppError {
+  readonly status = 429;
+  constructor(
+    message = "Too many requests",
+    code = "too_many_requests",
+    readonly retryAfterSeconds?: number,
+  ) {
+    super(message, code);
+  }
+}

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
-import { AppError, SqlConsoleError } from "../../domain/errors.js";
+import { AppError, SqlConsoleError, TooManyRequestsError } from "../../domain/errors.js";
 
 // Single place that maps errors to HTTP responses. Services/repositories
 // throw typed domain errors or let Zod throw on bad input; routes never
@@ -8,6 +8,10 @@ import { AppError, SqlConsoleError } from "../../domain/errors.js";
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof SqlConsoleError) {
     return res.status(err.status).json({ error: err.code, detail: err.detail });
+  }
+  if (err instanceof TooManyRequestsError && err.retryAfterSeconds !== undefined) {
+    res.setHeader("Retry-After", String(err.retryAfterSeconds));
+    return res.status(err.status).json({ error: err.code, retryAfterSeconds: err.retryAfterSeconds });
   }
   if (err instanceof AppError) {
     return res.status(err.status).json({ error: err.code });
