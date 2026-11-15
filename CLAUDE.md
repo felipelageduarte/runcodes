@@ -105,3 +105,4 @@ Infra, CI/CD e operação em [`infra/`](infra/README.md): EC2 única + CloudFron
   sem ler `AuthService.viewAs` nem conferir a numeração da outra spec. Regra: spec de auth lê o código
   que emite o token antes de desenhar a revisão de sessão; referência a fase/seção de outra spec se
   confere com `grep`; leia os comentários do PR da spec antes de disparar as sessões de implementação.
+- 2026-11-15: o checkov barrou o statement FinOps (CKV_AWS_356, `resources = ["*"]`) e o `security` ficou vermelho. Causa: `ce:Get*` e `budgets:ViewBudget` não aceitam ARN de recurso. Regra: ação só-leitura sem suporte a recurso leva `# checkov:skip=<id>:<motivo>` dentro do `data.aws_iam_policy_document`; confira o `security` do PR antes de pedir merge.
