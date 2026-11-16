@@ -19,11 +19,11 @@
   "dependencies": {
     "@aws-sdk/client-budgets": "^3.1169.0",
     "@aws-sdk/client-cost-explorer": "^3.1169.0",
-    "@aws-sdk/client-s3": "^3.1149.0",
+    "@aws-sdk/client-s3": "^3.1164.0",
     "@prisma/client": "^5.20.0",
     "archiver": "^8.0.0",
     "bcryptjs": "^2.4.3",
-    "bullmq": "^6.3.13",
+    "bullmq": "^6.7.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "csv-parse": "^7.0.3",
@@ -33,7 +33,7 @@
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.4.0",
-    "nodemailer": "^10.1.0",
+    "nodemailer": "^10.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -48,7 +48,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^7.2.1",
     "prisma": "^5.20.0",
-    "supertest": "^7.3.1",
+    "supertest": "^7.3.2",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
